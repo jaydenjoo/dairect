@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed-variant": "#424751",
+                    "on-secondary-fixed": "#151c27",
+                    "surface-variant": "#e2e3e1",
+                    "tertiary-fixed": "#dee2ef",
+                    "tertiary-container": "#5b606b",
+                    "on-primary-fixed": "#0f0069",
+                    "secondary-fixed-dim": "#c0c7d6",
+                    "on-background": "#1a1c1b",
+                    "inverse-primary": "#c3c0ff",
+                    "error": "#ba1a1a",
+                    "tertiary-fixed-dim": "#c2c6d3",
+                    "secondary-container": "#dce2f3",
+                    "on-tertiary-fixed": "#171c25",
+                    "inverse-surface": "#2f3130",
+                    "primary-fixed-dim": "#c3c0ff",
+                    "surface-tint": "#4d44e3",
+                    "tertiary": "#434853",
+                    "outline-variant": "#c7c4d8",
+                    "on-surface-variant": "#464555",
+                    "error-container": "#ffdad6",
+                    "surface-container-lowest": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "background": "#f9f9f7",
+                    "primary-container": "#4f46e5",
+                    "surface-container": "#eeeeec",
+                    "on-tertiary": "#ffffff",
+                    "inverse-on-surface": "#f1f1ef",
+                    "surface-dim": "#dadad8",
+                    "on-surface": "#1a1c1b",
+                    "surface-container-high": "#e8e8e6",
+                    "on-primary": "#ffffff",
+                    "on-tertiary-container": "#d7dbe8",
+                    "secondary-fixed": "#dce2f3",
+                    "secondary": "#585f6c",
+                    "on-error": "#ffffff",
+                    "primary-fixed": "#e2dfff",
+                    "on-primary-fixed-variant": "#3323cc",
+                    "on-secondary-container": "#5e6572",
+                    "on-primary-container": "#dad7ff",
+                    "surface-container-low": "#f4f4f2",
+                    "surface": "#f9f9f7",
+                    "primary": "#3525cd",
+                    "surface-bright": "#f9f9f7",
+                    "on-secondary": "#ffffff",
+                    "outline": "#777587",
+                    "surface-container-highest": "#e2e3e1",
+                    "on-secondary-fixed-variant": "#404754"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans", "Pretendard Variable", "sans-serif"],
+                    "body": ["Manrope", "Pretendard Variable", "sans-serif"],
+                    "label": ["Manrope", "Pretendard Variable", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Manrope', 'Pretendard Variable', sans-serif; line-height: 1.8; -webkit-font-smoothing: antialiased; }
+        .crosshatch {
+            background-image: radial-gradient(circle, #e2e3e1 1px, transparent 1px);
+            background-size: 24px 24px;
+            background-color: #f9f9f7;
+        }
+        .step-shadow {
+            box-shadow: 0px 2px 4px rgba(17, 24, 39, 0.04), 0px 12px 32px rgba(17, 24, 39, 0.08);
+        }
+        .keep-all { word-break: keep-all; }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-[#F9F9F7]/70 backdrop-blur-xl transition-all duration-300">
+<div class="flex justify-between items-center px-8 py-4 max-w-7xl mx-auto">
+<div class="text-xl font-bold tracking-tight text-[#111827] font-headline">dairect</div>
+<div class="hidden md:flex items-center gap-8">
+<a class="text-[#4F46E5] font-semibold transition-colors duration-300" href="#">Process</a>
+<a class="text-[#111827]/60 hover:text-[#4F46E5] transition-colors duration-300" href="#">Showcase</a>
+<a class="text-[#111827]/60 hover:text-[#4F46E5] transition-colors duration-300" href="#">Pricing</a>
+<a class="text-[#111827]/60 hover:text-[#4F46E5] transition-colors duration-300" href="#">Docs</a>
+</div>
+<button class="bg-primary-container text-on-primary px-6 py-2.5 rounded-xl font-semibold active:scale-95 transition-transform">
+                Get Started
+            </button>
+</div>
+</nav>
+<main class="pt-24 min-h-screen crosshatch">
+<!-- Service Process Section -->
+<section class="max-w-7xl mx-auto px-8 py-24 md:py-32">
+<!-- Header -->
+<div class="text-center mb-20">
+<h2 class="text-3xl md:text-4xl font-bold tracking-tight text-on-surface mb-4 font-headline">이렇게 진행됩니다</h2>
+<p class="text-on-surface-variant max-w-2xl mx-auto keep-all">복잡한 코드 고민은 저희가 맡겠습니다. 당신의 아이디어가 현실이 되는 4단계 프로세스를 확인하세요.</p>
+</div>
+<!-- Timeline/Steps Container -->
+<div class="relative">
+<!-- Desktop Connecting Line -->
+<div class="hidden md:block absolute top-[100px] left-[10%] right-[10%] h-px bg-outline-variant/30 z-0"></div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-8 relative z-10">
+<!-- Step 01 -->
+<div class="flex flex-col items-center">
+<div class="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center text-on-primary mb-8 relative">
+<span class="material-symbols-outlined text-2xl" data-icon="chat">chat</span>
+<div class="absolute -top-12 text-5xl font-extrabold text-primary-container opacity-20 font-headline">01</div>
+</div>
+<div class="bg-surface-container-lowest p-8 rounded-xl step-shadow w-full h-full flex flex-col items-center text-center">
+<h3 class="text-xl font-bold mb-4 text-on-surface font-headline">심층 상담</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed keep-all">
+                                해결하고자 하는 문제와 비즈니스 목표를 명확히 정의하기 위한 전문가 미팅을 진행합니다.
+                            </p>
+</div>
+</div>
+<!-- Step 02 -->
+<div class="flex flex-col items-center">
+<div class="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center text-on-primary mb-8 relative">
+<span class="material-symbols-outlined text-2xl" data-icon="target">target</span>
+<div class="absolute -top-12 text-5xl font-extrabold text-primary-container opacity-20 font-headline">02</div>
+</div>
+<div class="bg-surface-container-lowest p-8 rounded-xl step-shadow w-full h-full flex flex-col items-center text-center">
+<h3 class="text-xl font-bold mb-4 text-on-surface font-headline">전략 설계</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed keep-all">
+                                수집된 정보를 바탕으로 최적의 기술 스택과 아키텍처, 개발 로드맵을 설계하여 제안합니다.
+                            </p>
+</div>
+</div>
+<!-- Step 03 -->
+<div class="flex flex-col items-center">
+<div class="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center text-on-primary mb-8 relative">
+<span class="material-symbols-outlined text-2xl" data-icon="build">build</span>
+<div class="absolute -top-12 text-5xl font-extrabold text-primary-container opacity-20 font-headline">03</div>
+</div>
+<div class="bg-surface-container-lowest p-8 rounded-xl step-shadow w-full h-full flex flex-col items-center text-center">
+<h3 class="text-xl font-bold mb-4 text-on-surface font-headline">맞춤 개발</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed keep-all">
+                                엄격한 코드 퀄리티 기준을 준수하며, 점진적인 배포를 통해 실시간 피드백을 반영하여 개발합니다.
+                            </p>
+</div>
+</div>
+<!-- Step 04 -->
+<div class="flex flex-col items-center">
+<div class="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center text-on-primary mb-8 relative">
+<span class="material-symbols-outlined text-2xl" data-icon="touch_app">touch_app</span>
+<div class="absolute -top-12 text-5xl font-extrabold text-primary-container opacity-20 font-headline">04</div>
+</div>
+<div class="bg-surface-container-lowest p-8 rounded-xl step-shadow w-full h-full flex flex-col items-center text-center">
+<h3 class="text-xl font-bold mb-4 text-on-surface font-headline">완성 및 이관</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed keep-all">
+                                철저한 QA를 거친 최종 결과물을 안정적으로 배포하고, 상세 가이드와 함께 소유권을 전달합니다.
+                            </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer CTA -->
+<div class="mt-24 text-center">
+<button class="inline-flex items-center gap-2 bg-[#4F46E5] text-white px-10 py-4 rounded-xl font-bold text-lg hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary-container/20">
+                    내 아이디어도 가능할까?
+                    <span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</section>
+<!-- Aesthetic Bento Teaser -->
+<section class="max-w-7xl mx-auto px-8 pb-32">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="md:col-span-2 bg-surface-container-low p-10 rounded-xl relative overflow-hidden h-[300px] flex flex-col justify-end">
+<div class="absolute top-0 right-0 p-8">
+<span class="material-symbols-outlined text-primary-container text-6xl opacity-20" data-icon="auto_awesome">auto_awesome</span>
+</div>
+<h4 class="text-2xl font-bold mb-2 font-headline">AI 가이드가 함께하는 여정</h4>
+<p class="text-on-surface-variant max-w-md keep-all">모든 단계에서 AI 기반 분석 리포트를 제공하여, 현재 진행 상황과 미래의 확장성을 투명하게 공개합니다.</p>
+</div>
+<div class="bg-primary-container p-10 rounded-xl h-[300px] flex flex-col justify-between text-on-primary">
+<span class="material-symbols-outlined text-4xl" data-icon="verified">verified</span>
+<div>
+<h4 class="text-xl font-bold mb-2 font-headline">신뢰의 코드 품질</h4>
+<p class="text-on-primary-container/80 text-sm leading-relaxed keep-all">100% 테스트 커버리지를 목표로 하며 상시 코드 리뷰가 진행됩니다.</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-[#F9F9F7] w-full border-t border-[#111827]/5">
+<div class="flex flex-col md:flex-row justify-between items-center px-8 py-12 max-w-7xl mx-auto">
+<div class="mb-8 md:mb-0">
+<div class="font-bold text-[#111827] text-lg mb-2">dairect</div>
+<p class="text-[#111827]/40 text-sm">© 2024 dairect. The Intelligent Sanctuary for Code.</p>
+</div>
+<div class="flex gap-8">
+<a class="text-[#111827]/40 hover:text-[#4F46E5] text-sm transition-colors" href="#">Privacy Policy</a>
+<a class="text-[#111827]/40 hover:text-[#4F46E5] text-sm transition-colors" href="#">Terms of Service</a>
+<a class="text-[#111827]/40 hover:text-[#4F46E5] text-sm transition-colors" href="#">Contact</a>
+</div>
+</div>
+</footer>
+</body></html>

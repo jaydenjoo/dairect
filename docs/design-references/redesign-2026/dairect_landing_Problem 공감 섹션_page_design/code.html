@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#5b606b",
+                        "on-tertiary-fixed-variant": "#424751",
+                        "error": "#ba1a1a",
+                        "on-primary": "#ffffff",
+                        "primary": "#3525cd",
+                        "on-tertiary-container": "#d7dbe8",
+                        "on-secondary-fixed-variant": "#404754",
+                        "on-background": "#1a1c1b",
+                        "inverse-primary": "#c3c0ff",
+                        "surface-bright": "#f9f9f7",
+                        "on-primary-fixed-variant": "#3323cc",
+                        "on-secondary-container": "#5e6572",
+                        "tertiary-fixed": "#dee2ef",
+                        "on-error-container": "#93000a",
+                        "primary-fixed": "#e2dfff",
+                        "inverse-on-surface": "#f1f1ef",
+                        "secondary-fixed": "#dce2f3",
+                        "outline-variant": "#c7c4d8",
+                        "tertiary": "#434853",
+                        "on-secondary-fixed": "#151c27",
+                        "on-surface-variant": "#464555",
+                        "on-primary-fixed": "#0f0069",
+                        "surface": "#f9f9f7",
+                        "outline": "#777587",
+                        "background": "#f9f9f7",
+                        "surface-container-low": "#f4f4f2",
+                        "on-tertiary-fixed": "#171c25",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed-dim": "#c3c0ff",
+                        "surface-dim": "#dadad8",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#c2c6d3",
+                        "on-error": "#ffffff",
+                        "primary-container": "#4f46e5",
+                        "surface-tint": "#4d44e3",
+                        "on-secondary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#eeeeec",
+                        "surface-variant": "#e2e3e1",
+                        "surface-container-highest": "#e2e3e1",
+                        "on-primary-container": "#dad7ff",
+                        "surface-container-high": "#e8e8e6",
+                        "on-surface": "#1a1c1b",
+                        "secondary-container": "#dce2f3",
+                        "inverse-surface": "#2f3130",
+                        "secondary-fixed-dim": "#c0c7d6",
+                        "secondary": "#585f6c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans", "Pretendard", "sans-serif"],
+                        "body": ["Manrope", "Pretendard", "sans-serif"],
+                        "label": ["Manrope", "Pretendard", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', 'Pretendard', sans-serif; -webkit-font-smoothing: antialiased; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .bento-shadow {
+            box-shadow: 0px 2px 4px rgba(17, 24, 39, 0.04), 0px 12px 32px rgba(17, 24, 39, 0.08);
+        }
+        .keep-all { word-break: keep-all; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- Top Navigation Bar -->
+<nav class="fixed top-0 w-full z-50 bg-[#F9F9F7]/70 dark:bg-gray-900/70 backdrop-blur-xl shadow-[0px_2px_4px_rgba(17,24,39,0.04),0px_12px_32px_rgba(17,24,39,0.08)]">
+<div class="flex justify-between items-center max-w-7xl mx-auto px-8 h-20">
+<span class="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100 font-['Plus_Jakarta_Sans']">dairect</span>
+<div class="hidden md:flex items-center gap-8 font-['Plus_Jakarta_Sans']">
+<a class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors" href="#">Features</a>
+<a class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors" href="#">Case Studies</a>
+<a class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors" href="#">Pricing</a>
+</div>
+<button class="bg-primary-container text-on-primary-container px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 ease-out active:scale-95">Get Started</button>
+</div>
+</nav>
+<main class="pt-32 pb-24 overflow-hidden">
+<section class="max-w-7xl mx-auto px-8">
+<!-- Section Header -->
+<div class="mb-16 text-center">
+<span class="text-[12px] font-medium tracking-widest text-on-surface-variant/70 uppercase">이런 경험, 있으시죠?</span>
+</div>
+<!-- Asymmetric Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[280px]">
+<!-- Card 1 (Larger, 2/3 width) -->
+<div class="md:col-span-2 bg-surface-container-lowest rounded-xl bento-shadow p-10 flex flex-col justify-between group transition-all duration-300 hover:-translate-y-1">
+<div class="flex items-start justify-between">
+<div class="p-3 rounded-xl bg-primary/5 text-primary">
+<span class="material-symbols-outlined text-4xl" data-icon="receipt_long">receipt_long</span>
+</div>
+<div class="hidden md:block w-32 h-32 opacity-10 group-hover:opacity-20 transition-opacity">
+<img alt="Abstract minimalist line art representing financial records and paper documents" class="w-full h-full object-contain" data-alt="abstract minimalist line art representing financial records and paper documents with soft indigo strokes on a white background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNGozpFw0lLM2ONgZ3WG80LWc78pwyzDRzh7C8eoI81TchpvPrkklfM__gHQKL9C6GF0naqRE0AZ7l5wprAq_eyVd9J-ckMOhTGR5ajt6B0oj_YzMWdje6cce41bo7RH6e_LHWOC8nSpxwvwBsmWAc5FM_Dhq2HY5Gd0s0nVqcQZpqXKdnFwg4BQj-4fbbgssQSM8ofKGugsHLyYJYAXbxehZ0804opvFW7PEVaLL7eXZVx3Wsgk-CflrBjiXDsWke7-jJJTSO1z26"/>
+</div>
+</div>
+<div class="max-w-lg">
+<h3 class="text-2xl font-bold text-on-surface mb-4 font-headline tracking-tight">견적서 보고 놀란 경험</h3>
+<p class="text-on-surface-variant text-lg leading-relaxed keep-all">앱 하나 만드는데 500만 원? 아이디어 검증도 전에 그 돈을 쓸 순 없는데...</p>
+</div>
+</div>
+<!-- Card 2 (1/3 width) -->
+<div class="md:col-span-1 bg-surface-container-lowest rounded-xl bento-shadow p-10 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1">
+<div class="p-3 rounded-xl bg-primary/5 text-primary w-fit">
+<span class="material-symbols-outlined text-4xl" data-icon="psychology">psychology</span>
+</div>
+<div>
+<h3 class="text-xl font-bold text-on-surface mb-4 font-headline tracking-tight">AI 도구 앞에서 멍해진 경험</h3>
+<p class="text-on-surface-variant leading-relaxed keep-all">ChatGPT, Cursor... 다 좋다는데, 어디서부터 시작해야 하는지 모르겠다.</p>
+</div>
+</div>
+<!-- Card 3 (1/3 width - positioned in the flow) -->
+<div class="md:col-span-1 bg-surface-container-lowest rounded-xl bento-shadow p-10 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1">
+<div class="p-3 rounded-xl bg-primary/5 text-primary w-fit">
+<span class="material-symbols-outlined text-4xl" data-icon="lightbulb">lightbulb</span>
+</div>
+<div>
+<h3 class="text-xl font-bold text-on-surface mb-4 font-headline tracking-tight">아이디어만 쌓이는 서랍</h3>
+<p class="text-on-surface-variant leading-relaxed keep-all">설명하면 다들 '좋은데?' 하고 끝. 아무도 만들어주지 않는다.</p>
+</div>
+</div>
+<!-- Spacer or decorative element to fill 2/3 for visual balance if desired, or keep as 3 blocks -->
+<div class="hidden md:flex md:col-span-2 items-center justify-center p-10 rounded-xl bg-surface-container-low/30 overflow-hidden relative">
+<div class="absolute inset-0 opacity-20 pointer-events-none">
+<div class="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl"></div>
+<div class="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
+</div>
+<div class="relative z-10 text-center max-w-md">
+<p class="text-on-surface-variant italic font-medium">"창업자의 90%는 실행력의 부재로 멈춥니다. dairect는 그 멈춤을 해결합니다."</p>
+</div>
+</div>
+</div>
+<!-- Transition Statement -->
+<div class="mt-24 text-center">
+<h2 class="text-2xl md:text-3xl font-semibold text-on-surface font-headline tracking-tight keep-all">
+                    그 서랍을 열어드리겠습니다.
+                </h2>
+<div class="mt-6 flex justify-center">
+<div class="w-1 h-12 bg-gradient-to-b from-primary/40 to-transparent rounded-full"></div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full border-t border-gray-100 dark:border-gray-800 bg-[#F9F9F7] dark:bg-gray-950">
+<div class="max-w-7xl mx-auto px-8 py-12 flex flex-col md:flex-row justify-between items-center gap-6">
+<div class="flex flex-col items-center md:items-start gap-2">
+<span class="font-bold text-[#4F46E5] font-['Plus_Jakarta_Sans']">dairect</span>
+<p class="text-sm text-gray-500 dark:text-gray-400 font-['Plus_Jakarta_Sans']">© 2024 Studio Dairect. The Intelligent Sanctuary.</p>
+</div>
+<div class="flex gap-8 text-sm">
+<a class="text-gray-500 dark:text-gray-400 hover:text-[#4F46E5] transition-colors" href="#">Privacy Policy</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-[#4F46E5] transition-colors" href="#">Terms of Service</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-[#4F46E5] transition-colors" href="#">Github</a>
+<a class="text-gray-500 dark:text-gray-400 hover:text-[#4F46E5] transition-colors" href="#">Contact</a>
+</div>
+</div>
+</footer>
+</body></html>

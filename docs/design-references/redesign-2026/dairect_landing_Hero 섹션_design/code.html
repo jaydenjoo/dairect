@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>dairect - 머릿속 아이디어를 진짜로 만들어드립니다</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-fixed-dim": "#c2c6d3",
+                    "surface-variant": "#e2e3e1",
+                    "surface-tint": "#4d44e3",
+                    "on-primary": "#ffffff",
+                    "on-primary-fixed-variant": "#3323cc",
+                    "on-secondary-container": "#5e6572",
+                    "on-secondary-fixed": "#151c27",
+                    "error": "#ba1a1a",
+                    "surface-bright": "#f9f9f7",
+                    "tertiary": "#434853",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-fixed-variant": "#404754",
+                    "secondary": "#585f6c",
+                    "on-error": "#ffffff",
+                    "background": "#f9f9f7",
+                    "surface-dim": "#dadad8",
+                    "surface-container-highest": "#e2e3e1",
+                    "outline": "#777587",
+                    "on-tertiary": "#ffffff",
+                    "primary-fixed-dim": "#c3c0ff",
+                    "primary": "#3525cd",
+                    "primary-container": "#4f46e5",
+                    "inverse-on-surface": "#f1f1ef",
+                    "surface-container-high": "#e8e8e6",
+                    "on-background": "#1a1c1b",
+                    "inverse-surface": "#2f3130",
+                    "tertiary-fixed": "#dee2ef",
+                    "on-surface": "#1a1c1b",
+                    "on-primary-container": "#dad7ff",
+                    "secondary-fixed-dim": "#c0c7d6",
+                    "outline-variant": "#c7c4d8",
+                    "on-primary-fixed": "#0f0069",
+                    "primary-fixed": "#e2dfff",
+                    "error-container": "#ffdad6",
+                    "secondary-container": "#dce2f3",
+                    "surface-container": "#eeeeec",
+                    "surface": "#f9f9f7",
+                    "on-tertiary-fixed": "#171c25",
+                    "on-secondary": "#ffffff",
+                    "on-tertiary-fixed-variant": "#424751",
+                    "on-tertiary-container": "#d7dbe8",
+                    "tertiary-container": "#5b606b",
+                    "inverse-primary": "#c3c0ff",
+                    "on-error-container": "#93000a",
+                    "surface-container-low": "#f4f4f2",
+                    "secondary-fixed": "#dce2f3",
+                    "on-surface-variant": "#464555"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans", "Pretendard"],
+                    "body": ["Manrope", "Pretendard"],
+                    "label": ["Manrope", "Pretendard"],
+                    "mono": ["JetBrains Mono"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Manrope', 'Pretendard', sans-serif; background-color: #f9f9f7; }
+        .font-headline { font-family: 'Plus Jakarta Sans', 'Pretendard', sans-serif; }
+        .keep-all { word-break: keep-all; }
+        .dot-grid {
+            background-image: radial-gradient(circle, #4F46E5 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        .soft-radial {
+            background: radial-gradient(500px circle at top right, rgba(79, 70, 229, 0.15), transparent 100%);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface overflow-x-hidden">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full h-[60px] bg-white/70 dark:bg-gray-900/70 backdrop-blur-3xl shadow-[0px_2px_4px_rgba(17,24,39,0.04),0px_12px_32px_rgba(17,24,39,0.08)] z-50">
+<nav class="flex justify-between items-center px-8 w-full max-w-7xl mx-auto h-full">
+<div class="text-xl font-bold tracking-tighter text-indigo-600 dark:text-indigo-400">
+                dairect
+            </div>
+<div class="hidden md:flex gap-8 items-center">
+<a class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors font-['Plus_Jakarta_Sans','Pretendard'] text-sm tracking-tight" href="#">서비스</a>
+<a class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors font-['Plus_Jakarta_Sans','Pretendard'] text-sm tracking-tight" href="#">포트폴리오</a>
+<a class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors font-['Plus_Jakarta_Sans','Pretendard'] text-sm tracking-tight" href="#">가격</a>
+<a class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors font-['Plus_Jakarta_Sans','Pretendard'] text-sm tracking-tight" href="#">소개</a>
+</div>
+<button class="bg-primary-container text-on-primary px-5 py-2 rounded-lg text-sm font-semibold active:scale-95 transition-all duration-200 hover:opacity-90">
+                문의하기 →
+            </button>
+</nav>
+</header>
+<!-- Main Hero Section -->
+<main class="relative min-h-[calc(100vh-60px)] mt-[60px] flex items-center overflow-hidden">
+<!-- Background Elements -->
+<div class="absolute inset-0 dot-grid opacity-[0.05] pointer-events-none"></div>
+<div class="absolute inset-0 soft-radial pointer-events-none"></div>
+<div class="max-w-7xl mx-auto px-8 w-full h-full flex flex-col md:flex-row items-center gap-12 py-12 md:py-0">
+<!-- Left Column: 57% -->
+<div class="w-full md:w-[57%] flex flex-col items-start z-10">
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-primary-container/10 text-primary font-mono text-xs font-semibold mb-6 tracking-wide">
+                    AI-Powered Development
+                </span>
+<h1 class="text-4xl md:text-[52px] leading-[1.2] font-[850] font-headline text-on-surface mb-6 keep-all whitespace-pre-line">
+                    머릿속 아이디어를
+                    <span class="text-primary">진짜로</span> 만들어드립니다
+                </h1>
+<p class="text-base md:text-[17px] leading-[1.8] text-secondary font-medium mb-10 keep-all whitespace-pre-line">
+                    개발을 모르셔도, AI를 못 다루셔도 괜찮습니다.
+                    아이디어만 말씀해주세요. 나머지는 저희가 합니다.
+                </p>
+<div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mb-16">
+<button class="px-8 py-4 bg-primary-container text-on-primary rounded-xl font-bold text-lg shadow-[0px_4px_12px_rgba(79,70,229,0.25)] hover:shadow-[0px_8px_24px_rgba(79,70,229,0.35)] transition-all active:scale-95 text-center">
+                        내 아이디어 상담하기 →
+                    </button>
+<button class="px-8 py-4 bg-surface-container-high/50 text-secondary hover:bg-surface-container-high rounded-xl font-bold text-lg transition-all active:scale-95 text-center">
+                        포트폴리오 보기
+                    </button>
+</div>
+<!-- Trust Metrics -->
+<div class="flex flex-wrap items-center gap-6 md:gap-10 py-6 border-t border-outline-variant/20 w-full md:w-auto">
+<div class="flex flex-col">
+<span class="text-primary font-bold text-xl md:text-2xl">10+</span>
+<span class="text-xs md:text-sm text-on-surface-variant font-medium">프로젝트 완료</span>
+</div>
+<div class="h-8 w-px bg-outline-variant/30 hidden sm:block"></div>
+<div class="flex flex-col">
+<span class="text-primary font-bold text-xl md:text-2xl">2주</span>
+<span class="text-xs md:text-sm text-on-surface-variant font-medium">평균 전달 기간</span>
+</div>
+<div class="h-8 w-px bg-outline-variant/30 hidden sm:block"></div>
+<div class="flex flex-col">
+<span class="text-primary font-bold text-xl md:text-2xl">98%</span>
+<span class="text-xs md:text-sm text-on-surface-variant font-medium">고객 만족도</span>
+</div>
+</div>
+</div>
+<!-- Right Column: 43% -->
+<div class="w-full md:w-[43%] relative flex justify-center items-center h-[400px] md:h-[600px]">
+<!-- Fanned out cards -->
+<div class="relative w-full max-w-[320px] md:max-w-none h-full flex items-center justify-center">
+<!-- Card 3 (Bottom/Right) -->
+<div class="absolute transform rotate-[3deg] translate-x-12 translate-y-8 md:translate-x-20 md:translate-y-12 w-[280px] md:w-[400px] aspect-[4/3] bg-surface-container-lowest rounded-xl shadow-[0px_2px_4px_rgba(17,24,39,0.04),0px_12px_32px_rgba(17,24,39,0.08)] overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="clean modern dashboard interface with soft blue accents minimalist data visualization and premium typography" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAjshHeixdupXk4gMS2QpHYvopJy4vLN5SJyb45MjX9NPB8IingUunSa0vdCHT4iEkaM_WrIbTwLcqRIbQAnEhU5il2syXeuA7JwMv7iWNaTfSiHJQdRuGuF9gqSi-L0-HLoKCDdTRqHdVfiy9Y5RuDqTDU4hpAgKhPZgeAufIbmxvCfNQGPjZaX1MbObcA9oBz63Zr8Qc0IQZnEjO8n8FaINqlmOD4ZPBo5PpNgivZ1L1rnnCBz8_8r8lXD8vWVP2Y6d8GtKl9OBo3"/>
+</div>
+<!-- Card 1 (Bottom/Left) -->
+<div class="absolute transform -rotate-[3deg] -translate-x-12 translate-y-4 md:-translate-x-20 md:translate-y-6 w-[280px] md:w-[400px] aspect-[4/3] bg-surface-container-lowest rounded-xl shadow-[0px_2px_4px_rgba(17,24,39,0.04),0px_12px_32px_rgba(17,24,39,0.08)] overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="premium mobile app interface design for e-commerce soft shadows elegant spacing minimalist aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVzfZ8nDQ7UQH_XVbJZkDzq3OezknSPNNj39NhXSVI12qpAlHub6SyTEVzIGR1DjgSYxOrqnB3MMHAX-aFUZIHykaY76HwEd_Q-EGV44R3IWucPccBMoLx6jNiyQM5nuGnpbJfL4EFrud9wNIJ_Xl68J0EBU-nUHopo4sFoo8599MbibVq8ifldeKlsn1gsYMvj1u4FVHSGvIU9l2sVZvoMcZynBJP-Gq28tz3p6GxVeW6r78PNbAx5aGYeDjUy40w3_WmXUOg12x9"/>
+</div>
+<!-- Card 2 (Center/Top) -->
+<div class="absolute transform rotate-0 w-[300px] md:w-[420px] aspect-[4/3] bg-surface-container-lowest rounded-xl shadow-[0px_4px_8px_rgba(17,24,39,0.06),0px_20px_48px_rgba(17,24,39,0.12)] z-20 overflow-hidden ring-1 ring-white/20">
+<img class="w-full h-full object-cover" data-alt="professional saas platform homepage with vibrant indigo branding clean layout and high end ux design" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAI2XtfmZOcsPBt32LIJoDnGJzbSszoZnz4YoySUq_GUN9gqdkwxF-VR1B1XWOcyEXKP-7E6gWKAfNR5poJHqMRl0Tin7hOJzwBz-sxxpYUQnl4FLwtRsjnDHF9mfF2egz3I1Gc8aX6Eg78qMUNRN2A7ldRDju5AUMVSbYMF5qd1nndY3Zy7M1S0hULU2PEbhpltov3LYOw1nIHFREZ_f2YM_REc8akFS5p0XQDEkSlY3ugdbvY25vu6EW6ibd8Gxm3L6Dm8lLWFNVC"/>
+<!-- Floating Glass Action Overlay -->
+<div class="absolute bottom-4 left-4 right-4 h-12 bg-white/70 backdrop-blur-xl rounded-lg flex items-center px-4 justify-between border border-white/40 shadow-sm">
+<div class="flex gap-2">
+<div class="w-2 h-2 rounded-full bg-red-400"></div>
+<div class="w-2 h-2 rounded-full bg-amber-400"></div>
+<div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+</div>
+<div class="text-[10px] font-mono text-gray-400">PROJECT_ALPHA.V2</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Decorative Section -->
+<section class="max-w-7xl mx-auto px-8 py-12">
+<div class="bg-surface-container-low rounded-3xl p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-64 h-64 bg-primary-container/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
+<div class="z-10">
+<h3 class="text-2xl font-bold font-headline mb-2 text-on-surface">무엇을 고민하고 계신가요?</h3>
+<p class="text-on-surface-variant keep-all">지금 바로 전문가와 상의하고 런칭 로드맵을 받아보세요.</p>
+</div>
+<div class="z-10 w-full md:w-auto">
+<button class="w-full md:w-auto px-10 py-4 bg-on-surface text-surface rounded-xl font-bold hover:bg-gray-800 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-xl">chat_bubble</span>
+                    무료 상담 신청하기
+                </button>
+</div>
+</div>
+</section>
+</body></html>

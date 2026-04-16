@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#3525cd",
+              "outline-variant": "#c7c4d8",
+              "on-error-container": "#93000a",
+              "surface-container-high": "#e8e8e6",
+              "secondary": "#585f6c",
+              "surface-container": "#eeeeec",
+              "surface-variant": "#e2e3e1",
+              "on-tertiary": "#ffffff",
+              "on-surface": "#1a1c1b",
+              "on-secondary-fixed-variant": "#404754",
+              "secondary-fixed-dim": "#c0c7d6",
+              "secondary-container": "#dce2f3",
+              "on-tertiary-fixed": "#171c25",
+              "on-primary-container": "#dad7ff",
+              "on-primary-fixed-variant": "#3323cc",
+              "on-tertiary-fixed-variant": "#424751",
+              "surface": "#f9f9f7",
+              "primary-container": "#4f46e5",
+              "inverse-surface": "#2f3130",
+              "surface-tint": "#4d44e3",
+              "tertiary": "#434853",
+              "primary-fixed": "#e2dfff",
+              "background": "#f9f9f7",
+              "error": "#ba1a1a",
+              "on-primary": "#ffffff",
+              "on-secondary-fixed": "#151c27",
+              "inverse-on-surface": "#f1f1ef",
+              "surface-bright": "#f9f9f7",
+              "error-container": "#ffdad6",
+              "tertiary-fixed": "#dee2ef",
+              "surface-container-low": "#f4f4f2",
+              "surface-dim": "#dadad8",
+              "on-error": "#ffffff",
+              "surface-container-highest": "#e2e3e1",
+              "secondary-fixed": "#dce2f3",
+              "outline": "#777587",
+              "on-secondary": "#ffffff",
+              "surface-container-lowest": "#ffffff",
+              "inverse-primary": "#c3c0ff",
+              "tertiary-fixed-dim": "#c2c6d3",
+              "on-primary-fixed": "#0f0069",
+              "primary-fixed-dim": "#c3c0ff",
+              "on-background": "#1a1c1b",
+              "on-surface-variant": "#464555",
+              "on-secondary-container": "#5e6572",
+              "tertiary-container": "#5b606b",
+              "on-tertiary-container": "#d7dbe8"
+            },
+            fontFamily: {
+              headline: ["DM Sans", "Pretendard"],
+              body: ["Pretendard"],
+              label: ["Pretendard"],
+              code: ["JetBrains Mono"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body { font-family: 'Pretendard', sans-serif; -webkit-font-smoothing: antialiased; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .keep-all { word-break: keep-all; }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- Content Placeholder to simulate page flow -->
+<div class="h-96 flex items-center justify-center bg-surface-container-low">
+<p class="text-secondary font-headline text-lg">Main Content Stage</p>
+</div>
+<!-- 
+      Shared Component: Footer 
+      Context: Full-width editorial footer using tonal architecture.
+      Applied JSON style_: style_bg_color, style_brand_logo, style_shell_layout, style_active_navigation, etc.
+    -->
+<footer class="bg-[#111827] text-white">
+<!-- Main Footer Content -->
+<div class="max-w-7xl mx-auto px-8 py-16 flex flex-col gap-12">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-8">
+<!-- Column 1: Brand Anchor -->
+<div class="flex flex-col gap-4">
+<h2 class="text-2xl font-bold tracking-tight text-white">dairect</h2>
+<p class="text-gray-400 text-sm keep-all leading-relaxed">
+                        코드는 AI가, 방향은 내가
+                    </p>
+</div>
+<!-- Column 2: Navigation Links -->
+<div class="flex flex-col gap-4">
+<nav class="flex flex-col gap-3">
+<a class="text-gray-400 hover:text-[#4F46E5] transition-colors duration-300 text-sm" href="#">서비스 소개</a>
+<a class="text-gray-400 hover:text-[#4F46E5] transition-colors duration-300 text-sm" href="#">포트폴리오</a>
+<a class="text-gray-400 hover:text-[#4F46E5] transition-colors duration-300 text-sm" href="#">가격 안내</a>
+<a class="text-gray-400 hover:text-[#4F46E5] transition-colors duration-300 text-sm" href="#">개인정보처리방침</a>
+</nav>
+</div>
+<!-- Column 3: Contact & Interaction -->
+<div class="flex flex-col gap-4">
+<div class="flex flex-col gap-3">
+<a class="flex items-center gap-2 text-gray-400 hover:text-[#4F46E5] transition-colors duration-300 text-sm group" href="#">
+<span class="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform" data-icon="chat">chat</span>
+                            카카오톡 상담
+                        </a>
+<div class="flex items-center gap-2 text-gray-400 text-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="mail">mail</span>
+                            이메일: hello@dairect.kr
+                        </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Bar: Regulatory & Rights -->
+<div class="border-t border-gray-800">
+<div class="max-w-7xl mx-auto px-8 py-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm">
+<div class="text-gray-400 font-medium">
+                    © 2026 dairect. All rights reserved.
+                </div>
+<div class="text-gray-500 text-[12px] flex items-center gap-2 tracking-tight">
+<span>사업자등록번호: 000-00-00000</span>
+<span class="text-gray-700">|</span>
+<span>대표: 주재이든</span>
+</div>
+</div>
+</div>
+</footer>
+</body></html>

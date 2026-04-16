@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>dairect - 합리적인 비용, 확실한 결과</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link as="style" crossorigin="" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta_Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-surface": "#1a1c1b",
+                    "secondary-fixed-dim": "#c0c7d6",
+                    "on-primary": "#ffffff",
+                    "inverse-primary": "#c3c0ff",
+                    "inverse-on-surface": "#f1f1ef",
+                    "background": "#f9f9f7",
+                    "surface-bright": "#f9f9f7",
+                    "tertiary-fixed-dim": "#c2c6d3",
+                    "tertiary-fixed": "#dee2ef",
+                    "primary": "#3525cd",
+                    "surface-tint": "#4d44e3",
+                    "surface-container-highest": "#e2e3e1",
+                    "on-primary-container": "#dad7ff",
+                    "error": "#ba1a1a",
+                    "surface-dim": "#dadad8",
+                    "secondary-fixed": "#dce2f3",
+                    "secondary": "#585f6c",
+                    "on-error": "#ffffff",
+                    "surface-container-high": "#e8e8e6",
+                    "on-primary-fixed": "#0f0069",
+                    "tertiary": "#434853",
+                    "on-secondary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "on-tertiary-fixed-variant": "#424751",
+                    "tertiary-container": "#5b606b",
+                    "primary-container": "#4f46e5",
+                    "on-secondary-fixed": "#151c27",
+                    "surface-container-low": "#f4f4f2",
+                    "surface-variant": "#e2e3e1",
+                    "on-tertiary": "#ffffff",
+                    "surface": "#f9f9f7",
+                    "on-background": "#1a1c1b",
+                    "primary-fixed": "#e2dfff",
+                    "on-surface-variant": "#464555",
+                    "secondary-container": "#dce2f3",
+                    "primary-fixed-dim": "#c3c0ff",
+                    "on-secondary-fixed-variant": "#404754",
+                    "inverse-surface": "#2f3130",
+                    "outline-variant": "#c7c4d8",
+                    "on-secondary-container": "#5e6572",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-container": "#d7dbe8",
+                    "outline": "#777587",
+                    "on-primary-fixed-variant": "#3323cc",
+                    "on-tertiary-fixed": "#171c25",
+                    "surface-container": "#eeeeec",
+                    "error-container": "#ffdad6"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans", "Pretendard"],
+                    "body": ["Manrope", "Pretendard"],
+                    "label": ["Manrope", "Pretendard"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Pretendard', sans-serif; -webkit-font-smoothing: antialiased; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+        .keep-all { word-break: keep-all; }
+        .pricing-grid { display: grid; grid-template-columns: repeat(12, 1fr); align-items: center; }
+        .bento-glow { box-shadow: 0px 12px 32px rgba(17, 24, 39, 0.08), 0px 0px 20px rgba(79, 70, 229, 0.15); }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-[#F9F9F7]/70 backdrop-blur-3xl shadow-[0px_12px_32px_rgba(17,24,39,0.08)]">
+<div class="flex justify-between items-center max-w-7xl mx-auto px-8 h-20">
+<div class="text-xl font-bold tracking-tighter text-gray-900">dairect</div>
+<div class="hidden md:flex gap-10">
+<a class="text-gray-600 font-['Plus_Jakarta_Sans','Pretendard'] text-sm font-medium tracking-tight hover:text-gray-900 transition-colors duration-200" href="#">서비스</a>
+<a class="text-gray-600 font-['Plus_Jakarta_Sans','Pretendard'] text-sm font-medium tracking-tight hover:text-gray-900 transition-colors duration-200" href="#">포트폴리오</a>
+<a class="text-[#4F46E5] font-['Plus_Jakarta_Sans','Pretendard'] text-sm font-bold tracking-tight border-b-2 border-[#4F46E5] pb-1" href="#">가격</a>
+<a class="text-gray-600 font-['Plus_Jakarta_Sans','Pretendard'] text-sm font-medium tracking-tight hover:text-gray-900 transition-colors duration-200" href="#">소개</a>
+</div>
+<button class="bg-primary-container text-on-primary px-6 py-2.5 rounded-xl text-sm font-medium scale-95 hover:scale-100 duration-200 ease-in-out">
+                문의하기 →
+            </button>
+</div>
+</nav>
+<main class="pt-32 pb-24 px-6 md:px-12">
+<!-- Hero Section Heading -->
+<header class="max-w-4xl mx-auto text-center mb-20">
+<h1 class="font-headline text-3xl md:text-4xl font-extrabold tracking-tight text-on-surface mb-6 keep-all">
+                합리적인 비용, 확실한 결과
+            </h1>
+<p class="text-secondary text-lg leading-[1.8] keep-all max-w-2xl mx-auto">
+                아이디어의 크기에 맞는 최적의 플랜을 제안합니다. 복잡한 개발 과정을 투명하고 명확한 비용 체계로 경험하세요.
+            </p>
+</header>
+<!-- Pricing Section: Asymmetric Bento Layout -->
+<section class="max-w-7xl mx-auto pricing-grid gap-6 md:gap-8">
+<!-- Card 1: 진단 패키지 -->
+<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-8 rounded-xl shadow-[0px_2px_4px_rgba(17,24,39,0.04)] h-full flex flex-col justify-between border border-outline-variant/15 transition-all duration-300 hover:shadow-lg">
+<div>
+<div class="mb-6">
+<h3 class="text-xl font-bold mb-2">진단 패키지</h3>
+<p class="text-secondary text-sm leading-[1.8] keep-all">아이디어 실현 가능성 진단 + 기능 정의 + 기술 스택 제안</p>
+</div>
+<div class="mb-8">
+<span class="text-3xl font-extrabold">30만원~</span>
+<div class="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-low text-xs font-medium text-secondary">
+<span class="material-symbols-outlined text-sm" data-icon="schedule">schedule</span>
+                            3~5일
+                        </div>
+</div>
+<ul class="space-y-4 mb-10">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary-container text-xl" data-icon="check_circle">check_circle</span>
+<span class="text-sm text-on-surface-variant font-medium">아이디어 분석 보고서</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary-container text-xl" data-icon="check_circle">check_circle</span>
+<span class="text-sm text-on-surface-variant font-medium">핵심 기능 정의</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary-container text-xl" data-icon="check_circle">check_circle</span>
+<span class="text-sm text-on-surface-variant font-medium">기술 스택 추천</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary-container text-xl" data-icon="check_circle">check_circle</span>
+<span class="text-sm text-on-surface-variant font-medium">개발 로드맵</span>
+</li>
+</ul>
+</div>
+<button class="w-full py-4 text-secondary font-semibold text-sm rounded-xl border border-outline-variant/20 hover:bg-surface-container-low transition-colors duration-200">
+                    자세히 알아보기
+                </button>
+</div>
+<!-- Card 2: MVP 패키지 (Highlighted) -->
+<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-10 rounded-xl bento-glow border-2 border-primary-container z-10 lg:scale-110 flex flex-col justify-between relative h-full">
+<div class="absolute -top-4 left-1/2 -translate-x-1/2">
+<span class="bg-primary-container text-on-primary px-4 py-1.5 rounded-full text-xs font-bold tracking-wide shadow-md">가장 많이 선택해요</span>
+</div>
+<div>
+<div class="mb-6">
+<h3 class="text-2xl font-bold mb-2">MVP 패키지</h3>
+<p class="text-secondary text-sm leading-[1.8] keep-all">핵심 기능 1개를 실제 작동하는 프로토타입으로 제작</p>
+</div>
+<div class="mb-8">
+<span class="text-4xl font-extrabold text-primary-container">100만원~</span>
+<div class="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-container/10 text-xs font-bold text-primary-container">
+<span class="material-symbols-outlined text-sm" data-icon="bolt">bolt</span>
+                            2~3주
+                        </div>
+</div>
+<ul class="space-y-4 mb-10">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary-container text-xl" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm text-on-surface font-bold">진단 패키지 포함</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary-container text-xl" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm text-on-surface font-bold">MVP 개발 + 배포</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary-container text-xl" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm text-on-surface font-bold">2주 무상 수정</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary-container text-xl" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm text-on-surface font-bold">사용 가이드</span>
+</li>
+</ul>
+</div>
+<button class="w-full py-4 bg-primary-container text-on-primary font-bold text-sm rounded-xl shadow-lg hover:brightness-110 transition-all duration-200 flex items-center justify-center gap-2">
+                    상담 신청하기 →
+                </button>
+</div>
+<!-- Card 3: 확장 패키지 -->
+<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-8 rounded-xl shadow-[0px_2px_4px_rgba(17,24,39,0.04)] h-full flex flex-col justify-between border border-outline-variant/15 transition-all duration-300 hover:shadow-lg lg:ml-4">
+<div>
+<div class="mb-6">
+<h3 class="text-xl font-bold mb-2">확장 패키지</h3>
+<p class="text-secondary text-sm leading-[1.8] keep-all">MVP를 정식 서비스로 확장. 추가 기능 + 운영 환경 구축</p>
+</div>
+<div class="mb-8">
+<span class="text-3xl font-extrabold">300만원~</span>
+<div class="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-low text-xs font-medium text-secondary">
+<span class="material-symbols-outlined text-sm" data-icon="rocket_launch">rocket_launch</span>
+                            4~8주
+                        </div>
+</div>
+<ul class="space-y-4 mb-10">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary-container text-xl" data-icon="check_circle">check_circle</span>
+<span class="text-sm text-on-surface-variant font-medium">MVP 패키지 포함</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary-container text-xl" data-icon="check_circle">check_circle</span>
+<span class="text-sm text-on-surface-variant font-medium">추가 기능 개발</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary-container text-xl" data-icon="check_circle">check_circle</span>
+<span class="text-sm text-on-surface-variant font-medium">도메인 + 배포</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary-container text-xl" data-icon="check_circle">check_circle</span>
+<span class="text-sm text-on-surface-variant font-medium">운영 가이드</span>
+</li>
+</ul>
+</div>
+<button class="w-full py-4 text-secondary font-semibold text-sm rounded-xl border border-outline-variant/20 hover:bg-surface-container-low transition-colors duration-200">
+                    자세히 알아보기
+                </button>
+</div>
+</section>
+<!-- Pricing Disclaimer -->
+<footer class="mt-16 text-center">
+<p class="text-gray-500 text-sm font-body keep-all">
+                정확한 금액은 프로젝트 범위에 따라 달라집니다. 편하게 문의해주세요.
+            </p>
+</footer>
+</main>
+<!-- Footer Component -->
+<footer class="w-full py-12 border-t border-gray-100 bg-[#F9F9F7]">
+<div class="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-8">
+<div class="text-lg font-bold text-gray-900">dairect</div>
+<div class="flex gap-8">
+<a class="font-['Plus_Jakarta_Sans','Pretendard'] text-xs text-gray-500 hover:text-[#4F46E5] transition-colors" href="#">이용약관</a>
+<a class="font-['Plus_Jakarta_Sans','Pretendard'] text-xs text-gray-500 hover:text-[#4F46E5] transition-colors" href="#">개인정보처리방침</a>
+<a class="font-['Plus_Jakarta_Sans','Pretendard'] text-xs text-gray-500 hover:text-[#4F46E5] transition-colors" href="#">쿠키 정책</a>
+</div>
+<p class="font-['Plus_Jakarta_Sans','Pretendard'] text-xs text-gray-400 opacity-80">© 2024 dairect. All rights reserved.</p>
+</div>
+</footer>
+<!-- Decorative Elements -->
+<div class="fixed top-0 right-0 -z-10 w-[500px] h-[500px] bg-primary-container/5 rounded-full blur-[120px] pointer-events-none"></div>
+<div class="fixed bottom-0 left-0 -z-10 w-[400px] h-[400px] bg-secondary-container/10 rounded-full blur-[100px] pointer-events-none"></div>
+</body></html>

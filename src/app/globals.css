@@ -4,117 +4,170 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Design System: "The Intelligent Sanctuary"
+ * Source: docs/design-references/redesign-2026/DESIGN.md
+ *
+ * Primary: #4F46E5 (Indigo) / #3525CD (deep)
+ * Surface: #F9F9F7 (off-white, premium paper)
+ * Dark: #111827 (gray-900, never pure black)
+ * No-Line Rule: no 1px solid borders
+ * Tonal Layering: depth via surface shifts, not lines
+ */
+
 @theme inline {
+  /* Typography */
+  --font-sans: var(--font-pretendard), var(--font-dm-sans), "Pretendard Variable", "DM Sans", system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, monospace;
+  --font-heading: var(--font-dm-sans), var(--font-pretendard), "DM Sans", "Pretendard Variable", sans-serif;
+
+  /* Colors (mapped from shadcn tokens) */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Chart colors */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Sidebar */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Radius — Bento Cards = 12px (lg) */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
 }
 
+/* ─── Light Theme (DESIGN.md: "The Intelligent Sanctuary") ─── */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Surface Hierarchy (Tonal Layering) */
+  --background: #F9F9F7;              /* Level 0: Base canvas (premium paper) */
+  --foreground: #111827;              /* gray-900 (never pure black) */
+
+  /* Surface Container tiers */
+  --surface-container-low: #F3F3F1;   /* Level 1: Sectioning */
+  --surface-container-lowest: #FFFFFF; /* Level 2: Interaction (cards, inputs) */
+  --surface-container-high: #EDEDEB;   /* Hover states */
+  --surface-container-highest: #E7E7E5; /* Code blocks (inline) */
+
+  /* Primary: Indigo */
+  --primary: #4F46E5;
+  --primary-foreground: #FFFFFF;
+  --primary-deep: #3525CD;            /* Soul Gradient start */
+  --primary-container: #E0E7FF;       /* Soft emphasis */
+
+  /* Cards & Popovers */
+  --card: #FFFFFF;
+  --card-foreground: #111827;
+  --popover: #FFFFFF;
+  --popover-foreground: #111827;
+
+  /* Secondary */
+  --secondary: #F3F3F1;
+  --secondary-foreground: #111827;
+
+  /* Muted */
+  --muted: #F3F3F1;
+  --muted-foreground: #6B7280;        /* gray-500 */
+
+  /* Accent */
+  --accent: #E0E7FF;
+  --accent-foreground: #3525CD;
+
+  /* Destructive */
+  --destructive: #DC2626;
+
+  /* Borders — No-Line Rule: ghost borders only */
+  --border: rgba(17, 24, 39, 0.08);   /* outline_variant @ 8% */
+  --input: rgba(17, 24, 39, 0.12);    /* Ghost Border @ 12% */
+  --ring: #4F46E5;
+
+  /* Charts (Indigo scale) */
+  --chart-1: #4F46E5;
+  --chart-2: #7C3AED;
+  --chart-3: #2563EB;
+  --chart-4: #059669;
+  --chart-5: #D97706;
+
+  /* Sidebar (Dashboard) */
+  --sidebar: #111827;                  /* Dark sidebar */
+  --sidebar-foreground: #F9FAFB;
+  --sidebar-primary: #4F46E5;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #1F2937;
+  --sidebar-accent-foreground: #F9FAFB;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #4F46E5;
+
+  /* Ambient Shadows (multi-layer, tinted with gray-900) */
+  --shadow-sm: 0px 1px 2px rgba(17, 24, 39, 0.04);
+  --shadow-md: 0px 2px 4px rgba(17, 24, 39, 0.04), 0px 12px 32px rgba(17, 24, 39, 0.08);
+  --shadow-lg: 0px 4px 8px rgba(17, 24, 39, 0.04), 0px 20px 48px rgba(17, 24, 39, 0.10);
 }
 
+/* ─── Dark Theme (for dark sections like Footer, About Hero) ─── */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #111827;
+  --foreground: #F9FAFB;
+  --card: #1F2937;
+  --card-foreground: #F9FAFB;
+  --popover: #1F2937;
+  --popover-foreground: #F9FAFB;
+  --primary: #818CF8;
+  --primary-foreground: #111827;
+  --secondary: #1F2937;
+  --secondary-foreground: #F9FAFB;
+  --muted: #1F2937;
+  --muted-foreground: #9CA3AF;
+  --accent: #1F2937;
+  --accent-foreground: #C7D2FE;
+  --destructive: #EF4444;
+  --border: rgba(255, 255, 255, 0.10);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #818CF8;
+  --chart-1: #818CF8;
+  --chart-2: #A78BFA;
+  --chart-3: #60A5FA;
+  --chart-4: #34D399;
+  --chart-5: #FBBF24;
+  --sidebar: #0F172A;
+  --sidebar-foreground: #F9FAFB;
+  --sidebar-primary: #818CF8;
+  --sidebar-primary-foreground: #F9FAFB;
+  --sidebar-accent: #1E293B;
+  --sidebar-accent-foreground: #F9FAFB;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #818CF8;
 }
 
 @layer base {
@@ -123,8 +176,62 @@
   }
   body {
     @apply bg-background text-foreground;
+    word-break: keep-all; /* Korean text: clean block wrapping */
   }
   html {
     @apply font-sans;
+  }
+
+  /* Korean body text: generous line-height */
+  p, li, dd, td {
+    line-height: 1.8;
+  }
+
+  /* Headings: DM Sans / Pretendard, tight tracking */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+}
+
+/* ─── Design System Utilities ─── */
+@layer utilities {
+  /* Glassmorphism (Nav, floating overlays) */
+  .glass {
+    background: rgba(255, 255, 255, 0.70);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+
+  /* Soul Gradient (Primary CTAs) */
+  .soul-gradient {
+    background: linear-gradient(135deg, var(--primary-deep) 0%, var(--primary) 100%);
+  }
+
+  /* Ambient Shadows */
+  .shadow-ambient {
+    box-shadow: var(--shadow-md);
+  }
+  .shadow-ambient-lg {
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* Ghost Border (accessibility fallback, 15% opacity) */
+  .ghost-border {
+    box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.08);
+  }
+
+  /* Surface tiers */
+  .surface-base { background-color: var(--background); }
+  .surface-low { background-color: var(--surface-container-low); }
+  .surface-card { background-color: var(--surface-container-lowest); }
+  .surface-high { background-color: var(--surface-container-high); }
+  .surface-highest { background-color: var(--surface-container-highest); }
+
+  /* Dark section helper */
+  .section-dark {
+    background-color: #111827;
+    color: #F9FAFB;
   }
 }
