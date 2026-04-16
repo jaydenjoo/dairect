@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-16
-> 현재 위치: Phase 1 완료 → Phase 2 시작 전
+> 최종 업데이트: 2026-04-17
+> 현재 위치: Phase 2 > Task 2-1 완료 → Task 2-2 대기
 
 ## 전체 진행률
 
@@ -9,7 +9,7 @@
 |-------|------|------|--------|
 | Phase 0 | 기반 설정 | ✅ 완료 | 100% |
 | Phase 1 | 대시보드 핵심 | ✅ 완료 | 100% |
-| Phase 2 | 견적/계약/정산 + 리브랜딩 | ⬜ 대기 | 0% |
+| Phase 2 | 견적/계약/정산 + 리브랜딩 | 🔄 진행 | 15% |
 | Phase 3 | AI + 자동화 + 리드 CRM | ⬜ 대기 | 0% |
 | Phase 4 | 고객 포털 + /demo + PWA | ⬜ 대기 | 0% |
 | Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
@@ -58,18 +58,40 @@
 | MEDIUM | tab 화이트리스트 하드코딩 | tabs 배열에서 파생 |
 | MEDIUM | formatKRW 0 falsy 처리 | amount === null 명시 체크 |
 
+## Phase 2: 견적/계약/정산 + 리브랜딩 🔄
+
+- [x] **Task 2-1** — 견적서 생성기 수동 모드 (목록 + 생성 폼 + 상세 + 상태 변경 + 삭제)
+  - 코드 리뷰 CRITICAL 3건 + IMPORTANT 5건 수정 완료
+- [ ] **Task 2-2** — 견적서 PDF 생성 + 미리보기
+- [ ] **Task 2-3** — 계약서 관리
+- [ ] **Task 2-4** — 청구서/정산 관리
+- [ ] **Task 2-5** — 리브랜딩 랜딩 페이지
+
+### 코드 리뷰 수정 내역 (Task 2-1)
+
+| 심각도 | 이슈 | 수정 |
+|--------|------|------|
+| CRITICAL | deleteEstimateAction IDOR | 소유권 검증을 삭제 전에 수행 |
+| CRITICAL | UUID 미검증 (3개 함수) | uuidSchema.safeParse(id) 추가 |
+| CRITICAL | 트랜잭션 미사용 | db.transaction() 적용 (create/delete) |
+| IMPORTANT | paymentSplitItemSchema 중복 | estimates.ts에서 제거, settings.ts import |
+| IMPORTANT | getEstimate UUID 미검증 | safeParse 추가 |
+| IMPORTANT | 채번 경합 조건 | generateEstimateNumber를 tx 내부로 이동 |
+| IMPORTANT | projectId 소유권 미검증 | 프로젝트 소유권 확인 쿼리 추가 |
+| IMPORTANT | key={idx} 불안정 키 | crypto.randomUUID() 기반 _id 필드 |
+
 ## 현재 세션
 
-- **위치**: Phase 1 완료
-- **다음**: Phase 2 — Task 2-1 (견적서 생성기 수동 모드)
-- **차단 요소**: Google OAuth Console 설정 (Jayden 직접)
+- **위치**: Phase 2 > Task 2-1 완료
+- **다음**: Task 2-2 (견적서 PDF 생성 + 미리보기)
+- **차단 요소**: 없음
 
 ## 검증 상태
 
 ```
 ✅ tsc       — PASS
 ✅ lint      — PASS
-✅ build     — PASS (19 routes + /clients/[id] + /projects/[id] + Middleware)
+✅ build     — PASS (22 routes + /estimates/[id] + /estimates/new + Middleware)
 ✅ db:push   — PASS (13 tables)
 ```
 
@@ -105,7 +127,7 @@ src/
 │   │   ├── projects/           ← 프로젝트 CRUD + 칸반
 │   │   ├── clients/            ← 고객 CRM + 메모
 │   │   ├── settings/           ← 설정 (사업자 + 견적 기본값)
-│   │   ├── estimates/          ← (Phase 2)
+│   │   ├── estimates/          ← 목록 + 생성 + 상세 + 상태관리
 │   │   ├── contracts/          ← (Phase 2)
 │   │   └── invoices/           ← (Phase 2)
 │   └── auth/callback/route.ts
@@ -114,7 +136,7 @@ src/
 │   └── ui/ (button, input, label, badge, dialog, select, textarea, sonner)
 ├── lib/
 │   ├── auth/get-user-id.ts     ← 공통 인증 헬퍼
-│   ├── validation/ (settings, clients, projects, milestones)
+│   ├── validation/ (settings, clients, projects, milestones, estimates)
 │   ├── supabase/ (client, server)
 │   └── db/ (schema, index, migrations/)
 ├── middleware.ts
