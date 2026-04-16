@@ -1,0 +1,232 @@
+"use server";
+
+import { db } from "@/lib/db";
+import { clients, clientNotes, projects } from "@/lib/db/schema";
+import { getUserId } from "@/lib/auth/get-user-id";
+import { clientFormSchema, clientNoteSchema, type ClientFormData, type ClientNoteData } from "@/lib/validation/clients";
+import { eq, and, desc, isNull, sql, asc } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+
+export type ActionResult = { success: boolean; error?: string; id?: string };
+
+/** clientId가 현재 사용자의 고객인지 검증 */
+async function verifyClientOwnership(clientId: string, userId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: clients.id })
+    .from(clients)
+    .where(and(eq(clients.id, clientId), eq(clients.userId, userId)))
+    .limit(1);
+
+  return rows.length > 0;
+}
+
+// ─── 고객 CRUD ───
+
+export async function getClients() {
+  const userId = await getUserId();
+  if (!userId) return [];
+
+  return db
+    .select({
+      id: clients.id,
+      companyName: clients.companyName,
+      contactName: clients.contactName,
+      email: clients.email,
+      phone: clients.phone,
+      status: clients.status,
+      memo: clients.memo,
+      createdAt: clients.createdAt,
+      projectCount: sql<number>`count(${projects.id})::int`,
+      totalRevenue: sql<number>`coalesce(sum(${projects.contractAmount}), 0)::int`,
+    })
+    .from(clients)
+    .leftJoin(
+      projects,
+      and(eq(projects.clientId, clients.id), isNull(projects.deletedAt)),
+    )
+    .where(eq(clients.userId, userId))
+    .groupBy(clients.id)
+    .orderBy(desc(clients.createdAt));
+}
+
+export async function getClient(id: string) {
+  const userId = await getUserId();
+  if (!userId) return null;
+
+  const rows = await db
+    .select({
+      id: clients.id,
+      companyName: clients.companyName,
+      contactName: clients.contactName,
+      email: clients.email,
+      phone: clients.phone,
+      status: clients.status,
+      memo: clients.memo,
+      createdAt: clients.createdAt,
+    })
+    .from(clients)
+    .where(and(eq(clients.id, id), eq(clients.userId, userId)))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function getClientProjects(clientId: string) {
+  const userId = await getUserId();
+  if (!userId) return [];
+
+  // [CRITICAL 2] 소유권 검증
+  if (!(await verifyClientOwnership(clientId, userId))) return [];
+
+  return db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      status: projects.status,
+      contractAmount: projects.contractAmount,
+      startDate: projects.startDate,
+      endDate: projects.endDate,
+    })
+    .from(projects)
+    .where(
+      and(
+        eq(projects.clientId, clientId),
+        eq(projects.userId, userId),
+        isNull(projects.deletedAt),
+      ),
+    )
+    .orderBy(desc(projects.createdAt));
+}
+
+export async function getClientNotes(clientId: string) {
+  const userId = await getUserId();
+  if (!userId) return [];
+
+  // [CRITICAL 2] 소유권 검증
+  if (!(await verifyClientOwnership(clientId, userId))) return [];
+
+  return db
+    .select({
+      id: clientNotes.id,
+      content: clientNotes.content,
+      createdAt: clientNotes.createdAt,
+    })
+    .from(clientNotes)
+    .where(
+      and(eq(clientNotes.clientId, clientId), eq(clientNotes.userId, userId)),
+    )
+    .orderBy(asc(clientNotes.createdAt));
+}
+
+export async function createClientAction(data: ClientFormData): Promise<ActionResult> {
+  const userId = await getUserId();
+  if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
+
+  const parsed = clientFormSchema.safeParse(data);
+  if (!parsed.success) return { success: false, error: "입력값이 올바르지 않습니다" };
+
+  const v = parsed.data;
+
+  try {
+    const [row] = await db
+      .insert(clients)
+      .values({
+        userId,
+        companyName: v.companyName,
+        contactName: v.contactName || null,
+        email: v.email || null,
+        phone: v.phone || null,
+        businessNumber: v.businessNumber || null,
+        address: v.address || null,
+        status: v.status,
+        memo: v.memo || null,
+      })
+      .returning({ id: clients.id });
+
+    revalidatePath("/dashboard/clients");
+    return { success: true, id: row.id };
+  } catch (err) {
+    console.error("[createClientAction]", err);
+    return { success: false, error: "고객 생성 중 오류가 발생했습니다" };
+  }
+}
+
+export async function updateClientAction(id: string, data: ClientFormData): Promise<ActionResult> {
+  const userId = await getUserId();
+  if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
+
+  const parsed = clientFormSchema.safeParse(data);
+  if (!parsed.success) return { success: false, error: "입력값이 올바르지 않습니다" };
+
+  const v = parsed.data;
+
+  try {
+    await db
+      .update(clients)
+      .set({
+        companyName: v.companyName,
+        contactName: v.contactName || null,
+        email: v.email || null,
+        phone: v.phone || null,
+        businessNumber: v.businessNumber || null,
+        address: v.address || null,
+        status: v.status,
+        memo: v.memo || null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(clients.id, id), eq(clients.userId, userId)));
+
+    revalidatePath("/dashboard/clients");
+    revalidatePath(`/dashboard/clients/${id}`);
+    return { success: true };
+  } catch (err) {
+    console.error("[updateClientAction]", err);
+    return { success: false, error: "고객 수정 중 오류가 발생했습니다" };
+  }
+}
+
+// ─── 메모 CRUD ───
+
+export async function addNoteAction(clientId: string, data: ClientNoteData): Promise<ActionResult> {
+  const userId = await getUserId();
+  if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
+
+  const parsed = clientNoteSchema.safeParse(data);
+  if (!parsed.success) return { success: false, error: "내용을 입력해주세요" };
+
+  // [CRITICAL 2] 소유권 검증
+  if (!(await verifyClientOwnership(clientId, userId))) {
+    return { success: false, error: "권한이 없습니다" };
+  }
+
+  try {
+    await db.insert(clientNotes).values({
+      clientId,
+      userId,
+      content: parsed.data.content,
+    });
+
+    revalidatePath(`/dashboard/clients/${clientId}`);
+    return { success: true };
+  } catch (err) {
+    console.error("[addNoteAction]", err);
+    return { success: false, error: "메모 추가 중 오류가 발생했습니다" };
+  }
+}
+
+export async function deleteNoteAction(noteId: string, clientId: string): Promise<ActionResult> {
+  const userId = await getUserId();
+  if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
+
+  try {
+    await db
+      .delete(clientNotes)
+      .where(and(eq(clientNotes.id, noteId), eq(clientNotes.userId, userId)));
+
+    revalidatePath(`/dashboard/clients/${clientId}`);
+    return { success: true };
+  } catch (err) {
+    console.error("[deleteNoteAction]", err);
+    return { success: false, error: "메모 삭제 중 오류가 발생했습니다" };
+  }
+}
