@@ -366,3 +366,44 @@ export const inquiries = pgTable(
     ),
   ],
 );
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// AI 주간 브리핑 (Task 3-2)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 대시보드 홈 상단 위젯에 노출될 "이번 주 집중할 것 3가지 + 요약".
+// weekStartDate = KST 기준 이번 주 월요일(date, YYYY-MM-DD). (userId, weekStartDate) UNIQUE로 upsert.
+// contentJson = { focusItems: [{title, reason, priority}...], summary: string } — Zod 재검증 후 저장.
+// NOT NULL + default: NULL < CURRENT_DATE 3-value logic 함정 원천 차단 (0007 교훈 반영).
+
+export const briefings = pgTable(
+  "briefings",
+  {
+    id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    // mode:"string": postgres.js가 Date 객체로 변환하지 않도록 명시 — UI/Zod 경로에서 ISO date string 일관 유지
+    weekStartDate: date("week_start_date", { mode: "string" }).notNull(),
+    contentJson: jsonb("content_json").notNull(),
+    // 감사 추적: 실제 AI 호출 결과인지, 빈 데이터 fallback인지 구별
+    generationType: text("generation_type", {
+      enum: ["ai", "empty_fallback"],
+    })
+      .default("ai")
+      .notNull(),
+    aiGeneratedAt: timestamp("ai_generated_at", { withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+  },
+  (table) => [
+    unique("briefings_user_week_unique").on(table.userId, table.weekStartDate),
+    check(
+      "briefings_generation_type_check",
+      sql`${table.generationType} IN ('ai', 'empty_fallback')`,
+    ),
+  ],
+);

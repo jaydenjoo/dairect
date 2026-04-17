@@ -57,6 +57,20 @@
       "when": 1776426315868,
       "tag": "0007_unknown_lethal_legion",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776427316218,
+      "tag": "0008_broken_miracleman",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1776428290733,
+      "tag": "0009_vengeful_shinobi_shaw",
+      "breakpoints": true
     }
   ]
 }

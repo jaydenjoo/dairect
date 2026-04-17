@@ -330,3 +330,39 @@
 - **원인**: Next.js는 `src/middleware.ts` (또는 루트 `middleware.ts`)에서 `middleware` 함수를 export해야 인식. 파일명과 export명 둘 다 맞아야 함
 - **해결**: `proxy.ts` → `src/middleware.ts`, `export async function proxy` → `export async function middleware`
 - **규칙**: Next.js 미들웨어는 파일명 `middleware.ts` + export명 `middleware` 둘 다 고정. PRD/문서에서 "proxy" 용어를 사용하더라도 실제 구현은 Next.js 컨벤션을 따를 것.
+
+## 2026-04-17 — Next.js SSR Hydration: Intl `toLocaleString("ko-KR")` ICU 버전 차이
+
+- **증상**: 대시보드 브리핑 카드 클라이언트 렌더링 시 Hydration mismatch 에러 — 서버는 `"4월 17일 PM 09:10"`, 클라이언트는 `"4월 17일 오후 09:10"` 출력. `whitespace-pre-line` 등 CSS 이슈와 무관하며 텍스트 자체가 달랐다.
+- **원인**: Node.js(Next.js 서버)의 내장 ICU(small-icu)와 브라우저 Chrome의 full ICU가 `ko-KR` 로케일의 AM/PM 표현을 다르게 처리. Node는 `"AM/PM"`, 브라우저는 `"오전/오후"`. 같은 locale이라도 ICU 데이터 버전·빌드 차이가 있으면 결과 드리프트.
+- **해결**: `toLocaleString`/`Intl.DateTimeFormat` 의존을 아예 제거하고 **KST(+9h) 고정 + 수동 문자열 조합**. Date UTC 오프셋 가산 → `getUTCMonth/Date/Hours/Minutes` → `hour24 % 12 || 12` + `"오전"/"오후"` + `padStart(2, "0")`.
+- **규칙**:
+  1. SSR/CSR 양쪽에서 공통 렌더링되는 시간·숫자·통화 포맷에는 **Intl API를 쓰지 말 것**. ICU 버전 차이로 예기치 않은 hydration mismatch 발생.
+  2. 대안 우선순위: (a) **수동 포맷 + 타임존 고정** (Date 연산), (b) `<time dateTime={iso}>`만 서버 렌더 후 클라이언트에서 `useEffect` 포맷 주입, (c) `suppressHydrationWarning` (최후의 회피 — 디버그 신호 차단됨).
+  3. Node.js를 full-icu로 업그레이드해도 브라우저 ICU 버전과 100% 일치 보장 안 됨. "Intl은 브라우저 전용"으로 취급.
+  4. 같은 함정: `toLocaleDateString`, `Intl.NumberFormat(currency)`, `Intl.RelativeTimeFormat` 전부 같은 이슈 가능. 통화 포맷은 이미 `formatKRW` 수동 구현으로 안전 (`/dashboard/page.tsx`).
+
+## 2026-04-17 — Claude API 응답의 literal `\\n` 2문자 함정
+
+- **증상**: AI 주간 브리핑 summary 필드가 `"...에는 수금 및 프로젝트 마감이 집중되어 있습니다.\n미수금 1건..."`처럼 literal backslash-n 2문자로 렌더됨. `whitespace-pre-line` CSS가 실제 개행만 처리하므로 `\n` 문자열은 그대로 표시. 같은 프롬프트로 이전 호출은 정상(개행)이었으나 재호출 시 증상 발현 — LLM 응답 변동성.
+- **원인**: Claude가 tool_use input의 string 필드에 개행을 표현할 때 간혹 실제 newline(U+000A) 대신 **escape sequence 문자열 `"\\n"` (두 글자)**을 리턴. JSON 관점에선 유효한 string이라 Zod `.string()` 통과. UI에서 `whitespace-pre-line`/`\n` 처리하는 경로는 literal을 개행으로 보지 않아 두 글자가 그대로 렌더.
+- **해결**: Zod `.transform((v) => v.replace(/\\n/g, "\n").replace(/\\t/g, "\t"))` 을 문자열 필드에 추가. **저장 전 정규화**로 DB/UI/PDF 모든 소비 경로에 동일 개행 문자가 들어가도록 보장.
+- **규칙**:
+  1. LLM 응답 텍스트를 `whitespace-pre-line`/`\n` 분할 등 "개행 의존" 경로로 소비한다면 **Zod transform 필수**: `v.replace(/\\n/g, "\n")` 이외에도 `\\t`, `\\r` 포괄 고려.
+  2. 정규화는 **saveAction(저장 직전)이 아닌 Zod schema 레벨**에 둘 것. Schema를 여러 경로(저장/읽기)에서 공유하면 자동으로 일관. 저장 경로에만 넣으면 legacy row drift.
+  3. 반대 방향(실제 개행이 들어왔는데 `\n`으로 이스케이프 원하는 PDF 렌더링)은 별도 처리 — react-pdf Text는 JSX `\n`을 그대로 렌더하므로 동일 로직.
+  4. 이 함정은 BiDi/제어문자 regex에서 catch되지 않음 (backslash는 일반 문자로 허용). 보안 regex와 **별개 문제**로 취급.
+  5. 디버깅 체크: UI에 `\n`이 두 글자로 보인다면 DB에서 `SELECT content_json->>'summary'` 로 원문 확인. 실제 문자인지 이스케이프 문자열인지 즉시 판별.
+
+## 2026-04-17 — Supabase RLS defense-in-depth 전략 (service_role 우회 + anon 차단만)
+
+- **증상**: 보안 리뷰에서 "Drizzle 쿼리 userId 조건 누락 버그 시 타 사용자 데이터 교차 노출 리스크 — `briefings`에 RLS 정책 없음" HIGH 판정.
+- **원인**: 현재 Drizzle 접속은 Supabase Pooler를 통한 `postgres` role(superuser). Postgres에서 superuser는 자동으로 RLS를 우회한다. 그러므로 일반적인 "`auth.uid() = user_id` 정책"을 추가해도 Drizzle 경로에는 작동하지 않는다. RLS가 의미 있으려면 `authenticated`/`anon` role로 접속해야 하는데 이는 Supabase Auth JWT 흐름(`@supabase/ssr`) 아래서만 자연스럽다.
+- **해결**: **RLS ENABLE + anon 차단 정책만** 추가하는 defense-in-depth 전략. `ALTER TABLE briefings ENABLE ROW LEVEL SECURITY; CREATE POLICY briefings_deny_anon ON briefings FOR ALL TO anon USING (false);`
+- **규칙**:
+  1. **superuser/`postgres` role 접속은 RLS BYPASS**. 그러므로 "RLS 정책이 있다"고 Drizzle 쿼리가 안전해지는 것이 아님. 앱 레이어 `eq(userId, userId)` 방어는 **여전히 필수**.
+  2. Defense-in-depth: 앱 레이어 실수가 발생해도 anon 접근만큼은 원천 차단. 향후 Supabase anon client(`@supabase/ssr`)를 도입할 때 "어! anon이 접근할 수 있었네" 사고 방지.
+  3. `authenticated` 정책(`auth.uid() = user_id`)은 **authenticated 접속을 실제로 쓰는 시점**에 별도 추가. 지금 만들어두면 테스트도 못 하고 drift만 쌓임.
+  4. 전 테이블 일괄 적용이 이상적이지만 Task 범위 초과 시 **개별 Task에서 새 테이블만** 방어선 추가. Phase 3 백로그에 "기존 12 테이블 일괄 RLS 전환" 별도 Task로 등록.
+  5. service_role 우회 여부 확인법: `SELECT current_user, session_user` 쿼리. `postgres`/`postgres.{ref}` 라면 superuser라 RLS 우회. `authenticated`/`anon`이라면 RLS 정책 적용 대상.
+  6. Supabase 공식 문서는 "RLS 켜자"고 말하지만, 실제 효과는 접속 role에 달려있다. 정책만 보면 안전해 보이지만 `current_user` 확인 없이는 "안전"이라고 단정 금지.

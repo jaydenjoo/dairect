@@ -9,6 +9,8 @@ import {
 } from "./dashboard-actions";
 import { MonthlyRevenueChart, ClientRevenueChart } from "./dashboard-charts";
 import { FolderKanban, FileText, FileSignature, Banknote, Calendar, Activity } from "lucide-react";
+import { getCurrentBriefing } from "@/lib/ai/briefing-actions";
+import { AiBriefingCard } from "@/components/dashboard/ai-briefing-card";
 
 export const metadata: Metadata = {
   title: "대시보드",
@@ -28,13 +30,14 @@ const kpiConfig = [
 ] as const;
 
 export default async function DashboardPage() {
-  const [kpi, monthlyRevenue, clientRevenue, recentActivity, upcomingDeadlines] =
+  const [kpi, monthlyRevenue, clientRevenue, recentActivity, upcomingDeadlines, briefing] =
     await Promise.all([
       getKpiData(),
       getMonthlyRevenue(),
       getClientRevenue(),
       getRecentActivity(),
       getUpcomingDeadlines(),
+      getCurrentBriefing(),
     ]);
 
   const isEmpty =
@@ -70,6 +73,13 @@ export default async function DashboardPage() {
           );
         })}
       </div>
+
+      {/* AI 주간 브리핑 */}
+      <AiBriefingCard
+        initialContent={briefing?.content ?? null}
+        initialGeneratedAt={briefing?.aiGeneratedAt ?? null}
+        initialWeekStartDate={briefing?.weekStartDate ?? null}
+      />
 
       {isEmpty ? (
         <div className="mt-16 flex flex-col items-center justify-center gap-4 text-center">
