@@ -1,0 +1,1 @@
+ALTER TABLE "inquiries" ADD CONSTRAINT "inquiries_package_check" CHECK ("inquiries"."package" IS NULL OR "inquiries"."package" IN ('diagnosis', 'mvp', 'expansion'));

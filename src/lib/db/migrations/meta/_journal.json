@@ -22,6 +22,20 @@
       "when": 1776393165859,
       "tag": "0002_sturdy_true_believers",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776401895159,
+      "tag": "0003_cynical_multiple_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776404777327,
+      "tag": "0004_flimsy_fantastic_four",
+      "breakpoints": true
     }
   ]
 }

@@ -10,6 +10,7 @@ import {
   jsonb,
   decimal,
   unique,
+  check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -312,23 +313,35 @@ export const activityLogs = pgTable("activity_logs", {
 // 랜딩 문의 폼
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-export const inquiries = pgTable("inquiries", {
-  id: uuid().primaryKey().default(sql`gen_random_uuid()`),
-  name: text().notNull(),
-  contact: text().notNull(),
-  ideaSummary: text("idea_summary"),
-  description: text(),
-  budgetRange: text("budget_range", {
-    enum: ["under_100", "100_to_300", "over_300", "unsure"],
-  }),
-  schedule: text({
-    enum: ["within_1month", "1_to_3months", "flexible"],
-  }),
-  status: text({
-    enum: ["new", "contacted", "converted", "archived"],
-  }).default("new"),
-  convertedToLeadId: uuid("converted_to_lead_id"),
-  ipAddress: text("ip_address"),
-  userAgent: text("user_agent"),
-  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-});
+export const inquiries = pgTable(
+  "inquiries",
+  {
+    id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+    name: text().notNull(),
+    contact: text().notNull(),
+    ideaSummary: text("idea_summary"),
+    description: text(),
+    budgetRange: text("budget_range", {
+      enum: ["under_100", "100_to_300", "over_300", "unsure"],
+    }),
+    schedule: text({
+      enum: ["within_1month", "1_to_3months", "flexible"],
+    }),
+    package: text({
+      enum: ["diagnosis", "mvp", "expansion"],
+    }),
+    status: text({
+      enum: ["new", "contacted", "converted", "archived"],
+    }).default("new"),
+    convertedToLeadId: uuid("converted_to_lead_id"),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t) => [
+    check(
+      "inquiries_package_check",
+      sql`${t.package} IS NULL OR ${t.package} IN ('diagnosis', 'mvp', 'expansion')`,
+    ),
+  ],
+);
