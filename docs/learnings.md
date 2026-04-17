@@ -95,6 +95,44 @@
   2. 테이블 형태 데이터(행 × 열 의미 있음)는 반드시 `<table>` + scope 사용. `<div>` + `role="table"` ARIA는 차선책.
   3. MVP 열처럼 한 열 전체를 강조할 때는 `<colgroup>`에 배경 지정보다, 각 td/th에 개별 bg 클래스를 주는 편이 Tailwind와 궁합이 좋다 (colgroup background는 일부 브라우저에서 무시됨).
 
+## 2026-04-17 — 공개 Server Action 방어 4종 세트 (honeypot + timing + sanitize + CSV strip)
+
+- **증상**: Task 2-7 `/about` Contact 폼 구현 후 보안 리뷰에서 "공개 엔드포인트에 rate limit 없음 + UA/IP 무제한 + CSV injection 가능"로 CRITICAL 판정. dashboard Server Action 5패턴은 **인증된** 경로 기준이라 공개 엔드포인트에 부족.
+- **원인**: dashboard 5패턴(catch 태그 + Zod safeParse + 소유권 + enum 재검증 + 명시 컬럼)은 인증 우회 가정이 없음. 공개 폼은 (1) 봇 스팸, (2) 헤더 스푸핑 + control char, (3) 엑셀 export 시 CSV injection, (4) `x-forwarded-for` 좌측 스푸핑이 추가 위협.
+- **해결**: 공개 Server Action 추가 4종 세트 확립.
+  1. **Honeypot + timing**: 숨은 `website` 필드 + `startedAt` 타임스탬프 → 3초 미만 or website 채워짐 → `{ success: true }` 조용히 드롭 (봇은 성공으로 착각하고 재시도 안 함).
+  2. **sanitizeHeader(raw, max)**: control char(`\x00-\x1F\x7F`) 제거 + 길이 상한 slice. `user-agent` 500자, IP 64자.
+  3. **stripFormulaTriggers**: `^[=+\-@\t\r]+` 저장 직전 제거 → 엑셀 export 시 `=HYPERLINK(...)` 공격 차단.
+  4. **x-forwarded-for 우측 파싱**: `split(",").at(-1)` (Vercel은 맨 오른쪽이 프록시 강제 세팅값). 좌측은 클라이언트 스푸핑 가능.
+  5. **Zod `.strict()`**: 미정의 키를 drop만 하지 않고 reject → 변조된 인자 조기 차단.
+- **규칙**:
+  1. 공개 Server Action은 항상 4종 세트 + `.strict()`. 이 5가지 없으면 공개 배포 금지.
+  2. Phase 3에서 Redis/KV rate limit + reCAPTCHA가 추가되더라도 **honeypot + timing은 선제 방어로 유지** (비용 0, 차단율 ~80%).
+  3. IP 로깅은 **감사 목적**. rate limit/auth 결정에 IP 단독 사용 금지 (Vercel `request.ip` 또는 Edge runtime의 신뢰 소스 사용).
+  4. 외부에서 들어오는 자유 텍스트(`name`, `contact`, `ideaSummary`)는 Zod에 `.regex(/^[^\r\n\t<>]+$/)` 추가 (textarea `description` 제외 — 개행 허용) → 메일 헤더 injection 방어.
+  5. dashboard 5패턴 + 공개 엔드포인트 4종 세트 = **Dairect Server Action 9패턴**.
+
+## 2026-04-17 — useRef에 impure function 호출 시 React purity rule 에러
+
+- **증상**: `const startedAtRef = useRef<number>(Date.now());` → eslint `react-hooks/purity` rule error. "Cannot call impure function during render".
+- **원인**: `useRef`는 **초깃값을 lazy init 형태로 받지 못함** (항상 즉시 평가). 반면 `useState`는 `useState(() => Date.now())` lazy init 지원. React 19 + `react-hooks/purity` 규칙이 렌더 중 impure 호출을 에러로 올림.
+- **해결**: `const [startedAt] = useState(() => Date.now());` — lazy init + 불변 참조.
+- **규칙**:
+  1. 렌더 시점에 한 번만 평가되어야 할 impure 값(`Date.now()`, `crypto.randomUUID()`, `Math.random()`)은 `useState(() => fn())` 패턴 사용.
+  2. 꼭 `useRef`를 써야 한다면 `useRef<T | null>(null)` + `useEffect` 안에서 세팅.
+  3. lint 에러를 `eslint-disable`로 우회하지 말 것. React 19의 purity rule은 Concurrent Mode + Strict Mode에서 실제 double-invoke 버그를 낳음.
+
+## 2026-04-17 — Drizzle `check()` 헬퍼로 DB 레벨 enum 방어
+
+- **증상**: `text({ enum: [...] })`로 선언된 컬럼에 Drizzle이 CHECK constraint를 **자동 생성하지 않음**. Zod는 앱 레이어 방어라 DB 직접 접근(SQL 클라이언트, 다른 서비스)으로 `"evil"` 같은 무효값 INSERT 가능.
+- **원인**: Drizzle 0.45의 `text` 타입에서 `enum` 옵션은 **TypeScript 타입 좁히기 + Drizzle 쿼리 자동완성**만 담당. `ALTER TABLE ... ADD CONSTRAINT ... CHECK`는 별도 선언 필요.
+- **해결**: `pgTable(name, cols, (t) => [check("name", sql\`${t.col} IS NULL OR ${t.col} IN (...)\`)])` 3번째 인자(테이블 옵션 배열)에 `check()` 헬퍼 추가 → `db:generate` 시 `ALTER TABLE ... ADD CONSTRAINT` 자동 생성.
+- **규칙**:
+  1. `text({ enum: [...] })` 컬럼은 **반드시 `check()` 제약을 쌍으로 선언**. Zod 단독 방어는 DB 직접 접근 경로에서 무효.
+  2. 기존 테이블에 CHECK 추가 시 기존 데이터가 제약 위반이면 마이그레이션 실패. 먼저 `SELECT DISTINCT col FROM table`로 값 분포 확인 후 정리.
+  3. 네이밍: `<table>_<col>_check` (예: `inquiries_package_check`) — Supabase 대시보드에서 가독성.
+  4. `NULL` 허용 컬럼은 `col IS NULL OR col IN (...)` 형태로 명시 작성 (NULL은 `IN`에서 unknown으로 통과하지만 명시가 안전).
+
 ## 2026-04-16 — proxy.ts vs middleware.ts (Next.js 16.2)
 
 - **증상**: `proxy.ts`로 내보낸 미들웨어가 작동하지 않음 (인증 보호 무효)

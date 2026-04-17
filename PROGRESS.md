@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
 > 최종 업데이트: 2026-04-17
-> 현재 위치: Phase 2 > Task 2-6 완료 → Task 2-7 대기
+> 현재 위치: Phase 2 > Task 2-7 완료 → Task 2-8 대기
 
 ## 전체 진행률
 
@@ -9,7 +9,7 @@
 |-------|------|------|--------|
 | Phase 0 | 기반 설정 | ✅ 완료 | 100% |
 | Phase 1 | 대시보드 핵심 | ✅ 완료 | 100% |
-| Phase 2 | 견적/계약/정산 + 리브랜딩 | 🔄 진행 | 75% |
+| Phase 2 | 견적/계약/정산 + 리브랜딩 | 🔄 진행 | 87.5% |
 | Phase 3 | AI + 자동화 + 리드 CRM | ⬜ 대기 | 0% |
 | Phase 4 | 고객 포털 + /demo + PWA | ⬜ 대기 | 0% |
 | Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
@@ -40,7 +40,7 @@
 - [x] **Task 2-4** — 청구서/정산 관리 (수동/견적서 자동 3분할 + 상태 전이 + 입금 확인 + 세금계산서 도우미 + PDF)
 - [x] **Task 2-5** — 랜딩 메인 리브랜딩 (Nav + Hero 추상 대시보드 목업 + Problem + Service + Portfolio + PricingSummary + CTA + Footer)
 - [x] **Task 2-6** — `/pricing` 상세 페이지 (3패키지 앵커 + 비교 표 semantic + FAQ native details + LandingNav 공용화)
-- [ ] **Task 2-7** — `/about` + Contact 폼 (inquiries 테이블 확장)
+- [x] **Task 2-7** — `/about` + Contact 폼 (Hero 다크 + Contact 연보라 + inquiries.package 컬럼 + honeypot 봇방어 + sanitizeHeader + CSV injection 방어)
 - [ ] **Task 2-8** — `/projects` Bento Grid 상세 (is_public 연동)
 
 ### 코드 리뷰 수정 내역 (Task 2-4)
@@ -80,14 +80,51 @@
 | MEDIUM | MVP scale `lg:` 이하 적용 안 됨 | `md:scale-[1.04]`로 breakpoint 하향 |
 | MEDIUM | "정확한 금액..." 문구 중복 (Summary + Table) | Table 하단 제거, Summary만 유지 |
 
-## 현재 세션 (2026-04-17)
+### 코드/보안/UX 리뷰 수정 내역 (Task 2-7)
+
+code-reviewer + security-reviewer 병렬 리뷰, 총 14건 수정:
+
+| 심각도 | 이슈 | 수정 |
+|--------|------|------|
+| 🔴 CRITICAL | Rate limit/봇 방어 부재 (공개 엔드포인트) | **honeypot `website` 필드** + **3초 timing 가드** → 즉시 성공 응답으로 드롭 |
+| HIGH | `package` enum DB 레벨 방어 없음 | Drizzle `check()` 헬퍼 추가 + `0004_flimsy_fantastic_four.sql` 적용 |
+| HIGH | `initialPackage` prop만 → 사용자 변경 불가 | `pkg` state 승격 + 뱃지 X 버튼으로 취소 가능 |
+| HIGH | Radio 그룹 focus-visible 링 없음 (WCAG 2.4.7) | `focus-within:ring-2 ring-primary/40 ring-offset-2` |
+| HIGH | `PackageId/BudgetId/ScheduleId` 3중 중복 정의 | `validation/inquiry.ts`에서 Zod infer로 단일 export |
+| HIGH | UA/IP control char + 길이 상한 없음 | `sanitizeHeader(raw, max)` — control char strip + slice (UA 500, IP 64) |
+| HIGH | CSV injection 방어 없음 (`=HYPERLINK(...)` 공격) | `stripFormulaTriggers()` — `=+-@\t\r` leading strip |
+| MEDIUM | 토스트 + 성공 화면 중복 피드백 | 성공 시 토스트 제거, 대형 확인 카드만 |
+| MEDIUM | 연락처 input 모바일 힌트 없음 | `inputMode="email"` + `autoComplete="email"` |
+| MEDIUM | 연락처/이름/요약 개행·`<>` 차단 없음 | Zod `.regex(/^[^\r\n\t<>]+$/)` 메일 헤더 injection 방어 |
+| MEDIUM | Hero 그림자 순수 `rgba(0,0,0,0.6)` | `rgba(17,24,39,0.6)` gray-900 기반 (DESIGN.md 순수 #000 금지) |
+| MEDIUM | `x-forwarded-for` 좌측 파싱 (Vercel 스푸핑 위험) | 우측 파싱 `split(",").at(-1)` |
+| MEDIUM | Zod `.strict()` 누락 (미정의 키 drop만) | `.strict()` 추가 — 미정의 키 즉시 reject |
+| LOW | 영문 대문자 "BY SUBMITTING..." 가독성 | "제출 시 개인정보 처리방침에 동의..." 한국어 |
+
+**추가로 발견 (수정 과정)**:
+- `useRef<number>(Date.now())` React purity rule 위반 → `useState(() => Date.now())` lazy init
+- unused `_w`/`_s` destructure → Zod safeParse에 명시적 객체 구성으로 제거
+
+### 다음 Task로 이관된 이슈
+- **Nav `/about#service` 죽은 링크** — `/about`에 해당 앵커 섹션 없음 (네비 구조 결정 필요)
+
+### Phase 3 백로그 (Task 2-7에서 인지)
+- Redis/KV 기반 IP rate limit · reCAPTCHA/hCaptcha
+- PII 암호화 (at-rest)
+- `ENABLE ROW LEVEL SECURITY` + anon 차단 정책 (Supabase anon client 도입 시점)
+- 이메일 자동 회신 시 헤더 injection 방어 (`contact`를 `To:`에 넣을 때 `\r\n` strip)
+- 구조화 로깅
+- `budget_range`/`schedule`/`status` 컬럼 CHECK 제약 일괄 추가
+- `leads` 자동 생성 (source='landing_form')
+
+## 현재 세션 (2026-04-17 후반)
 
 - **완료**:
-  - Task 2-4 구현 + 코드/보안 리뷰 5건 수정 + DB 마이그레이션 `0002_sturdy_true_believers.sql`
-  - Task 2-5 구현 + 코드/UX 리뷰 8건 수정 (+ Hero 옵션 C 추상 대시보드 목업)
-  - Task 2-6 구현 + 코드/UX 리뷰 9건 수정 + LandingNav 공용화
-  - 커밋 2건: `5b15060` (Task 2-4) / `0b706c8` (Task 2-5/2-6)
-- **다음**: Task 2-7 (/about 페이지 + Contact 폼 + inquiries 테이블 확장) 또는 Task 2-8 (/projects Bento 상세)
+  - Task 2-7 구현 (`/about` Hero+Contact + `inquiries.package` enum + `submitInquiryAction` Server Action)
+  - code-reviewer + security-reviewer 병렬 리뷰, 총 14건 수정 반영
+  - DB 마이그레이션 2건: `0003_cynical_multiple_man.sql` (package 컬럼) / `0004_flimsy_fantastic_four.sql` (CHECK 제약)
+  - `.claude/launch.json` 생성 (Claude Preview MCP: next-dev + drizzle-studio)
+- **다음**: Task 2-8 (`/projects` Bento Grid 상세) 또는 Task 2-7-후속 (Nav `/about#service` 섹션 결정)
 - **차단 요소**: 없음
 
 ## 검증 상태
@@ -95,8 +132,9 @@
 ```
 ✅ tsc       — PASS (0 errors)
 ✅ lint      — PASS (0 errors, Task 2-1 기존 경고 1개 잔존)
-✅ build     — PASS (24 routes, invoices/pricing 추가)
-✅ db:push   — PASS (14 tables, invoices UNIQUE 적용)
+✅ build     — PASS (25 routes, /about 동적 전환 — searchParams 수신)
+✅ db:push   — PASS (14 tables, inquiries.package + CHECK constraint)
+✅ dev 스모크 — /about, /about?package=mvp HTTP 200
 ```
 
 ## 기술 결정 기록
@@ -117,6 +155,9 @@
 | 2026-04-17 | PDFDownloadLink = anchor → buttonVariants className | HTML nested button invalid 회피 |
 | 2026-04-17 | Server Action: 읽기 함수 try-catch 없음 | Next.js Dynamic Server Error 정상 흐름 보존 |
 | 2026-04-17 | 계약서 상태 전이맵 서버 검증 | 법적 증빙 무결성 (signed → draft 역행 방지) |
+| 2026-04-17 | 공개 Server Action 방어 4종 세트 | honeypot + timing + sanitizeHeader + CSV strip (rate limit은 Phase 3 Redis) |
+| 2026-04-17 | Drizzle `check()` 헬퍼로 DB 레벨 enum 방어 | Zod는 앱 레이어 방어일 뿐, DB 직접 INSERT 시 무효값 차단 필요 |
+| 2026-04-17 | RLS 판단: Drizzle direct = service_role → 현재 안전 | Phase 3 anon client 도입 시점에 `ENABLE RLS` + anon 차단 정책 추가 |
 | 2026-04-17 | 계약서 immutability는 참조 차단으로 완화 | 전자서명(Phase 3) 때 스냅샷 컬럼 추가 예정 |
 | 2026-04-17 | `(userId, contractNumber/invoiceNumber)` UNIQUE + 23505 재시도 | MAX 기반 채번 경합 방어 |
 | 2026-04-17 | `generateInvoiceNumber(tx, userId, offset)` offset 파라미터 | 트랜잭션 내 N회 호출 시 동일 MAX 반환 방어 (3분할 자동 생성) |
