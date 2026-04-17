@@ -274,6 +274,23 @@
      각각 UPDATE WHERE에 현재 상태 조건 포함 필요.
   5. **Dairect Server Action 9패턴 → 10패턴**: "한 번만 수행되어야 하는 상태 전환은 UPDATE WHERE에 현재 상태 조건 + rowsAffected 체크".
 
+## 2026-04-17 — Supabase auth.users 직접 SQL INSERT 시 토큰 컬럼은 NULL 금지 (빈 문자열 필수)
+
+- **증상**: `auth.users` + `auth.identities`에 SQL로 직접 계정을 만들었는데 `supabase.auth.signInWithPassword()` 가 500 에러 반환. UI엔 "이메일 또는 비밀번호가 올바르지 않습니다"로만 나옴. password_matches(crypt 검증)는 true, email_confirmed_at도 정상, identity 매핑도 1건 있는데 로그인 실패.
+- **원인**: Supabase Auth 서비스(Go, gotrue)가 사용자 조회 시 `confirmation_token`, `recovery_token`, `email_change_token_new`, `email_change_token_current`, `email_change`, `phone_change`, `phone_change_token`, `reauthentication_token` 컬럼들을 **NOT NULL string**으로 Scan한다. 스키마상 NULL 허용이지만 Go 드라이버는 string 타입에 NULL을 변환하지 못해 `"sql: Scan error on column index 3, name 'confirmation_token': converting NULL to string is unsupported"` 에러 발생 → HTTP 500. 에러는 서버 로그에만 노출되고 UI엔 일반 메시지로만 보임.
+- **해결**: INSERT 시 해당 컬럼들을 명시적으로 `''`(빈 문자열)로 지정. 이미 만든 계정은 `UPDATE auth.users SET confirmation_token = COALESCE(confirmation_token, ''), ...` 로 보정.
+- **규칙**:
+  1. 가장 안전한 방법은 **Supabase Admin API**(`supabase.auth.admin.createUser`). `SERVICE_ROLE_KEY` 있으면 항상 이걸 쓸 것. 내부적으로 올바른 필드를 채워줌.
+  2. SERVICE_ROLE_KEY가 없거나 MCP `execute_sql`로 작업해야 할 때는 **8개 토큰 컬럼을 `''`로 명시**:
+     `confirmation_token, recovery_token, email_change_token_new, email_change_token_current, email_change, phone_change, phone_change_token, reauthentication_token`
+  3. 디버깅 체크리스트 (로그인 500 에러 시):
+     - (a) `SELECT email_confirmed_at, encrypted_password, aud, role FROM auth.users` — 기본 필드 확인
+     - (b) `SELECT count(*) FROM auth.identities WHERE user_id = ?` — identity 1건 이상
+     - (c) `crypt(password, encrypted_password) = encrypted_password` — password hash 검증
+     - (d) **Supabase MCP `get_logs(service="auth")` — 실제 에러 메시지 확인** (가장 결정적)
+  4. Supabase Auth 에러는 UI엔 일반 메시지로 마스킹되므로 **반드시 `get_logs`로 내부 에러 조회**. "비밀번호 틀림"처럼 보여도 실제론 스키마/NULL 이슈인 경우가 흔하다.
+  5. 싱글테넌트(Jayden 혼자 운영) + Claude 테스트 자동화 니즈의 최소 침습 패턴: `/login`에 이메일/비번 로그인 폼만 추가(회원가입 버튼 없음) + Supabase 직접 생성 계정. 회원가입은 Phase 5 SaaS 전환 시점에 정식 추가.
+
 ## 2026-04-16 — proxy.ts vs middleware.ts (Next.js 16.2)
 
 - **증상**: `proxy.ts`로 내보낸 미들웨어가 작동하지 않음 (인증 보호 무효)

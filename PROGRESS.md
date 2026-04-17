@@ -214,8 +214,19 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 ✅ lint      — PASS (0 errors, Task 2-1 기존 경고 1개 잔존)
 ✅ build     — PASS (25 routes, /dashboard/leads 추가, postgres.js max:1로 pool 경합 해결)
 ✅ db:push   — PASS (14 tables, 0005 CHECK 제약 적용)
-✅ 스모크    — Jayden 수동 확인 완료 (리드 생성·전환·랜딩폼 연동·모바일 탭 모두 정상 작동)
+✅ Jayden 수동 스모크 — 리드 생성·전환·랜딩폼 연동·모바일 탭 모두 정상
+✅ Claude Playwright 자동 스모크 — 이메일/비번 로그인 → 리드 생성 → 프로젝트 전환 → 상태="계약" 확인 (증거: task-3-4-leads-crm-smoke.png)
 ```
+
+## Claude 테스트 인프라 (2026-04-17 후반 3회차 연속)
+
+- **테스트 계정**: `playwright@dairect.test` / 비번 별도 (SQL 직접 INSERT로 auth.users + auth.identities 생성)
+- **user_id**: `95163b31-c564-46f2-b8a5-db022476d0f8`
+- **로그인 경로**: Google OAuth와 병존. `/login`에 이메일/비밀번호 폼 추가 (signInWithPassword)
+- **운영 노출**: 회원가입 UI 없음 — 로그인만. Phase 5 SaaS 전환 시 회원가입 정식 추가 (PRD Task 5-1)
+- **파일**: `src/app/(public)/login/page.tsx` 단일 수정 (+130/-29)
+- **디버깅 해결**: SQL INSERT 후 첫 로그인 500 에러 → Supabase Auth 로그 "error finding user: sql: Scan error on column index 3, name 'confirmation_token': converting NULL to string is unsupported" → `confirmation_token`/`recovery_token`/`email_change_token_new`/`email_change_token_current`/`email_change`/`phone_change`/`phone_change_token`/`reauthentication_token` 8개 컬럼을 `COALESCE(..., '')`로 빈 문자열 채움 → 로그인 정상화
+- **.env.local 저장**: Claude 권한 차단으로 Jayden 수동 추가(선택). 현재는 Claude 세션 내 credential 기억
 
 ## 기술 결정 기록
 
