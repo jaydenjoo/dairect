@@ -6,13 +6,18 @@ import { getUserId } from "@/lib/auth/get-user-id";
 import {
   projectFormSchema,
   projectStatusSchema,
+  publicFieldsSchema,
   type ProjectFormData,
   type ProjectStatus,
 } from "@/lib/validation/projects";
 import { eq, and, desc, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 export type ActionResult = { success: boolean; error?: string; id?: string };
+
+const projectIdSchema = z.string().uuid();
+const TAGS_RAW_MAX = 500;
 
 // ─── 프로젝트 목록 ───
 
@@ -62,6 +67,11 @@ export async function getProject(id: string) {
       clientId: projects.clientId,
       createdAt: projects.createdAt,
       clientName: clients.companyName,
+      isPublic: projects.isPublic,
+      publicAlias: projects.publicAlias,
+      publicDescription: projects.publicDescription,
+      publicTags: projects.publicTags,
+      publicLiveUrl: projects.publicLiveUrl,
     })
     .from(projects)
     .leftJoin(clients, eq(clients.id, projects.clientId))
@@ -148,6 +158,96 @@ export async function updateProjectStatusAction(
   } catch (err) {
     console.error("[updateProjectStatusAction]", err);
     return { success: false, error: "상태 변경 중 오류가 발생했습니다" };
+  }
+}
+
+// ─── 공개 프로필 필드 업데이트 ───
+
+export type PublicFieldsFormData = {
+  isPublic: boolean;
+  publicAlias: string;
+  publicDescription: string;
+  publicLiveUrl: string;
+  publicTagsRaw: string; // 쉼표 구분 입력
+};
+
+function parseTags(raw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const piece of raw.split(",")) {
+    const tag = piece.trim();
+    if (!tag) continue;
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(tag);
+  }
+  return out;
+}
+
+export async function updateProjectPublicFieldsAction(
+  projectId: string,
+  data: PublicFieldsFormData,
+): Promise<ActionResult> {
+  const userId = await getUserId();
+  if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
+
+  const idCheck = projectIdSchema.safeParse(projectId);
+  if (!idCheck.success) return { success: false, error: "프로젝트 식별자가 올바르지 않습니다" };
+
+  if (typeof data.publicTagsRaw !== "string" || data.publicTagsRaw.length > TAGS_RAW_MAX) {
+    return { success: false, error: "태그 입력이 너무 깁니다" };
+  }
+
+  const parsed = publicFieldsSchema.safeParse({
+    isPublic: data.isPublic,
+    publicAlias: data.publicAlias.trim(),
+    publicDescription: data.publicDescription,
+    publicLiveUrl: data.publicLiveUrl.trim(),
+    publicTags: parseTags(data.publicTagsRaw),
+  });
+  if (!parsed.success) {
+    const userIssue = parsed.error.issues.find((i) => i.code !== "unrecognized_keys");
+    if (!userIssue) console.error("[updateProjectPublicFields] unrecognized_keys", parsed.error.issues);
+    return {
+      success: false,
+      error: userIssue?.message ?? "입력값이 올바르지 않습니다",
+    };
+  }
+
+  const v = parsed.data;
+
+  try {
+    const result = await db
+      .update(projects)
+      .set({
+        isPublic: v.isPublic,
+        publicAlias: v.publicAlias || null,
+        publicDescription: v.publicDescription || null,
+        publicLiveUrl: v.publicLiveUrl || null,
+        publicTags: v.publicTags.length > 0 ? v.publicTags : null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(projects.id, idCheck.data),
+          eq(projects.userId, userId),
+          isNull(projects.deletedAt),
+        ),
+      )
+      .returning({ id: projects.id });
+
+    if (result.length === 0) {
+      return { success: false, error: "프로젝트를 찾을 수 없습니다" };
+    }
+
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${idCheck.data}`);
+    revalidatePath(`/dashboard/projects/${idCheck.data}`);
+    return { success: true };
+  } catch (err) {
+    console.error("[updateProjectPublicFieldsAction]", err);
+    return { success: false, error: "저장 중 오류가 발생했습니다" };
   }
 }
 

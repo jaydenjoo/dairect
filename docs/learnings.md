@@ -133,6 +133,49 @@
   3. 네이밍: `<table>_<col>_check` (예: `inquiries_package_check`) — Supabase 대시보드에서 가독성.
   4. `NULL` 허용 컬럼은 `col IS NULL OR col IN (...)` 형태로 명시 작성 (NULL은 `IN`에서 unknown으로 통과하지만 명시가 안전).
 
+## 2026-04-17 — 공개 URL 필드 SSRF/내부망 유도 방어 (regex로 부족)
+
+- **증상**: Task 2-8-B 보안 리뷰에서 `publicLiveUrl`의 Zod 검증이 `/^https?:\/\/.+/` regex 하나뿐. `http://localhost`, `http://169.254.169.254/` (AWS metadata), `http://10.0.0.1`, `http://192.168.*` 같은 내부망/메타데이터 호스트가 저장되어 공개 페이지에 `<a href>`로 노출 가능. 사용자가 클릭하면 내부망 접근 유도.
+- **원인**: regex는 문자열 패턴만 본다. URL의 **host 의미**(내부망 여부)는 `new URL()` 파싱 후 IP/도메인 분류 로직으로 판단해야 함. 공개 저장소(신뢰할 수 없는 입력)에 들어가는 URL은 저장측과 렌더측 **둘 다** 동일 로직이어야 drift 없음.
+- **해결**: `isSafePublicUrl(v)` 함수로 통일.
+  1. 제어문자/공백/꺾쇠 차단: `/[\x00-\x20\x7F<>]/.test(v)` → false
+  2. `new URL(v)` 파싱 성공
+  3. 프로토콜 `https:` 또는 `http:`만
+  4. `isInternalHost(hostname)` — `localhost`/`0.0.0.0`/`::1` + `.local`/`.internal` 서픽스 + IPv4 대역(`127.*`, `10.*`, `169.254.*`, `192.168.*`, `172.16.*~172.31.*`, `0.*`) 차단
+- **규칙**:
+  1. 공개 저장 URL 필드는 **regex + new URL + 내부망 체크** 3단계 필수. 어느 하나라도 빠지면 SSRF/내부망 유도 창구.
+  2. 저장시 검증 로직과 렌더시 검증 로직을 **같은 함수**로 → "저장됐는데 링크가 사라지는" 신뢰 버그 방지. 다만 지금은 레이어 분리상 쌍방 중복 — 필요 시 `src/lib/validation/public-url.ts`로 공용화.
+  3. 외부 링크 렌더는 `target="_blank" rel="noopener noreferrer"` 필수.
+  4. `javascript:` 스킴만 차단하던 단순 가드는 절반만 맞음. 메타데이터 엔드포인트(AWS: 169.254.169.254, GCP: `metadata.google.internal`) 반드시 차단.
+
+## 2026-04-17 — Zod `.strict()` + refine의 에러 메시지 분리 (내부 정보 유출)
+
+- **증상**: Server Action에서 `parsed.error.issues[0]?.message`로 사용자에게 에러 표출. `.strict()` 스키마가 미정의 키를 받으면 `unrecognized_keys` 에러가 issues 배열 **맨 앞**에 들어와 "알 수 없는 키 'foo'" 같은 내부 메시지가 사용자에게 노출.
+- **원인**: `.strict()`는 악의적/변조된 요청 탐지용 방어 레이어. `unrecognized_keys` 이슈 자체는 **개발자/로그용 신호**이지 사용자에게 보여줄 메시지가 아님. 하지만 Zod는 issues 순서를 보장하지 않아 refine 메시지보다 먼저 올 수 있음.
+- **해결**: 에러 표출 시 이슈 필터링.
+  ```ts
+  const userIssue = parsed.error.issues.find((i) => i.code !== "unrecognized_keys");
+  if (!userIssue) console.error("[tag] unrecognized_keys", parsed.error.issues);
+  return { success: false, error: userIssue?.message ?? "입력값이 올바르지 않습니다" };
+  ```
+- **규칙**:
+  1. Zod `.strict()` 쓰는 Server Action의 에러 표출은 **반드시 `code !== "unrecognized_keys"` 필터** 적용.
+  2. 미정의 키 감지는 로그로만 → 공격 탐지 신호.
+  3. 일반화: 사용자 입력 오류와 스키마 구조 오류는 다른 채널로 다뤄야 함(사용자 vs 로그).
+  4. Server Action 5패턴에 6번째 패턴 추가: **"Zod 에러 표출은 사용자-관련 issue만 통과"**.
+
+## 2026-04-17 — Next.js App Router Static prerender 함정 (공개 DB 쿼리 페이지)
+
+- **증상**: `/projects` Server Component에서 `db.select()` 호출했지만 `pnpm build` 결과에 `○ Static` 표시. 즉 빌드 시점의 DB 결과가 정적으로 굳어 대시보드에서 `isPublic=true`로 전환해도 공개 페이지에 안 나타남. 재배포 전까지 영구 반영 안 됨.
+- **원인**: Next.js 15/16 App Router는 `cookies()`/`headers()` 등 동적 API를 호출하지 않는 Server Component를 기본 static 처리. DB 쿼리는 동적 API가 아니라서 static 대상. 이전 대시보드 페이지들이 `ƒ Dynamic`으로 잡힌 건 모두 `getUserId()` → `cookies()` 때문.
+- **해결**: 공개 페이지에 `export const revalidate = 60` (또는 숫자) 명시 → ISR 전환. build 로그에 `○ ... 1m 1y` 형태로 revalidate 표시.
+- **규칙**:
+  1. 공개(인증 없는) Server Component에서 DB 쿼리로 데이터 노출하면 **반드시 `revalidate` 명시**. 미명시 시 build 시점 데이터 동결.
+  2. 자주 바뀌면 `revalidate = 60`(1분). 거의 안 바뀌면 `revalidate = 3600`. 실시간 필요하면 `export const dynamic = "force-dynamic"`.
+  3. `revalidate`는 **페이지 파일 최상단**에 export. 헬퍼 함수 내부에 숨기지 말 것.
+  4. 동적 라우트 `[id]`는 기본 `ƒ Dynamic`이지만 `revalidate` 추가로 1분 캐시 가능 (build 로그 `ƒ`로 표시되어도 실제로는 캐시됨).
+  5. 대시보드 mutation Server Action에서 `revalidatePath("/projects")` 호출 → revalidate 대기 없이 즉시 재생성 가능.
+
 ## 2026-04-16 — proxy.ts vs middleware.ts (Next.js 16.2)
 
 - **증상**: `proxy.ts`로 내보낸 미들웨어가 작동하지 않음 (인증 보호 무효)

@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
 > 최종 업데이트: 2026-04-17
-> 현재 위치: Phase 2 > Task 2-7 완료 → Task 2-8 대기
+> 현재 위치: Phase 2 완료 → Phase 3 대기
 
 ## 전체 진행률
 
@@ -9,7 +9,7 @@
 |-------|------|------|--------|
 | Phase 0 | 기반 설정 | ✅ 완료 | 100% |
 | Phase 1 | 대시보드 핵심 | ✅ 완료 | 100% |
-| Phase 2 | 견적/계약/정산 + 리브랜딩 | 🔄 진행 | 87.5% |
+| Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | ⬜ 대기 | 0% |
 | Phase 4 | 고객 포털 + /demo + PWA | ⬜ 대기 | 0% |
 | Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
@@ -32,7 +32,7 @@
 - [x] **Task 1-5** — 마일스톤 관리 (CRUD + 체크리스트 + 진행률 프로그레스 바)
 - [x] **Task 1-6** — KPI 홈 대시보드 (카드 4개 + Bar/Pie 차트 + 활동 타임라인 + 마일스톤)
 
-## Phase 2: 견적/계약/정산 + 리브랜딩 🔄
+## Phase 2: 견적/계약/정산 + 리브랜딩 ✅
 
 - [x] **Task 2-1** — 견적서 생성기 수동 모드 (목록 + 생성 폼 + 상세 + 상태 변경 + 삭제)
 - [x] **Task 2-2** — 견적서 PDF 생성 + 미리보기 (Pretendard self-host + A4 템플릿 + 다운로드)
@@ -41,7 +41,8 @@
 - [x] **Task 2-5** — 랜딩 메인 리브랜딩 (Nav + Hero 추상 대시보드 목업 + Problem + Service + Portfolio + PricingSummary + CTA + Footer)
 - [x] **Task 2-6** — `/pricing` 상세 페이지 (3패키지 앵커 + 비교 표 semantic + FAQ native details + LandingNav 공용화)
 - [x] **Task 2-7** — `/about` + Contact 폼 (Hero 다크 + Contact 연보라 + inquiries.package 컬럼 + honeypot 봇방어 + sanitizeHeader + CSV injection 방어)
-- [ ] **Task 2-8** — `/projects` Bento Grid 상세 (is_public 연동)
+- [x] **Task 2-8** — `/projects` Bento Grid + 상세 페이지 (is_public 연동, Nav service 제거)
+- [x] **Task 2-8-B** — 대시보드 공개 프로필 토글 UI (isPublic/alias/description/liveUrl/tags 편집 Server Action)
 
 ### 코드 리뷰 수정 내역 (Task 2-4)
 
@@ -105,10 +106,43 @@ code-reviewer + security-reviewer 병렬 리뷰, 총 14건 수정:
 - `useRef<number>(Date.now())` React purity rule 위반 → `useState(() => Date.now())` lazy init
 - unused `_w`/`_s` destructure → Zod safeParse에 명시적 객체 구성으로 제거
 
-### 다음 Task로 이관된 이슈
-- **Nav `/about#service` 죽은 링크** — `/about`에 해당 앵커 섹션 없음 (네비 구조 결정 필요)
+### 코드/보안 리뷰 수정 내역 (Task 2-8) — 14건
 
-### Phase 3 백로그 (Task 2-7에서 인지)
+**1차 리뷰 (4건 블로킹 + 3건 권고)**:
+| 심각도 | 이슈 | 수정 |
+|--------|------|------|
+| 🔴 security | `publicAlias ?? project.name` fallback → 원본 고객사명 공개 리스크 | `isNotNull(publicAlias)` 쿼리 필터 + 제네릭 타입 가드 `hasAlias<T>`로 `string` narrow + 3곳 fallback 제거 |
+| 🔴 code | 변수 쉐도잉 `projects` (테이블 심볼) | `items`로 rename |
+| 🟡 code | `ORDER BY endDate DESC` NULLS FIRST 기본 | `sql\`${endDate} DESC NULLS LAST\`` |
+| 🟡 code | `publicScreenshotUrl` dead field | 쿼리 컬럼 + 타입에서 제거 |
+| 🟡 security | `safeExternalUrl` regex만 | `new URL()` + 제어문자/공백 차단 + 정규화 반환 |
+| 🟡 security | `/projects/[id]` revalidate 미명시 | `export const revalidate = 60` |
+| 🟡 code | `formatPeriod` split 방어 부재 | `parts.length < 2 → value` 가드 |
+
+### 코드/보안 리뷰 수정 내역 (Task 2-8-B) — 8건
+
+| 심각도 | 이슈 | 수정 |
+|--------|------|------|
+| 🔴 security | `publicLiveUrl` SSRF/내부망 차단 누락 | `isSafePublicUrl` refine + `isInternalHost` (localhost/127.*/10.*/172.16-31.*/192.168.*/169.254.*/.local/.internal) |
+| 🔴 security | `publicDescription` 제어문자/BiDi 오염 | `safeMultilineText` regex — `\x00-\x08\x0B\x0C\x0E-\x1F\x7F` + BiDi `\u202A-\u202E\u2066-\u2069` 차단 |
+| 🔴 security | `projectId` UUID 선검증 누락 | `projectIdSchema.safeParse(projectId)` 가드 + 이후 `idCheck.data` 사용 |
+| 🔴 code | Zod `.strict()` `unrecognized_keys` 사용자 노출 | `issues.find(i => i.code !== "unrecognized_keys")` + 미정의 키는 console.error만 |
+| 🟡 code | 저장 후 로컬 상태 drift | 성공 콜백에서 `setAlias/setLiveUrl(trim)` + `setTagsRaw(normalizeTagsRaw)` |
+| 🟡 code | `parseTags` 대소문자 dedupe + slice(8) 유실 | `.toLowerCase()` 키 dedupe + `slice(8)` 제거 → Zod `.max(8)` 에러 정상 표출 |
+| 🟡 code | `aria-describedby` 누락 | alias/description/tags 3필드 모두 `-help`/`-error` id 연결 |
+| 🟡 security + code | `publicTagsRaw` 길이 상한 + `isPublic null` | 서버 `TAGS_RAW_MAX=500` + 클라 `maxLength={500}` + page.tsx `isPublic ?? false` |
+
+### 다음 Task로 이관된 이슈 (Task 2-8 스코프 아웃)
+- loading.tsx / error.tsx (전체 공개 페이지 일관성 유지)
+- total=1 풀폭 span (실제 공개 프로젝트 1개 생길 때)
+- Portfolio 섹션 하드코딩 vs DB 연동 (랜딩 홈)
+- Server Action 시그니처 `publicTagsRaw` → `string[]` 리팩토링 (Task 2-8-B M4)
+- 저장 후 공개 페이지 링크 표시 타이밍 (Task 2-8-B M3)
+- 취소/되돌리기 UX (Task 2-8-B L4)
+- URL/ALIAS/DESC 최대값 상수화 (Task 2-8-B L3)
+- `style={{ wordBreak: "keep-all" }}` → `break-keep` 일괄 리팩토링
+
+### Phase 3 백로그 (Task 2-7/2-8에서 인지)
 - Redis/KV 기반 IP rate limit · reCAPTCHA/hCaptcha
 - PII 암호화 (at-rest)
 - `ENABLE ROW LEVEL SECURITY` + anon 차단 정책 (Supabase anon client 도입 시점)
@@ -117,14 +151,15 @@ code-reviewer + security-reviewer 병렬 리뷰, 총 14건 수정:
 - `budget_range`/`schedule`/`status` 컬럼 CHECK 제약 일괄 추가
 - `leads` 자동 생성 (source='landing_form')
 
-## 현재 세션 (2026-04-17 후반)
+## 현재 세션 (2026-04-17 후반 2회차)
 
 - **완료**:
-  - Task 2-7 구현 (`/about` Hero+Contact + `inquiries.package` enum + `submitInquiryAction` Server Action)
-  - code-reviewer + security-reviewer 병렬 리뷰, 총 14건 수정 반영
-  - DB 마이그레이션 2건: `0003_cynical_multiple_man.sql` (package 컬럼) / `0004_flimsy_fantastic_four.sql` (CHECK 제약)
-  - `.claude/launch.json` 생성 (Claude Preview MCP: next-dev + drizzle-studio)
-- **다음**: Task 2-8 (`/projects` Bento Grid 상세) 또는 Task 2-7-후속 (Nav `/about#service` 섹션 결정)
+  - Task 2-8 구현 (`/projects` Bento Grid + `/projects/[id]` 상세 + Nav service 제거)
+  - Task 2-8-B 구현 (대시보드 공개 프로필 토글 Server Action)
+  - code-reviewer + security-reviewer 병렬 리뷰 **2라운드**, 총 **22건 수정** 반영 (14 + 8)
+  - 신규 파일 4개 / 수정 파일 5개, 마이그레이션 0건 (스키마 이미 존재)
+  - 메모리 2건 저장 (`feedback_coding_efficiency.md`, `feedback_plan_before_task.md`)
+- **다음**: 수동 UI 검증 (Jayden 브라우저) → Phase 3 계획 수립
 - **차단 요소**: 없음
 
 ## 검증 상태
@@ -132,9 +167,9 @@ code-reviewer + security-reviewer 병렬 리뷰, 총 14건 수정:
 ```
 ✅ tsc       — PASS (0 errors)
 ✅ lint      — PASS (0 errors, Task 2-1 기존 경고 1개 잔존)
-✅ build     — PASS (25 routes, /about 동적 전환 — searchParams 수신)
-✅ db:push   — PASS (14 tables, inquiries.package + CHECK constraint)
-✅ dev 스모크 — /about, /about?package=mvp HTTP 200
+✅ build     — PASS (27 routes, /projects static+1m revalidate, /projects/[id] dynamic+60s)
+✅ db:push   — PASS (14 tables, 마이그레이션 없음)
+✅ dev 스모크 — /projects 200 (EmptyState), /projects/[uuid없음] 404, /projects/[비UUID] 404
 ```
 
 ## 기술 결정 기록
@@ -167,6 +202,13 @@ code-reviewer + security-reviewer 병렬 리뷰, 총 14건 수정:
 | 2026-04-17 | LandingNav `active: NavActiveId` id 기반 매칭 | href 중복(`/about` 2개) 시 동시 강조 방지 |
 | 2026-04-17 | 비교 표 semantic `<table>` + `scope` | 접근성 보강, No-Line Rule은 교차 배경으로 유지 |
 | 2026-04-17 | FAQ native `<details>` (JS 없음) | Server Component 유지 + 기본 접근성 확보 |
+| 2026-04-17 | 공개 페이지 쿼리에 `isNotNull(publicAlias)` 필터 | `publicAlias ?? name` fallback 제거 → 원본 고객사명 노출 차단 |
+| 2026-04-17 | 공개 URL 필드 `isInternalHost` 차단 | SSRF/내부망(`localhost`, 127.*, 10.*, 169.254.*, 192.168.*, 172.16-31.*, .local/.internal) 유도 방어 |
+| 2026-04-17 | Zod `.strict()` + `refine` 에러 메시지 분리 | `unrecognized_keys`는 console만, 사용자에겐 첫 입력 오류만 표출 (내부 정보 유출 방지) |
+| 2026-04-17 | `export const revalidate = 60` 명시 | cookies() 미사용 시 기본 static — 명시로 ISR 전환, 공개 전환 1분 내 반영 |
+| 2026-04-17 | 대시보드 공개 프로필 Switch — 네이티브 checkbox + peer | shadcn Switch 미설치 의존성 0, Tailwind만으로 구현 |
+| 2026-04-17 | Server Action projectId UUID Zod 선검증 | 비UUID 전달 시 DB 에러 경로 진입 방지 |
+| 2026-04-17 | Drizzle `text().array()` 타입 가드 제네릭 | nullable 배열을 `.filter(hasAlias)`로 타입 narrow하는 재사용 패턴 확립 |
 
 ## 주요 파일 구조
 
@@ -179,7 +221,10 @@ src/
 │   ├── (public)/
 │   │   ├── about/
 │   │   ├── pricing/page.tsx    ← /pricing 상세 (Task 2-6)
-│   │   ├── projects/
+│   │   ├── projects/           ← Task 2-8
+│   │   │   ├── page.tsx        ← Bento Grid + EmptyState
+│   │   │   ├── queries.ts      ← getPublicProjects/getPublicProjectById
+│   │   │   └── [id]/page.tsx   ← 상세 + safeExternalUrl
 │   │   ├── demo/
 │   │   ├── login/
 │   │   ├── privacy/
@@ -193,6 +238,12 @@ src/
 │   │   ├── settings/
 │   │   ├── estimates/
 │   │   ├── contracts/
+│   │   ├── projects/
+│   │   │   ├── [id]/
+│   │   │   │   ├── page.tsx
+│   │   │   │   ├── milestone-list.tsx
+│   │   │   │   └── public-profile-form.tsx   ← Task 2-8-B
+│   │   │   └── actions.ts      ← updateProjectPublicFieldsAction 추가
 │   │   └── invoices/           ← Task 2-4
 │   │       ├── actions.ts      ← CRUD + 3분할 + 상태 전이 + 입금 + 세금계산서
 │   │       ├── page.tsx

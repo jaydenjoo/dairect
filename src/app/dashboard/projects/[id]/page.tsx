@@ -7,6 +7,7 @@ import { getProject as getProjectRaw } from "../actions";
 import { getMilestones } from "./milestone-actions";
 import { ProjectStatusSelect } from "../project-status-select";
 import { MilestoneList } from "./milestone-list";
+import { PublicProfileForm } from "./public-profile-form";
 import { projectStatusLabels, projectStatusSchema, type ProjectStatus } from "@/lib/validation/projects";
 import { ArrowLeft, Calendar, Banknote, Building2 } from "lucide-react";
 
@@ -152,22 +153,58 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
         {/* 탭 컨텐츠 */}
         <div className="mt-6">
           {activeTab === "overview" && (
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-xl bg-card p-6 shadow-ambient">
-                <h2 className="font-heading text-sm font-semibold text-foreground">
-                  프로젝트 설명
-                </h2>
-                <p className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap">
-                  {project.description || "설명이 없습니다"}
-                </p>
+            <div className="space-y-6">
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="rounded-xl bg-card p-6 shadow-ambient">
+                  <h2 className="font-heading text-sm font-semibold text-foreground">
+                    프로젝트 설명
+                  </h2>
+                  <p className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap">
+                    {project.description || "설명이 없습니다"}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-card p-6 shadow-ambient">
+                  <h2 className="font-heading text-sm font-semibold text-foreground">
+                    메모
+                  </h2>
+                  <p className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap">
+                    {project.memo || "메모가 없습니다"}
+                  </p>
+                </div>
               </div>
+
+              {/* 공개 프로필 */}
               <div className="rounded-xl bg-card p-6 shadow-ambient">
-                <h2 className="font-heading text-sm font-semibold text-foreground">
-                  메모
-                </h2>
-                <p className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap">
-                  {project.memo || "메모가 없습니다"}
-                </p>
+                <div className="mb-5 flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <h2 className="font-heading text-sm font-semibold text-foreground">
+                      공개 프로필
+                    </h2>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      랜딩 포트폴리오 페이지(/projects)에 노출할 내용을 설정합니다.
+                    </p>
+                  </div>
+                  {project.isPublic && project.publicAlias && (
+                    <Link
+                      href={`/projects/${id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      공개 페이지 열기 →
+                    </Link>
+                  )}
+                </div>
+                <PublicProfileForm
+                  projectId={id}
+                  initial={{
+                    isPublic: project.isPublic ?? false,
+                    publicAlias: project.publicAlias,
+                    publicDescription: project.publicDescription,
+                    publicLiveUrl: project.publicLiveUrl,
+                    publicTags: project.publicTags,
+                  }}
+                />
               </div>
             </div>
           )}

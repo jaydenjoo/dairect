@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 export type NavActiveId =
-  | "service"
   | "portfolio"
   | "pricing"
   | "about";
@@ -13,7 +12,6 @@ type NavItem = {
 };
 
 const items: NavItem[] = [
-  { id: "service", label: "서비스", href: "/about#service" },
   { id: "portfolio", label: "포트폴리오", href: "/projects" },
   { id: "pricing", label: "가격", href: "/pricing" },
   { id: "about", label: "소개", href: "/about" },
