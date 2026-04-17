@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-17 (후반 5회차)
-> 현재 위치: Phase 3 진행 중 (Task 3-1 + 3-2 + 3-4 완료, 3/5) → Task 3-3 대기
+> 최종 업데이트: 2026-04-17 (후반 6회차)
+> 현재 위치: Phase 3 진행 중 (Task 3-1 + 3-2 + 3-3 + 3-4 완료, 4/5) → Task 3-5 대기
 
 ## 전체 진행률
 
@@ -10,7 +10,7 @@
 | Phase 0 | 기반 설정 | ✅ 완료 | 100% |
 | Phase 1 | 대시보드 핵심 | ✅ 완료 | 100% |
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
-| Phase 3 | AI + 자동화 + 리드 CRM | 🟡 진행중 | 60% (3/5) |
+| Phase 3 | AI + 자동화 + 리드 CRM | 🟡 진행중 | 80% (4/5) |
 | Phase 4 | 고객 포털 + /demo + PWA | ⬜ 대기 | 0% |
 | Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
 
@@ -156,7 +156,7 @@ code-reviewer + security-reviewer 병렬 리뷰, 총 14건 수정:
 - [x] **Task 3-4** — 리드 CRM (목록 + 필터 + 생성 모달 + 상세 + 상태 전이 + 실패 사유 + 프로젝트 전환 + 삭제 + 랜딩폼 자동 생성)
 - [x] **Task 3-1** — AI 견적 초안 생성 (Claude Sonnet 4.6 API + tool_use + 일일 한도 50회 + 프롬프트 인젝션 방어)
 - [x] **Task 3-2** — AI 주간 브리핑 (대시보드 홈 위젯 + briefings 테이블 + 10초 쿨다운 + generation_type 감사 + RLS 방어선)
-- [ ] **Task 3-3** — AI 주간 보고서 (PDF)
+- [x] **Task 3-3** — AI 주간 보고서 PDF (프로젝트 상세 카드 + weekly_reports 테이블 + 고객 발송용 PDF + shared-text 공통 방어)
 - [ ] **Task 3-5** — n8n Webhook 4종 (Slack/리마인더/주간/만족도)
 
 ### 코드/보안 리뷰 수정 내역 (Task 3-1) — 10건
@@ -187,6 +187,29 @@ code-reviewer + security-reviewer 병렬 리뷰, CRITICAL 2 + HIGH 6 + MEDIUM 2 
 - 서버 컴포넌트에서 AI 사용량 프리페치 → 첫 렌더 시 `오늘 사용: X/50` 표시
 - Sparkles 아이콘 중복 다변화 (섹션 vs 버튼)
 - KST 기준 리셋 SQL (현재 UTC 기준 — `AT TIME ZONE 'Asia/Seoul'`)
+
+### 코드/보안 리뷰 수정 내역 (Task 3-3) — 10건
+
+code-reviewer + security-reviewer 병렬 리뷰, HIGH 4 + MEDIUM 1 + 추가 발견 1 수정 (CRITICAL 0):
+
+| 심각도 | 이슈 | 수정 |
+|--------|------|------|
+| 🟡 HIGH | PDF `useMemo` dep 참조 불안정 — `milestoneProgress` 객체가 매 렌더 새로 생성돼 PDF 재빌드 반복 | dep 배열을 primitive(`progressCompleted/progressTotal/progressPercent`)로 분해 |
+| 🟡 HIGH | `bulletItem.description` Zod transform 누락 — Claude가 literal `\\n` 반환 시 UI/PDF에 raw 노출 | `singleline` → `multiline` 전환으로 transform 포함 (summary/issue.detail과 정책 일관) |
+| 🟡 HIGH | **내부 입력 필드 제어문자/BiDi/U+2028 차단 누락** — `projects.name`, `milestones.title`, `clients.companyName` 등 사용자 자유 텍스트가 프롬프트·고객 발송 PDF로 확산되는 **2차 신뢰 경계 공격 경로** | `src/lib/validation/shared-text.ts` 신설: `SAFE_SINGLE_LINE_FORBIDDEN`/`SAFE_MULTI_LINE_FORBIDDEN`/`SAFE_CSV_LEADING` + `guardSingleLine/guardMultiLine` 헬퍼. `projects/milestones/clients` 3개 스키마에 적용 |
+| 🟡 HIGH | `buildEmptyReport` Zod 재검증 누락 — projectName에 위험 문자 있으면 drift 탐지 → null → 사용자 재생성 루프 → 카운터 미차감 DoS | `upsertReport` 호출 전 `reportContentSchema.safeParse(empty)` 추가 + 실패 시 PARSE_ERROR 반환 |
+| 🟢 MEDIUM | `createProjectAction` clientId 소유권 검증 부재 — DevTools로 타인 client UUID 삽입 시 타인 회사명이 PDF 노출 가능 | `clients WHERE id AND userId` 사전 가드 + `report-data` leftJoin에 `clients.userId=userId` 조건 추가 (2중 방어) |
+| ⚠️ 추가 발견 | **PDFDownloadLink SSR 실패** — `@react-pdf/renderer` 직접 import 시 Node.js 서버 렌더에서 "web-only API" 에러 + 500 response | `dynamic(() => import(...).then((m) => m.PDFDownloadLink), { ssr: false })` 래핑 + `typeof PDFDownloadLinkType` 캐스트로 render prop 시그니처 보존 |
+
+**수정 과정 부수 발견**:
+- 동일 타이밍에 Supabase Session pool(15슬롯) 고갈 재발 — `postgres.js max:1 idle_timeout:20` 설정 이미 적용 상태라 일시적 누적. Drizzle Studio + dev 서버 + 재시도 요청 누적이 원인으로 추정. 시간 경과로 자동 회복
+
+### 다음 Task로 이관된 이슈 (Task 3-3 스코프 아웃)
+
+- estimates/contracts/invoices/inquiries/leads validation에도 `shared-text` 적용 (현재는 projects/milestones/clients만)
+- `activity_logs.description`의 user-originated 여부 재점검 (system-generated로 판단, 재확인 필요)
+- weekly_reports 외 전 테이블 RLS 일괄 적용 (현재는 briefings + weekly_reports만 방어선)
+- PDFDownloadLink dynamic 패턴을 기존 estimate/contract/invoice pdf-buttons.tsx에도 적용 (현재는 직접 import, 조건부 렌더로 증상 회피 중)
 
 ### 코드/보안 리뷰 수정 내역 (Task 3-2) — 10건
 
@@ -246,7 +269,25 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 - 구조화 로깅
 - `budget_range`/`schedule`/`status` 컬럼 CHECK 제약 일괄 추가
 
-## 현재 세션 (2026-04-17 후반 5회차)
+## 현재 세션 (2026-04-17 후반 6회차)
+
+- **완료**:
+  - Task 3-3 AI 주간 보고서 PDF 구현 완료 (7 마일스톤)
+    - M1: `weekly_reports` 테이블 (userId+projectId+weekStartDate UNIQUE + generation_type + RLS) + 0010 마이그레이션
+    - M2: `src/lib/validation/report.ts` (Zod 스키마 + 유니코드/BiDi/CSV 방어 + Claude `\\n` transform) + `src/lib/ai/report-data.ts` (프로젝트별 주간 집계 4종 병렬: 완료 마일스톤 / 예정 마일스톤 / activity_logs / 전체 진행률)
+    - M3: `src/lib/ai/report-prompt.ts` (시스템 프롬프트 "고객용 정중체" + tool `submit_weekly_report` — completedThisWeek/plannedNextWeek/issuesRisks/summary)
+    - M4: `src/lib/ai/report-actions.ts` (getCurrentWeeklyReport + regenerateWeeklyReportAction — AI 10+6패턴 전부 + projectId uuid 검증 + 쿨다운 10초 + empty_fallback + rollback 3경로)
+    - M5: `src/lib/pdf/weekly-report-pdf.tsx` (A4 + Pretendard self-host + 헤더/정보패널/이번주완료/다음주계획/이슈/요약/푸터 섹션)
+    - M6: `src/components/dashboard/weekly-report-card.tsx` ([생성하기]/[새로고침]/[PDF 다운로드] + priority 뱃지 + PDFDownloadLink dynamic ssr:false) + `dashboard/projects/[id]/page.tsx` overview 탭 공개 프로필 아래 통합
+    - M7: Playwright 원본 스모크 (seed: 이번 주 완료 1 + 다음 주 예정 1 + activity_log 1 → AI가 completedThisWeek 1 + plannedNextWeek 1 + summary 216자 생성, DB generation_type=ai, daily_count 7→8 공유)
+  - code-reviewer + security-reviewer 병렬 리뷰, **10건 수정 반영** (HIGH 4 + MEDIUM 1 + 추가 발견 1)
+  - **`src/lib/validation/shared-text.ts` 신설** — 내부 입력 필드 공통 방어 regex (LLM/PDF 2차 신뢰 경계로 확산되는 경로 차단) → projects/milestones/clients 3개 스키마에 적용
+  - PDFDownloadLink SSR 함정 발견 후 dynamic(ssr:false) 래핑으로 해결
+- **신규 파일 8 / 수정 파일 6 / 마이그레이션 1건 (0010)**
+- **다음**: Task 3-5 (n8n Webhook 4종 — Slack/리마인더/주간/만족도)
+- **차단 요소**: 없음
+
+## 이전 세션 (2026-04-17 후반 5회차)
 
 - **완료**:
   - Task 3-2 AI 주간 브리핑 구현 완료 (6 마일스톤)
@@ -306,6 +347,7 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 ✅ Claude Playwright 자동 스모크 (Task 3-4) — 리드 생성 → 프로젝트 전환 → 상태="계약" (증거: task-3-4-leads-crm-smoke.png)
 ✅ Claude Playwright 자동 스모크 (Task 3-2) — 미수금 1 + 수금예정 1 + 마일스톤 1 → 긴급 2 + 높음 1 focusItems 3개 + 344자 요약, DB `generation_type=ai` (증거: task-3-2-weekly-briefing-smoke.png)
 ✅ Claude Playwright 회귀 스모크 (Task 3-2 쿨다운) — DB ai_generated_at 리셋 후 즉시 재클릭 시 ai_generated_at/daily_count 모두 불변 (AI/DB write 생략)
+✅ Claude Playwright 자동 스모크 (Task 3-3) — 프로젝트 상세 → [생성하기] → AI 응답 → completedThisWeek 1 + plannedNextWeek 1 + 요약 216자 + DB generation_type=ai + PDF 다운로드 버튼 노출 (증거: task-3-3-weekly-report-smoke.png)
 ```
 
 ## Claude 테스트 인프라 (2026-04-17 후반 3회차 연속)
@@ -372,6 +414,10 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 | 2026-04-17 | RLS defense-in-depth: `ENABLE ROW LEVEL SECURITY` + `briefings_deny_anon` 정책만 | 현재 Drizzle은 postgres(superuser) 접속으로 RLS 우회 → 앱 레이어 영향 0. 향후 anon client 도입 시점의 취약점 사전 차단 |
 | 2026-04-17 | Next.js SSR Hydration 안전 포맷 — `toLocaleString("ko-KR")` 금지, KST(UTC+9) 수동 포맷 | 서버 Node.js ICU vs 브라우저 ICU 차이로 "PM"/"오후" mismatch 발생. `getUTCHours` + `hour24 % 12 \|\| 12` + `"오전"/"오후"` 수동 조합 |
 | 2026-04-17 | Claude 응답 literal `\\n` Zod transform 정규화 | LLM이 때때로 개행을 `"\\n"` 두 글자로 반환 — `whitespace-pre-line` CSS에서 렌더 안 됨. `.transform(v => v.replace(/\\n/g, "\n"))` 으로 저장 전 정규화 → 모든 소비 경로 일관 |
+| 2026-04-17 | `shared-text.ts`로 내부 입력 필드 공통 방어 regex 도입 | 사용자 자유 텍스트(프로젝트명·마일스톤 title·고객사명)가 LLM 프롬프트 → PDF 고객 발송으로 확산되는 2차 신뢰 경계 차단. `guardSingleLine/guardMultiLine` 헬퍼로 체이닝 간결화 |
+| 2026-04-17 | PDFDownloadLink는 반드시 `dynamic(ssr:false)` 래핑 | `@react-pdf/renderer`는 web-only API. `"use client"` 컴포넌트라도 Next.js 서버 렌더 단계에서 실행되면 500 에러. 기존 estimate/contract/invoice pdf-buttons도 동일 리스크 잔존 (백로그) |
+| 2026-04-17 | AI fallback 메시지도 Zod 재검증 후 저장 | `buildEmptyReport` 같은 정적 생성물이라도 projectName 등 외부 입력을 interpolation하면 위험. 저장 전 schema.safeParse로 drift 루프 DoS 원천 차단 |
+| 2026-04-17 | AI 주간 보고서 카드 위치: 프로젝트 상세 overview 탭 하단 | 공개 프로필 아래 → Jayden이 고객 발송 플로우 진입 시 자연스럽게 검토. 별도 탭 분리는 향후 보고서 이력이 쌓이면 고려 |
 
 ## 주요 파일 구조
 

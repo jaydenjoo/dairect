@@ -354,6 +354,69 @@
   4. 이 함정은 BiDi/제어문자 regex에서 catch되지 않음 (backslash는 일반 문자로 허용). 보안 regex와 **별개 문제**로 취급.
   5. 디버깅 체크: UI에 `\n`이 두 글자로 보인다면 DB에서 `SELECT content_json->>'summary'` 로 원문 확인. 실제 문자인지 이스케이프 문자열인지 즉시 판별.
 
+## 2026-04-17 — PDFDownloadLink SSR 함정 (dynamic ssr:false 필수)
+
+- **증상**: Task 3-3 주간 보고서 UI 통합 후 프로젝트 상세 페이지 500 에러. Next.js 콘솔에 `Error: PDFDownloadLink is a web specific API. You're either using this component on Node, or your bundler is not loading react-pdf from the appropriate web build.` 로그. 기존 estimate/contract/invoice PDF 버튼은 같은 패턴인데 문제없이 작동 중.
+- **원인**: `@react-pdf/renderer`의 `PDFDownloadLink`는 브라우저 `URL.createObjectURL()`/`Blob`에 의존하는 web-only 컴포넌트. `"use client"` 선언이 있어도 Next.js App Router는 해당 컴포넌트를 **서버 측에서 먼저 렌더(SSR)** 해 HTML을 생성. 이때 Node.js 환경에서 web-only 체크가 throw. 조건부 렌더(`{pdfDocument && <PDFDownloadLink>}`)라도 `pdfDocument !== null`이면 SSR에서 렌더 시도. 기존 파일이 멀쩡한 건 해당 경로를 최근 방문 안 해서 또는 HMR 캐시로 회피 중이었을 뿐, 구조적으로 같은 리스크.
+- **해결**: `next/dynamic`으로 lazy + `ssr:false` 래핑. 타입 보존을 위해 `typeof PDFDownloadLink` 캐스트.
+  ```ts
+  import dynamic from "next/dynamic";
+  import type { PDFDownloadLink as PDFDownloadLinkType } from "@react-pdf/renderer";
+  const PDFDownloadLink = dynamic(
+    () => import("@react-pdf/renderer").then((m) => m.PDFDownloadLink),
+    { ssr: false },
+  ) as unknown as typeof PDFDownloadLinkType;
+  ```
+- **규칙**:
+  1. `@react-pdf/renderer`에서 `PDFDownloadLink`, `PDFViewer`, `BlobProvider` 같은 web-only 컴포넌트는 **반드시 `dynamic(ssr:false)` 래핑**. `Document`/`Page`/`Text` 등 순수 데이터 컴포넌트는 서버에서도 안전.
+  2. `"use client"` 선언은 하이드레이션 경계 지정일 뿐 SSR 차단은 아님. "클라이언트에서만 실행" 보장은 `dynamic(ssr:false)` or `useEffect` 전용.
+  3. dynamic 반환 타입이 render prop children 시그니처를 잃으므로 `typeof ComponentType` 캐스트 패턴 사용. `as unknown as` 2단 캐스트가 TS 기존 "use unknown" 지침 준수.
+  4. 기존 파일에 같은 리스크가 있어도 당장 에러 안 나면 이관 가능 (보수적 회귀 방지). 단 "해당 경로를 한 번이라도 타면 터지는 시한폭탄"임을 인지하고 PROGRESS.md 백로그에 기록.
+  5. 디버깅 단서: "web specific API" 메시지 + `digest` 존재 → 100% 이 패턴.
+
+## 2026-04-17 — 내부 사용자 입력의 2차 신뢰 경계 확장 (shared-text.ts 공통 regex)
+
+- **증상**: Task 3-3 보안 리뷰에서 HIGH 판정 — `projects.name`, `milestones.title`, `clients.companyName` 등 Jayden이 자유 텍스트로 입력하는 필드에 제어문자/BiDi/U+2028 차단 regex 없음. 이 값들이 **LLM 프롬프트 입력 → Claude 응답 → DB 저장 → PDF 고객 발송**으로 흘러가 텍스트 방향 역전·줄바꿈 스푸핑으로 고객 문서를 왜곡할 수 있음.
+- **원인**: "내부 인증된 사용자가 직접 입력하는 필드"는 공개 엔드포인트만큼 방어 필요성이 낮다고 판단하던 관행. 하지만 Dairect 구조상 같은 데이터가 **고객 발송 PDF** + **LLM 프롬프트**라는 2차 신뢰 경계로 확산됨. 경계 밖 대상(고객·AI)이 원본을 직접 보진 않더라도 파생물을 신뢰하므로 원본 방어가 필요.
+- **해결**: `src/lib/validation/shared-text.ts` 신설 — 공통 정규식 + `guardSingleLine/guardMultiLine` 헬퍼.
+  ```ts
+  export const SAFE_SINGLE_LINE_FORBIDDEN =
+    /[\x00-\x1F\x7F<>\u0085\u202A-\u202E\u2028\u2029\u2066-\u2069]/u;
+  export const SAFE_MULTI_LINE_FORBIDDEN =
+    /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F<>\u0085\u202A-\u202E\u2028\u2029\u2066-\u2069]/u;
+  export function guardSingleLine<T extends z.ZodString>(schema: T, label: string) {
+    return schema
+      .refine((v) => !SAFE_SINGLE_LINE_FORBIDDEN.test(v), `${label}에 허용되지 않는 문자...`)
+      .refine((v) => v === "" || !SAFE_CSV_LEADING.test(v), `${label}이(가) 허용되지 않는 문자로 시작...`);
+  }
+  ```
+  `projects/milestones/clients` 스키마에 적용: `guardSingleLine(z.string().min(1).max(100), "프로젝트명")`.
+- **규칙**:
+  1. **"데이터가 경계를 넘는가"가 방어 기준**이지 "누가 입력했는가"가 아님. 내부 사용자 입력이라도 (a) LLM 프롬프트 입력, (b) PDF/이메일/CSV export, (c) 공개 API 응답 중 하나라도 해당되면 공개 수준 방어 필요.
+  2. 규정된 차단 문자 집합: 제어문자(`\x00-\x1F\x7F`) + HTML 꺾쇠(`<>`) + Unicode 라인 종결자(`\u0085\u2028\u2029`) + BiDi(`\u202A-E\u2066-9`) + CSV 리딩(`=+-@\t\r`). 모든 필드에 일관 적용.
+  3. **빈 문자열 허용 필드 주의**: `guardSingleLine(z.string().max(50), "...")`를 `.optional().default("")` 체이닝 전에 씌움. empty string이 CSV leading 체크에서 통과하도록 `v === "" ||` 가드.
+  4. `.optional().default("")`은 refine 뒤에 붙어도 동작 (ZodEffects도 optional/default 가능). 단 기존 코드 리팩토링 시 체이닝 순서 테스트.
+  5. 모든 validation 파일 일괄 적용은 비용 크므로 **2차 신뢰 경계 경로에 있는 필드 우선** (projects/milestones/clients/estimates/contracts/invoices). 현재 Task 3-3에서는 3개, 나머지는 Phase 3 백로그.
+
+## 2026-04-17 — AI fallback 메시지도 Zod 재검증 (schema drift 루프 DoS)
+
+- **증상**: Task 3-3 `buildEmptyReport(projectName)` 같은 정적 생성 함수가 `projectName`을 interpolation해서 summary를 만듦. 만약 projectName에 제어문자가 섞이면 저장 → `getCurrentWeeklyReport` 읽기 시 `reportContentSchema.safeParse` 실패(drift) → null 반환 → UI "보고서 없음" → 사용자 [생성하기] 재클릭 → 같은 루프. 빈 데이터 경로는 카운터 미차감이라 한도 방어 없이 무한 DB write 가능 → DoS.
+- **원인**: "AI 응답은 검증하고 내부 생성물은 안 검증"하는 비대칭. 하지만 내부 생성물이 외부 입력(프로젝트명)을 참조하면 근본적으로 AI 응답과 같은 검증 필요. `H3 내부 입력 방어`가 선행되어 있어도 "기존에 저장된 row" / "validation 도입 전 입력"은 여전히 위험.
+- **해결**: `upsertReport` 호출 직전 `reportContentSchema.safeParse(empty)` 추가 + 실패 시 PARSE_ERROR 반환.
+  ```ts
+  const emptyParsed = reportContentSchema.safeParse(empty);
+  if (!emptyParsed.success) {
+    console.error("[...] empty fallback schema fail", { issues: ... });
+    return { success: false, error: "...", code: "PARSE_ERROR" };
+  }
+  const saved = await upsertReport(..., emptyParsed.data, "empty_fallback");
+  ```
+- **규칙**:
+  1. **LLM 응답이 아니어도 외부 입력을 참조한 문자열은 저장 전 Zod 재검증**. AI 응답 검증이 익숙해져서 생긴 선입견("static → safe")을 경계.
+  2. 재검증 실패 시 **루프 방지**: null 반환은 UI에게 "재생성"을 유도 → 무한 루프. 명시적 에러 코드(`PARSE_ERROR`) 반환으로 사용자에게 원인 전달 + 재시도 차단 가능.
+  3. 같은 schema를 사용하므로 `ContentSchema = ResponseSchema` 원칙. 읽기/쓰기 경로가 다른 schema를 쓰면 drift 발생 여지.
+  4. 일반화: "fallback 경로도 정상 경로와 동일한 검증 게이트"가 10패턴에 추가될 후보. `empty_fallback` + `validation_failed` 같은 generation_type이 필요할 수도.
+
 ## 2026-04-17 — Supabase RLS defense-in-depth 전략 (service_role 우회 + anon 차단만)
 
 - **증상**: 보안 리뷰에서 "Drizzle 쿼리 userId 조건 누락 버그 시 타 사용자 데이터 교차 노출 리스크 — `briefings`에 RLS 정책 없음" HIGH 판정.

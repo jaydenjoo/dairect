@@ -407,3 +407,48 @@ export const briefings = pgTable(
     ),
   ],
 );
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// AI 주간 보고서 (Task 3-3) — 프로젝트별 고객 발송용 초안
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// contentJson = { completedThisWeek: [...], plannedNextWeek: [...], issuesRisks: [...], summary: string }
+// (userId, projectId, weekStartDate) UNIQUE — 프로젝트별 주 1건 UPSERT.
+// briefings와 동일한 NOT NULL + default + generation_type 감사 + RLS 방어선 패턴.
+
+export const weeklyReports = pgTable(
+  "weekly_reports",
+  {
+    id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    weekStartDate: date("week_start_date", { mode: "string" }).notNull(),
+    contentJson: jsonb("content_json").notNull(),
+    generationType: text("generation_type", {
+      enum: ["ai", "empty_fallback"],
+    })
+      .default("ai")
+      .notNull(),
+    aiGeneratedAt: timestamp("ai_generated_at", { withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+  },
+  (table) => [
+    unique("weekly_reports_user_project_week_unique").on(
+      table.userId,
+      table.projectId,
+      table.weekStartDate,
+    ),
+    check(
+      "weekly_reports_generation_type_check",
+      sql`${table.generationType} IN ('ai', 'empty_fallback')`,
+    ),
+  ],
+);

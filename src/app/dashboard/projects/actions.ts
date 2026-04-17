@@ -108,6 +108,19 @@ export async function createProjectAction(data: ProjectFormData): Promise<Action
   const v = parsed.data;
 
   try {
+    // clientId 소유권 검증 — DevTools로 타인 client UUID 삽입 시 타인 회사명이 후속 PDF/견적서에
+    // 노출되는 경로 차단 (Task 3-3 보안 리뷰 M1).
+    if (v.clientId) {
+      const [owned] = await db
+        .select({ id: clients.id })
+        .from(clients)
+        .where(and(eq(clients.id, v.clientId), eq(clients.userId, userId)))
+        .limit(1);
+      if (!owned) {
+        return { success: false, error: "선택한 고객사에 접근할 수 없습니다" };
+      }
+    }
+
     const [row] = await db
       .insert(projects)
       .values({

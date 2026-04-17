@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { guardSingleLine, guardMultiLine } from "./shared-text";
 
 export const projectStatuses = [
   "lead", "consulting", "estimate", "contract",
@@ -39,14 +40,14 @@ const dateOrEmpty = z.union([
 ]);
 
 export const projectFormSchema = z.object({
-  name: z.string().min(1, "프로젝트명을 입력해주세요").max(100),
+  name: guardSingleLine(z.string().min(1, "프로젝트명을 입력해주세요").max(100), "프로젝트명"),
   clientId: z.string().uuid().optional().or(z.literal("").transform(() => undefined)),
-  description: z.string().max(2000).optional().default(""),
+  description: guardMultiLine(z.string().max(2000), "설명").optional().default(""),
   status: projectStatusSchema.optional().default("lead"),
   expectedAmount: z.number().int().min(0).max(10_000_000_000).optional(),
   startDate: dateOrEmpty.optional().default(""),
   endDate: dateOrEmpty.optional().default(""),
-  memo: z.string().max(2000).optional().default(""),
+  memo: guardMultiLine(z.string().max(2000), "메모").optional().default(""),
 }).refine(
   (d) => !d.startDate || !d.endDate || d.startDate <= d.endDate,
   { message: "종료일이 시작일보다 빠를 수 없습니다", path: ["endDate"] },

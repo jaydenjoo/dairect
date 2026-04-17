@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { guardSingleLine, guardMultiLine } from "./shared-text";
 
 export const milestoneFormSchema = z.object({
-  title: z.string().min(1, "제목을 입력해주세요").max(200),
-  description: z.string().max(1000).optional().default(""),
+  title: guardSingleLine(z.string().min(1, "제목을 입력해주세요").max(200), "제목"),
+  description: guardMultiLine(z.string().max(1000), "설명").optional().default(""),
   dueDate: z
     .union([
       z.literal(""),
