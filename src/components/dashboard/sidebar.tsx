@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   FolderKanban,
   Users,
+  UserPlus,
   FileText,
   FileSignature,
   Receipt,
@@ -14,14 +15,22 @@ import {
 
 const navItems = [
   { label: "대시보드", href: "/dashboard", icon: LayoutDashboard },
-  { label: "프로젝트", href: "/dashboard/projects", icon: FolderKanban },
+  { label: "리드", href: "/dashboard/leads", icon: UserPlus },
   { label: "고객", href: "/dashboard/clients", icon: Users },
+  { label: "프로젝트", href: "/dashboard/projects", icon: FolderKanban },
   { label: "견적서", href: "/dashboard/estimates", icon: FileText },
   { label: "계약서", href: "/dashboard/contracts", icon: FileSignature },
   { label: "정산", href: "/dashboard/invoices", icon: Receipt },
 ];
 
-const mobileNavItems = navItems.slice(0, 5);
+// 모바일 하단 탭: 공간 제약으로 5개. 리드는 데스크톱 전용(사이드바에서만 노출)
+const mobileNavItems = [
+  { label: "대시보드", href: "/dashboard", icon: LayoutDashboard },
+  { label: "프로젝트", href: "/dashboard/projects", icon: FolderKanban },
+  { label: "고객", href: "/dashboard/clients", icon: Users },
+  { label: "견적서", href: "/dashboard/estimates", icon: FileText },
+  { label: "계약서", href: "/dashboard/contracts", icon: FileSignature },
+];
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/dashboard") return pathname === "/dashboard";

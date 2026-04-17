@@ -36,6 +36,13 @@
       "when": 1776404777327,
       "tag": "0004_flimsy_fantastic_four",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776418528172,
+      "tag": "0005_pale_sleepwalker",
+      "breakpoints": true
     }
   ]
 }

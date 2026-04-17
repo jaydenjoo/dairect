@@ -8,6 +8,12 @@ if (!connectionString) {
 }
 
 // prepare: false — Supabase Pooler(Transaction mode)에서 필수
-const client = postgres(connectionString, { prepare: false });
+// max: 1 — Next.js 빌드 워커(9개)가 Supabase Session pool(15 슬롯)을 고갈시키지 않도록 제한
+// idle_timeout: 20 — 유휴 연결 빠르게 회수하여 풀 경합 완화
+const client = postgres(connectionString, {
+  prepare: false,
+  max: 1,
+  idle_timeout: 20,
+});
 
 export const db = drizzle(client, { schema });

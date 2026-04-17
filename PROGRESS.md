@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-17
-> 현재 위치: Phase 2 완료 → Phase 3 대기
+> 최종 업데이트: 2026-04-17 (후반 3회차)
+> 현재 위치: Phase 3 진행 중 (Task 3-4 완료) → Task 3-1 대기
 
 ## 전체 진행률
 
@@ -10,7 +10,7 @@
 | Phase 0 | 기반 설정 | ✅ 완료 | 100% |
 | Phase 1 | 대시보드 핵심 | ✅ 완료 | 100% |
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
-| Phase 3 | AI + 자동화 + 리드 CRM | ⬜ 대기 | 0% |
+| Phase 3 | AI + 자동화 + 리드 CRM | 🟡 진행중 | 20% (1/5) |
 | Phase 4 | 고객 포털 + /demo + PWA | ⬜ 대기 | 0% |
 | Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
 
@@ -151,22 +151,60 @@ code-reviewer + security-reviewer 병렬 리뷰, 총 14건 수정:
 - `budget_range`/`schedule`/`status` 컬럼 CHECK 제약 일괄 추가
 - `leads` 자동 생성 (source='landing_form')
 
-## 현재 세션 (2026-04-17 후반 2회차)
+## Phase 3: AI + 자동화 + 리드 CRM 🟡
+
+- [x] **Task 3-4** — 리드 CRM (목록 + 필터 + 생성 모달 + 상세 + 상태 전이 + 실패 사유 + 프로젝트 전환 + 삭제 + 랜딩폼 자동 생성)
+- [ ] **Task 3-1** — AI 견적 초안 생성 (Claude Sonnet 4.6 API)
+- [ ] **Task 3-2** — AI 주간 브리핑 (대시보드 홈 위젯)
+- [ ] **Task 3-3** — AI 주간 보고서 (PDF)
+- [ ] **Task 3-5** — n8n Webhook 4종 (Slack/리마인더/주간/만족도)
+
+### 코드/보안 리뷰 수정 내역 (Task 3-4) — 4건
+
+code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
+
+| 심각도 | 이슈 | 수정 |
+|--------|------|------|
+| 🔴 HIGH | owner picker `SELECT FROM users LIMIT 1` — ORDER BY 누락 → 비결정적 할당 | `orderBy(asc(users.createdAt))` — 최초 가입 운영자 고정 |
+| 🔴 HIGH | `convertLeadToProjectAction` 더블클릭/동시 요청 시 client+project 2개 생성, 첫 project 고아화 | UPDATE WHERE에 `isNull(convertedToProjectId)` 가드 + rowsAffected=0 → `ALREADY_CONVERTED` throw로 전체 트랜잭션 롤백 |
+| 🔴 HIGH | 랜딩폼에서 `inquiries INSERT`/`leads INSERT`/`inquiries UPDATE` 3쿼리 분리 — 중간 실패 시 감사추적 깨짐 | `leads INSERT` + `inquiries.convertedToLeadId UPDATE`를 단일 `db.transaction`으로 묶음 (inquiries INSERT는 트랜잭션 밖 — 고객 문의 보존 우선) |
+| 🟡 MEDIUM | 0005 마이그레이션 롤백 SQL 누락 (글로벌 supabase.md 규칙) | `-- ROLLBACK:` 섹션에 `DROP CONSTRAINT` 주석 추가 |
+
+### 다음 Task로 이관된 이슈 (Task 3-4 스코프 아웃)
+- 전환율 분석 차트 (KPI 홈 대시보드 확장)
+- 리드 소스별 주간 리포트
+- 중복 리드 merge UI
+- 리드 활동 타임라인
+- `clients.companyName`에 개인명 직접 매핑 데이터 모델 개선
+- `phone` 형식 정규식 검증 (Task 3-5 n8n SMS 전)
+- 리드 기본 정보 편집 UI (현재는 삭제 후 재등록)
+
+### Phase 3 백로그 (리뷰·기타에서 인지)
+- **Rate limit** (Redis/KV) — 공개 엔드포인트 flooding 방어 (HIGH 이슈이나 인프라 필요해 별도 Task)
+- reCAPTCHA/hCaptcha
+- PII 암호화 (at-rest)
+- `ENABLE ROW LEVEL SECURITY` + anon 차단 (Supabase anon client 도입 시)
+- 이메일 자동 회신 시 헤더 injection 방어
+- 구조화 로깅
+- `budget_range`/`schedule`/`status` 컬럼 CHECK 제약 일괄 추가
+
+## 현재 세션 (2026-04-17 후반 3회차)
 
 - **완료**:
-  - Task 2-8 구현 (`/projects` Bento Grid + `/projects/[id]` 상세 + Nav service 제거)
-  - Task 2-8-B 구현 (대시보드 공개 프로필 토글 Server Action)
-  - code-reviewer + security-reviewer 병렬 리뷰 **2라운드**, 총 **22건 수정** 반영 (14 + 8)
-  - **풀 자동 검증**: Jayden 수동 편집 + Playwright 자동 공개 페이지 반영 확인 — Bento Grid 카드 / 상세 페이지 / 라이브 버튼 / 404 / 악성 입력 거부 모두 PASS
-  - **Supabase OAuth 3이슈 해결**:
-    1. Google OAuth Client 타입 Desktop → **Web Application** 재생성
-    2. Supabase Site URL `localhost:3000` → **`localhost:3700`** 수정
-    3. `.env.local` anon key를 다른 프로젝트 것 → **dairect 프로젝트 키**로 교체
-  - **auth.users ↔ public.users 자동 동기화**: `dashboard/layout.tsx`에 `onConflictDoNothing` upsert 추가 (Task 0-3 누락 보정)
-  - 신규 파일 4개 / 수정 파일 6개, 마이그레이션 0건
-  - 메모리 2건 저장 (`feedback_coding_efficiency.md`, `feedback_plan_before_task.md`)
-  - 교훈 2건 추가 (Supabase OAuth 3단계 함정 / auth-public users 동기화)
-- **다음**: Phase 3 계획 수립 (AI + 자동화 + 리드 CRM)
+  - Phase 3 전체 Task 분해 (Task 3-1~3-5, PRD v3.1 기준)
+  - Task 3-4 리드 CRM 구현 완료 (6 마일스톤)
+    - M1: `leads` 테이블 CHECK 제약 2건 (`source`/`status`) + 0005 마이그레이션
+    - M2: `/dashboard/leads` 목록 + 필터(소스·상태·검색) + 페이지 헤더
+    - M3: 리드 수동 생성 다이얼로그 (이름·소스·연락처·프로젝트 유형·예산·메모)
+    - M4: 리드 상세 + 상태 전이 폼 + 실패 사유 + 삭제 버튼
+    - M5: 랜딩폼 확장 — `submitInquiryAction`에 `leads` 자동 생성 + `inquiries.convertedToLeadId` 링크
+    - M6: `convertLeadToProjectAction` — clients(신규/기존) + projects 자동 생성 + `converted_to_project_id` 저장
+    - 사이드바 리드 메뉴 추가 (모바일 탭은 별도 배열: 데스크톱 전용)
+  - code-reviewer + security-reviewer 병렬 리뷰, **4건 수정 반영** (HIGH 3 + MEDIUM 1)
+  - **Supabase Session pool 고갈 디버깅**: postgres.js `max: 1, idle_timeout: 20` 추가 (빌드 워커 9개 × default max 10 = Session pool 15슬롯 초과 방어)
+  - 교훈 3건 추가 (Server Action type re-export 금지 / Supabase pool + 빌드 워커 / convert 레이스 isNull 가드)
+- **신규 파일 10 / 수정 파일 5 / 마이그레이션 1건**
+- **다음**: Task 3-1 (AI 견적 초안 생성, Claude Sonnet 4.6 API)
 - **차단 요소**: 없음
 
 ## 검증 상태
@@ -174,9 +212,9 @@ code-reviewer + security-reviewer 병렬 리뷰, 총 14건 수정:
 ```
 ✅ tsc       — PASS (0 errors)
 ✅ lint      — PASS (0 errors, Task 2-1 기존 경고 1개 잔존)
-✅ build     — PASS (27 routes, /projects static+1m revalidate, /projects/[id] dynamic+60s)
-✅ db:push   — PASS (14 tables, 마이그레이션 없음)
-✅ dev 스모크 — /projects 200 (EmptyState), /projects/[uuid없음] 404, /projects/[비UUID] 404
+✅ build     — PASS (25 routes, /dashboard/leads 추가, postgres.js max:1로 pool 경합 해결)
+✅ db:push   — PASS (14 tables, 0005 CHECK 제약 적용)
+⏳ 스모크    — Jayden 수동 확인 예정 (/dashboard/leads 생성·전환·랜딩폼→리드·모바일 탭)
 ```
 
 ## 기술 결정 기록
@@ -216,6 +254,11 @@ code-reviewer + security-reviewer 병렬 리뷰, 총 14건 수정:
 | 2026-04-17 | 대시보드 공개 프로필 Switch — 네이티브 checkbox + peer | shadcn Switch 미설치 의존성 0, Tailwind만으로 구현 |
 | 2026-04-17 | Server Action projectId UUID Zod 선검증 | 비UUID 전달 시 DB 에러 경로 진입 방지 |
 | 2026-04-17 | Drizzle `text().array()` 타입 가드 제네릭 | nullable 배열을 `.filter(hasAlias)`로 타입 narrow하는 재사용 패턴 확립 |
+| 2026-04-17 | postgres.js `max: 1, idle_timeout: 20` | Next.js 빌드 워커(9개)가 Supabase Session pool(15슬롯)을 고갈시키지 않도록 연결 1개로 제한 |
+| 2026-04-17 | single-tenant owner picker: `orderBy(asc(users.createdAt)).limit(1)` | 공개 랜딩폼 → 리드 자동 생성 시 최초 가입 운영자에게 결정적 할당. SaaS 전환 시 도메인 기반 라우팅으로 교체 예정 |
+| 2026-04-17 | Server Action 파일(`"use server"`)에서 `export type` 금지 | Next.js 15/16 App Router는 "use server" 파일의 모든 export를 async function으로 직렬화 시도 → type re-export도 빌드 에러. type은 별도 파일에서 import만 |
+| 2026-04-17 | convert 트랜잭션 레이스 방지: `isNull` 가드 + rowsAffected 체크 | 사전 체크는 참조만, 트랜잭션 내부 UPDATE WHERE에 `isNull(convertedToProjectId)` 포함 + rowsAffected=0 시 `ALREADY_CONVERTED` throw → 전체 롤백 |
+| 2026-04-17 | 사이드바 모바일 탭은 `navItems.slice()` 대신 별도 배열 | 데스크톱/모바일 노출 항목이 달라질 때 slice 결과가 의도와 어긋남. 명시적 `mobileNavItems = [...]` 배열로 독립 관리 |
 
 ## 주요 파일 구조
 

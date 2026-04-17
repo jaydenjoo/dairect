@@ -90,27 +90,40 @@ export const clientNotes = pgTable("client_notes", {
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
 });
 
-export const leads = pgTable("leads", {
-  id: uuid().primaryKey().default(sql`gen_random_uuid()`),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id),
-  source: text({
-    enum: ["wishket", "kmong", "referral", "direct", "landing_form", "other"],
-  }),
-  name: text().notNull(),
-  email: text(),
-  phone: text(),
-  projectType: text("project_type"),
-  budgetRange: text("budget_range"),
-  description: text(),
-  status: text({
-    enum: ["new", "scheduled", "consulted", "estimated", "contracted", "failed"],
-  }).default("new"),
-  failReason: text("fail_reason"),
-  convertedToProjectId: uuid("converted_to_project_id").references(() => projects.id),
-  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-});
+export const leads = pgTable(
+  "leads",
+  {
+    id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    source: text({
+      enum: ["wishket", "kmong", "referral", "direct", "landing_form", "other"],
+    }),
+    name: text().notNull(),
+    email: text(),
+    phone: text(),
+    projectType: text("project_type"),
+    budgetRange: text("budget_range"),
+    description: text(),
+    status: text({
+      enum: ["new", "scheduled", "consulted", "estimated", "contracted", "failed"],
+    }).default("new"),
+    failReason: text("fail_reason"),
+    convertedToProjectId: uuid("converted_to_project_id").references(() => projects.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t) => [
+    check(
+      "leads_source_check",
+      sql`${t.source} IS NULL OR ${t.source} IN ('wishket', 'kmong', 'referral', 'direct', 'landing_form', 'other')`,
+    ),
+    check(
+      "leads_status_check",
+      sql`${t.status} IS NULL OR ${t.status} IN ('new', 'scheduled', 'consulted', 'estimated', 'contracted', 'failed')`,
+    ),
+  ],
+);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 프로젝트 + 마일스톤

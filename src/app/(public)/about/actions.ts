@@ -1,11 +1,13 @@
 "use server";
 
 import { headers } from "next/headers";
+import { eq, asc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { inquiries } from "@/lib/db/schema";
+import { inquiries, leads, users } from "@/lib/db/schema";
 import {
   inquiryFormSchema,
   type InquiryFormData,
+  budgetLabel,
 } from "@/lib/validation/inquiry";
 
 export type InquiryActionResult = { success: boolean; error?: string };
@@ -68,18 +70,72 @@ export async function submitInquiryAction(
     const ipAddress = sanitizeHeader(ipFromXff ?? h.get("x-real-ip"), MAX_IP);
     const userAgent = sanitizeHeader(h.get("user-agent"), MAX_UA);
 
-    await db.insert(inquiries).values({
-      name: stripFormulaTriggers(v.name),
-      contact: stripFormulaTriggers(v.contact),
-      ideaSummary: v.ideaSummary ? stripFormulaTriggers(v.ideaSummary) : null,
-      description: v.description ? stripFormulaTriggers(v.description) : null,
-      budgetRange: v.budgetRange ?? null,
-      schedule: v.schedule ?? null,
-      package: v.package ?? null,
-      status: "new",
-      ipAddress,
-      userAgent,
-    });
+    const cleanName = stripFormulaTriggers(v.name);
+    const cleanContact = stripFormulaTriggers(v.contact);
+    const cleanIdea = v.ideaSummary ? stripFormulaTriggers(v.ideaSummary) : null;
+    const cleanDescription = v.description ? stripFormulaTriggers(v.description) : null;
+
+    const [inquiry] = await db
+      .insert(inquiries)
+      .values({
+        name: cleanName,
+        contact: cleanContact,
+        ideaSummary: cleanIdea,
+        description: cleanDescription,
+        budgetRange: v.budgetRange ?? null,
+        schedule: v.schedule ?? null,
+        package: v.package ?? null,
+        status: "new",
+        ipAddress,
+        userAgent,
+      })
+      .returning({ id: inquiries.id });
+
+    // 리드 자동 생성 (single-tenant 전제: 최초 가입 운영자에게 할당)
+    // SaaS 전환 시 도메인/서브도메인 기반 라우팅으로 교체 필요
+    // 트랜잭션: leads insert + inquiries.convertedToLeadId 업데이트 원자성 보장
+    // inquiries insert는 트랜잭션 밖 — 리드 생성 실패해도 고객 문의는 보존
+    try {
+      const ownerRows = await db
+        .select({ id: users.id })
+        .from(users)
+        .orderBy(asc(users.createdAt))
+        .limit(1);
+      const ownerId = ownerRows[0]?.id;
+      if (ownerId && inquiry) {
+        const isEmail = cleanContact.includes("@");
+        await db.transaction(async (tx) => {
+          const [lead] = await tx
+            .insert(leads)
+            .values({
+              userId: ownerId,
+              source: "landing_form",
+              name: cleanName,
+              email: isEmail ? cleanContact : null,
+              phone: isEmail ? null : cleanContact,
+              projectType: cleanIdea,
+              budgetRange: v.budgetRange ? budgetLabel[v.budgetRange] : null,
+              description: cleanDescription,
+              status: "new",
+            })
+            .returning({ id: leads.id });
+
+          if (lead) {
+            await tx
+              .update(inquiries)
+              .set({ convertedToLeadId: lead.id })
+              .where(eq(inquiries.id, inquiry.id));
+          }
+        });
+      } else if (!ownerId) {
+        console.warn("[submitInquiryAction] lead auto-create skipped: no owner user");
+      }
+    } catch (leadErr) {
+      console.error("[submitInquiryAction] lead creation failed", {
+        name: leadErr instanceof Error ? leadErr.name : "unknown",
+        message: leadErr instanceof Error ? leadErr.message : String(leadErr),
+      });
+    }
 
     return { success: true };
   } catch (err) {

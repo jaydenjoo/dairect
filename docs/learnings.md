@@ -221,6 +221,59 @@
   4. middleware에서 처리하려면 Edge runtime 호환 DB 라이브러리(예: `postgres` with `fetch`) 필요. 기본 `postgres.js`는 Node.js 전용이라 middleware 불가 → **layout.tsx 선호**.
   5. Task 0-3 (Auth 설정)에서 이 동기화 로직이 빠졌다. 새 프로젝트 init 체크리스트에 반드시 추가.
 
+## 2026-04-17 — Next.js 15/16 "use server" 파일에서 `export type` 금지
+
+- **증상**: Task 3-4 리드 CRM `pnpm build` 에서 `The export LeadSource was not found in module .../actions.ts` 에러 4건. tsc는 통과하지만 Next.js 빌드 시 Server Action 번들러가 실패. 런타임이 아닌 **빌드 단계**에서만 발생.
+- **원인**: Next.js App Router는 `"use server"` 지시어가 붙은 파일의 **모든 export를 Server Action(async function)으로 직렬화 시도**. RSC payload에 참조할 런타임 값이 있어야 하는데, `export type { ... }`는 컴파일 시 제거되는 타입 참조라 실제 export entry가 없음. 번들러가 "`LeadSource`라는 이름으로 export된 Server Action을 찾을 수 없다"고 에러.
+- **해결**: actions.ts에서 `export type { LeadSource, LeadStatus }` 제거. 페이지/컴포넌트는 `@/lib/validation/leads`에서 직접 import.
+- **규칙**:
+  1. `"use server"` 파일에서는 **async function만 export**. `export type`/`export interface`/`export const`(non-function) 금지. TypeScript는 허용하지만 Next.js 빌드가 거부.
+  2. 타입 정의는 별도 파일(`validation/*.ts`, `types/*.ts`)에서 관리하고 actions.ts는 그것을 import만.
+  3. actions.ts 내부에서 쓰는 로컬 타입(`ActionResult` 등)은 **`type`만 선언하고 export 금지** — `type ActionResult = {...}` (export 없이).
+  4. 증상 체크법: tsc PASS + build FAIL + `Export <Name> doesn't exist in target module` → 90%는 이 문제.
+  5. Server Action 5→6→9패턴에 10번째 추가: **"type re-export 금지"**.
+
+## 2026-04-17 — Supabase Session Pool(15슬롯) vs Next.js 빌드 워커(9개) × postgres.js 기본 max(10)
+
+- **증상**: `/projects` 페이지 prerender 중 `EMAXCONNSESSION max clients reached in session mode - max clients are limited to pool_size: 15` 에러. `pnpm build` 재시도해도 매번 동일. Task 3-4 코드와 무관하게 기존 페이지에서 발생.
+- **원인**: Next.js 빌드가 워커 9개 병렬로 prerender → 각 워커가 독립 Node 프로세스라 postgres.js client도 독립 인스턴스 → 각 인스턴스 **default `max: 10`** → 총 90 connections 열림 시도. Supabase Pooler의 **Session mode(port 5432)**는 15슬롯 한도. 쉽게 초과.
+- **해결**: `src/lib/db/index.ts`에서 `postgres(url, { prepare: false, max: 1, idle_timeout: 20 })`로 제한. 빌드 워커 9개 × 1 = 9 < 15. 통과.
+- **규칙**:
+  1. Supabase Pooler + Next.js 조합에서는 **반드시 `max` 옵션 명시**. 기본값(10)은 빌드 시 거의 항상 초과.
+  2. `max: 1` + `idle_timeout: 20` 조합이 정석. 런타임 런리퀘스트당 1개 사용, 유휴 20초 후 회수.
+  3. 더 확실한 해결: `DATABASE_URL`을 **Transaction mode(port 6543)**로 전환. Session mode는 긴 연결용이라 빌드 병렬에 부적합. 다만 마이그레이션(`drizzle-kit push`)은 여전히 Direct(5432) 필요 → env를 `DATABASE_URL`(런타임)과 `MIGRATE_DATABASE_URL`(마이그레이션)로 분리하는 패턴도 고려.
+  4. 디버깅 시 의심 순서: (1) Drizzle Studio가 5-10 슬롯 점유 중인지 확인 (2) `pnpm dev` 중복 실행 여부 (3) postgres.js max 미명시 여부. 이 3가지만 체크하면 대부분 해결.
+  5. 에러 메시지에 "session mode"가 있으면 포트 5432 사용 중이라는 결정적 증거. "transaction mode"면 포트 6543.
+
+## 2026-04-17 — 트랜잭션 내 UPDATE WHERE 조건이 경쟁 조건을 막는 유일한 확실한 방법
+
+- **증상**: `convertLeadToProjectAction`을 더블클릭(또는 두 탭 동시 제출) 시 `clients`와 `projects` 레코드가 2개씩 생성되고 `leads.convertedToProjectId`는 두 번째 UPDATE가 덮어씀. 첫 번째 project는 lead와 연결 끊긴 고아 상태.
+- **원인**: "트랜잭션 전 사전 체크(`if (lead.convertedToProjectId) return error`)" → "트랜잭션 내 INSERT + 마지막 UPDATE" 구조. 사전 체크는 **트랜잭션 밖에서 읽은 스냅샷**이라 두 요청이 거의 동시에 들어오면 둘 다 `null` 읽고 둘 다 통과. 트랜잭션 내부 UPDATE는 `WHERE id = x AND userId = y`만 있어서 경합하지 않음.
+- **해결**: 트랜잭션 내부 UPDATE의 WHERE 절에 `isNull(leads.convertedToProjectId)` 추가 + `.returning({id})` + `rowsAffected === 0` 시 `throw new Error("ALREADY_CONVERTED")` → 전체 트랜잭션 롤백. catch에서 해당 에러 잡아서 사용자 메시지 반환.
+  ```ts
+  const updateResult = await tx
+    .update(leads)
+    .set({ status: "contracted", convertedToProjectId: newProject.id })
+    .where(and(
+      eq(leads.id, idCheck.data),
+      eq(leads.userId, userId),
+      isNull(leads.convertedToProjectId),  // ← 핵심
+    ))
+    .returning({ id: leads.id });
+  if (updateResult.length === 0) throw new Error("ALREADY_CONVERTED");
+  ```
+- **규칙**:
+  1. **"이미 처리됨"을 막는 사전 체크는 참조용으로만 의미**. 확실한 방어는 **트랜잭션 내 UPDATE WHERE 조건**. Postgres가 row-level lock으로 직렬화해주기 때문.
+  2. UPDATE에 `.returning()` 추가 → rowsAffected 확인 → 0이면 throw. 이 3단 콤보가 Drizzle에서 "조건부 실행" 구현하는 표준 패턴.
+  3. 트랜잭션 내에서 throw하면 Drizzle이 자동 롤백. 동일 트랜잭션의 INSERT도 함께 취소됨 → 고아 레코드 방지.
+  4. 일반화 — "한 번만 수행되어야 하는" 상태 전환은 모두 동일 패턴:
+     - 리드 → 프로젝트 전환 (이번 케이스)
+     - 견적 승인 (draft → accepted)
+     - 계약 서명 (sent → signed)
+     - 청구서 입금 확인 (sent → paid)
+     각각 UPDATE WHERE에 현재 상태 조건 포함 필요.
+  5. **Dairect Server Action 9패턴 → 10패턴**: "한 번만 수행되어야 하는 상태 전환은 UPDATE WHERE에 현재 상태 조건 + rowsAffected 체크".
+
 ## 2026-04-16 — proxy.ts vs middleware.ts (Next.js 16.2)
 
 - **증상**: `proxy.ts`로 내보낸 미들웨어가 작동하지 않음 (인증 보호 무효)
