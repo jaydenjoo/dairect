@@ -256,32 +256,39 @@ export const contracts = pgTable(
 // 인보이스 (청구서 / 수금)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-export const invoices = pgTable("invoices", {
-  id: uuid().primaryKey().default(sql`gen_random_uuid()`),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id),
-  projectId: uuid("project_id").references(() => projects.id),
-  estimateId: uuid("estimate_id").references(() => estimates.id),
-  invoiceNumber: text("invoice_number").notNull(),
-  type: text({ enum: ["advance", "interim", "final"] }).notNull(),
-  status: text({
-    enum: ["pending", "sent", "paid", "overdue", "cancelled"],
-  }).default("pending"),
-  amount: bigint({ mode: "number" }).notNull(),
-  taxAmount: bigint("tax_amount", { mode: "number" }).notNull(),
-  totalAmount: bigint("total_amount", { mode: "number" }).notNull(),
-  issuedDate: date("issued_date").default(sql`CURRENT_DATE`),
-  dueDate: date("due_date"),
-  sentAt: timestamp("sent_at", { withTimezone: true }),
-  paidDate: date("paid_date"),
-  paidAmount: bigint("paid_amount", { mode: "number" }),
-  taxInvoiceIssued: boolean("tax_invoice_issued").default(false),
-  memo: text(),
-  pdfUrl: text("pdf_url"),
-  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
-});
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    projectId: uuid("project_id").references(() => projects.id),
+    estimateId: uuid("estimate_id").references(() => estimates.id),
+    invoiceNumber: text("invoice_number").notNull(),
+    type: text({ enum: ["advance", "interim", "final"] }).notNull(),
+    status: text({
+      enum: ["pending", "sent", "paid", "overdue", "cancelled"],
+    }).default("pending"),
+    amount: bigint({ mode: "number" }).notNull(),
+    taxAmount: bigint("tax_amount", { mode: "number" }).notNull(),
+    totalAmount: bigint("total_amount", { mode: "number" }).notNull(),
+    issuedDate: date("issued_date").default(sql`CURRENT_DATE`),
+    dueDate: date("due_date"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    paidDate: date("paid_date"),
+    paidAmount: bigint("paid_amount", { mode: "number" }),
+    taxInvoiceIssued: boolean("tax_invoice_issued").default(false),
+    memo: text(),
+    pdfUrl: text("pdf_url"),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (table) => [
+    // 채번 경합 방지: (userId, invoiceNumber) 조합 유니크
+    unique("invoices_user_number_unique").on(table.userId, table.invoiceNumber),
+  ],
+);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 활동 로그

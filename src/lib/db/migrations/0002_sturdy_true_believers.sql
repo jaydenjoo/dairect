@@ -1,0 +1,1 @@
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_user_number_unique" UNIQUE("user_id","invoice_number");
