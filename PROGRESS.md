@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
 > 최종 업데이트: 2026-04-17
-> 현재 위치: Phase 2 > Task 2-1 완료 → Task 2-2 대기
+> 현재 위치: Phase 2 > Task 2-3 완료 → Task 2-4 대기
 
 ## 전체 진행률
 
@@ -9,7 +9,7 @@
 |-------|------|------|--------|
 | Phase 0 | 기반 설정 | ✅ 완료 | 100% |
 | Phase 1 | 대시보드 핵심 | ✅ 완료 | 100% |
-| Phase 2 | 견적/계약/정산 + 리브랜딩 | 🔄 진행 | 15% |
+| Phase 2 | 견적/계약/정산 + 리브랜딩 | 🔄 진행 | 45% |
 | Phase 3 | AI + 자동화 + 리드 CRM | ⬜ 대기 | 0% |
 | Phase 4 | 고객 포털 + /demo + PWA | ⬜ 대기 | 0% |
 | Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
@@ -32,67 +32,54 @@
 - [x] **Task 1-5** — 마일스톤 관리 (CRUD + 체크리스트 + 진행률 프로그레스 바)
 - [x] **Task 1-6** — KPI 홈 대시보드 (카드 4개 + Bar/Pie 차트 + 활동 타임라인 + 마일스톤)
 
-### 코드 리뷰 수정 내역 (Phase 1 전체)
-
-| 심각도 | 이슈 | 수정 |
-|--------|------|------|
-| CRITICAL | DB 에러 메시지 클라이언트 노출 | console.error + 일반 메시지 반환 (5곳) |
-| CRITICAL | clientId 소유권 미검증 | verifyClientOwnership 헬퍼 추가 |
-| CRITICAL | deleteProjectAction isNull(deletedAt) 누락 | 가드 추가 |
-| CRITICAL | updateProjectStatusAction Zod 미검증 | projectStatusSchema.safeParse 추가 |
-| HIGH | JSONB unsafe `as` 캐스트 | Zod safeParse로 변환 |
-| HIGH | select() 전체 컬럼 조회 | 명시적 컬럼 프로젝션 |
-| HIGH | middleware setAll 비공식 패턴 | 공식 Supabase SSR 패턴 정렬 |
-| HIGH | 날짜 포맷 미검증 | YYYY-MM-DD 정규식 + startDate≤endDate refine |
-| HIGH | currentStatus prop 타입 string | ProjectStatus 타입 강화 |
-| HIGH | IN (...) raw SQL | Drizzle inArray() 교체 |
-| HIGH | ::int bigint 정밀도 손실 | ::bigint + Number() 변환 |
-| HIGH | UTC/KST 날짜 오차 | toLocalDateStr() 로컬 날짜 |
-| MEDIUM | ClientNotes revalidate 후 stale UI | useOptimistic 적용 |
-| MEDIUM | LogoutButton push/refresh race | router.refresh()만 호출 |
-| MEDIUM | generateMetadata 중복 호출 | React.cache() 적용 |
-| MEDIUM | addNoteAction raw string 파라미터 | ClientNoteData DTO 적용 |
-| MEDIUM | getUserId 중복 3파일 | src/lib/auth/get-user-id.ts 추출 |
-| MEDIUM | optimistic 실패 시 롤백 없음 | dispatch 반대 액션으로 롤백 |
-| MEDIUM | isEmpty 조건 매출 데이터 미포함 | monthlyRevenue + clientRevenue 체크 추가 |
-| MEDIUM | tab 화이트리스트 하드코딩 | tabs 배열에서 파생 |
-| MEDIUM | formatKRW 0 falsy 처리 | amount === null 명시 체크 |
-
 ## Phase 2: 견적/계약/정산 + 리브랜딩 🔄
 
 - [x] **Task 2-1** — 견적서 생성기 수동 모드 (목록 + 생성 폼 + 상세 + 상태 변경 + 삭제)
-  - 코드 리뷰 CRITICAL 3건 + IMPORTANT 5건 수정 완료
-- [ ] **Task 2-2** — 견적서 PDF 생성 + 미리보기
-- [ ] **Task 2-3** — 계약서 관리
+- [x] **Task 2-2** — 견적서 PDF 생성 + 미리보기 (Pretendard self-host + A4 템플릿 + 다운로드)
+- [x] **Task 2-3** — 계약서 관리 (목록 + 생성 + 상세 + 상태 전환 + PDF 조항 11개)
 - [ ] **Task 2-4** — 청구서/정산 관리
 - [ ] **Task 2-5** — 리브랜딩 랜딩 페이지
 
-### 코드 리뷰 수정 내역 (Task 2-1)
+### 코드 리뷰 수정 내역 (Task 2-2)
 
 | 심각도 | 이슈 | 수정 |
 |--------|------|------|
-| CRITICAL | deleteEstimateAction IDOR | 소유권 검증을 삭제 전에 수행 |
-| CRITICAL | UUID 미검증 (3개 함수) | uuidSchema.safeParse(id) 추가 |
-| CRITICAL | 트랜잭션 미사용 | db.transaction() 적용 (create/delete) |
-| IMPORTANT | paymentSplitItemSchema 중복 | estimates.ts에서 제거, settings.ts import |
-| IMPORTANT | getEstimate UUID 미검증 | safeParse 추가 |
-| IMPORTANT | 채번 경합 조건 | generateEstimateNumber를 tx 내부로 이동 |
-| IMPORTANT | projectId 소유권 미검증 | 프로젝트 소유권 확인 쿼리 추가 |
-| IMPORTANT | key={idx} 불안정 키 | crypto.randomUUID() 기반 _id 필드 |
+| CRITICAL | getUserCompanyInfo try-catch 없음 | 5패턴 준수 적용 |
+| CRITICAL | PDFDownloadLink(anchor) 안에 Button 중첩 | buttonVariants className으로 스타일만 적용 |
+| CRITICAL | pdfDocument 매 렌더 재생성 | useMemo 메모이즈 |
+| CRITICAL | pdfData 타입 어노테이션 누락 | `const pdfData: EstimatePdfData = {...}` |
+| HIGH | Pretendard CDN 의존성 | public/fonts/ self-host (Regular/Medium/SemiBold/Bold) |
+| HIGH | 파일명 sanitize 누락 | `[^A-Za-z0-9_-]` → `_` 치환 |
 
-## 현재 세션
+### 코드 리뷰 수정 내역 (Task 2-3)
 
-- **위치**: Phase 2 > Task 2-1 완료
-- **다음**: Task 2-2 (견적서 PDF 생성 + 미리보기)
+| 심각도 | 이슈 | 수정 |
+|--------|------|------|
+| HIGH | 채번 경합 (UNIQUE 제약 없음) | `unique(userId, contractNumber)` DB 제약 + 23505 재시도 |
+| HIGH | 상태 역행 가능 (signed → draft 등) | `ALLOWED_TRANSITIONS` 맵 서버 검증 |
+| HIGH | 서명 후 삭제 서버 가드 누락 | `status === "draft"` 체크 |
+| MEDIUM | 견적서 삭제 시 계약서 orphan | 연결 계약서 존재 시 삭제/accepted 해제 차단 |
+| MEDIUM | bidi/zero-width 문자 조항 변조 | specialTerms transform으로 제거 |
+| LOW | `ipOwnership as IpOwnership` 캐스트 | safeParse + fallback |
+| MINOR | PDF liabilityLimit null 시 말 안 됨 | null guard + 대체 문구 |
+| MINOR | 빈 입력 → 0 강제 | state `number \| ""` + placeholder |
+
+## 현재 세션 (2026-04-17)
+
+- **완료**:
+  - Task 2-2 구현 + 코드 리뷰 6건 수정
+  - Task 2-3 구현 + 코드 리뷰 8건 수정
+  - DB 마이그레이션 `0001_nasty_stingray.sql` (contracts UNIQUE 제약)
+- **다음**: Task 2-4 (청구서/정산 관리) 또는 Task 2-5 (리브랜딩 랜딩)
 - **차단 요소**: 없음
 
 ## 검증 상태
 
 ```
-✅ tsc       — PASS
-✅ lint      — PASS
-✅ build     — PASS (22 routes + /estimates/[id] + /estimates/new + Middleware)
-✅ db:push   — PASS (13 tables)
+✅ tsc       — PASS (0 errors)
+✅ lint      — PASS (0 errors, 경고 1개 기존 Task 2-1 잔존)
+✅ build     — PASS (21 routes)
+✅ db:push   — PASS (14 tables, contracts UNIQUE 적용)
 ```
 
 ## 기술 결정 기록
@@ -109,36 +96,58 @@
 | 2026-04-16 | getUserId 공통 모듈 추출 | 4개 actions 파일에서 중복 제거 |
 | 2026-04-16 | Server Action Zod 재검증 의무화 | Client→Server 경계에서 TypeScript 타입은 런타임 보장 없음 |
 | 2026-04-16 | useOptimistic + 실패 롤백 패턴 | 즉시 UI 반영 + 서버 실패 시 원래 상태 복원 |
+| 2026-04-17 | react-pdf 폰트 public/fonts/ self-host | CDN 장애 시 한글 깨짐 방지 (BusinessContinuity) |
+| 2026-04-17 | PDFDownloadLink = anchor → buttonVariants className | HTML nested button invalid 회피 |
+| 2026-04-17 | Server Action: 읽기 함수 try-catch 없음 | Next.js Dynamic Server Error 정상 흐름 보존 |
+| 2026-04-17 | 계약서 상태 전이맵 서버 검증 | 법적 증빙 무결성 (signed → draft 역행 방지) |
+| 2026-04-17 | 계약서 immutability는 참조 차단으로 완화 | 전자서명(Phase 3) 때 스냅샷 컬럼 추가 예정 |
+| 2026-04-17 | `(userId, contractNumber)` UNIQUE + 23505 재시도 | MAX 기반 채번 경합 방어 |
 
 ## 주요 파일 구조
 
 ```
 src/
 ├── app/
-│   ├── layout.tsx              ← Root (DM Sans + Pretendard + JetBrains Mono + Toaster)
-│   ├── globals.css             ← DESIGN.md 토큰 ("Intelligent Sanctuary")
-│   ├── page.tsx                ← 랜딩 Hero (placeholder)
-│   ├── (public)/               ← 공개 7페이지
+│   ├── layout.tsx
+│   ├── globals.css             ← DESIGN.md 토큰
+│   ├── (public)/
 │   ├── dashboard/
-│   │   ├── layout.tsx          ← Sidebar + Header
-│   │   ├── page.tsx            ← KPI 대시보드 (차트 + 타임라인)
+│   │   ├── layout.tsx
+│   │   ├── page.tsx            ← KPI 대시보드
 │   │   ├── dashboard-actions.ts
-│   │   ├── dashboard-charts.tsx
-│   │   ├── projects/           ← 프로젝트 CRUD + 칸반
-│   │   ├── clients/            ← 고객 CRM + 메모
-│   │   ├── settings/           ← 설정 (사업자 + 견적 기본값)
-│   │   ├── estimates/          ← 목록 + 생성 + 상세 + 상태관리
-│   │   ├── contracts/          ← (Phase 2)
-│   │   └── invoices/           ← (Phase 2)
+│   │   ├── projects/
+│   │   ├── clients/
+│   │   ├── settings/
+│   │   ├── estimates/          ← 목록 + 생성 + 상세 + PDF
+│   │   │   ├── actions.ts      ← + getUserCompanyInfo (Task 2-2)
+│   │   │   └── [id]/
+│   │   │       └── pdf-buttons.tsx   ← Task 2-2
+│   │   ├── contracts/          ← Task 2-3 신규
+│   │   │   ├── actions.ts      ← CRUD + 상태 전이맵 + 23505 재시도
+│   │   │   ├── page.tsx        ← 목록
+│   │   │   ├── new/            ← 생성 폼
+│   │   │   └── [id]/
+│   │   │       ├── page.tsx    ← 상세 (당사자/조건/특약)
+│   │   │       ├── contract-actions.tsx
+│   │   │       └── pdf-buttons.tsx
+│   │   └── invoices/           ← (Task 2-4)
 │   └── auth/callback/route.ts
 ├── components/
-│   ├── dashboard/ (sidebar, header, logout-button)
-│   └── ui/ (button, input, label, badge, dialog, select, textarea, sonner)
+│   ├── dashboard/
+│   └── ui/
 ├── lib/
-│   ├── auth/get-user-id.ts     ← 공통 인증 헬퍼
-│   ├── validation/ (settings, clients, projects, milestones, estimates)
+│   ├── auth/get-user-id.ts
+│   ├── validation/ (settings, clients, projects, milestones, estimates, contracts)
 │   ├── supabase/ (client, server)
-│   └── db/ (schema, index, migrations/)
+│   ├── db/ (schema, index, migrations/)
+│   └── pdf/                    ← Task 2-2/2-3
+│       ├── estimate-pdf.tsx    ← Pretendard Font.register + A4 템플릿
+│       └── contract-pdf.tsx    ← 법적 조항 11개 + 서명란
 ├── middleware.ts
-└── fonts/PretendardVariable.woff2
+├── fonts/PretendardVariable.woff2  ← 웹 UI용
+└── public/fonts/                   ← react-pdf용 OTF (Task 2-2)
+    ├── Pretendard-Regular.otf
+    ├── Pretendard-Medium.otf
+    ├── Pretendard-SemiBold.otf
+    └── Pretendard-Bold.otf
 ```

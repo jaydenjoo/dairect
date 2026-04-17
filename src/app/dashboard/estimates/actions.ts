@@ -7,6 +7,7 @@ import {
   clients,
   projects,
   userSettings,
+  contracts,
 } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
 import {
@@ -55,6 +56,42 @@ async function generateEstimateNumber(
   const nextNum = (parseInt(maxRows[0]?.maxNum ?? "0", 10) || 0) + 1;
   return `${prefix}-${year}-${String(nextNum).padStart(3, "0")}`;
 }
+
+// ─── PDF 생성용 사업자 정보 ───
+
+export async function getUserCompanyInfo(): Promise<CompanyInfo | null> {
+  try {
+    const userId = await getUserId();
+    if (!userId) return null;
+
+    const rows = await db
+      .select({
+        companyName: userSettings.companyName,
+        representativeName: userSettings.representativeName,
+        businessNumber: userSettings.businessNumber,
+        businessAddress: userSettings.businessAddress,
+        businessPhone: userSettings.businessPhone,
+        businessEmail: userSettings.businessEmail,
+      })
+      .from(userSettings)
+      .where(eq(userSettings.userId, userId))
+      .limit(1);
+
+    return rows[0] ?? null;
+  } catch (err) {
+    console.error("[getUserCompanyInfo]", err);
+    return null;
+  }
+}
+
+export type CompanyInfo = {
+  companyName: string | null;
+  representativeName: string | null;
+  businessNumber: string | null;
+  businessAddress: string | null;
+  businessPhone: string | null;
+  businessEmail: string | null;
+};
 
 // ─── 설정 기본값 (일 단가, 수금 비율) ───
 
@@ -332,6 +369,21 @@ export async function updateEstimateStatusAction(
   if (!parsed.success)
     return { success: false, error: "올바르지 않은 상태값입니다" };
 
+  // M1: accepted 상태에서 다른 상태로 전환 시 계약서 참조 확인
+  if (parsed.data !== "accepted") {
+    const referencingContracts = await db
+      .select({ id: contracts.id })
+      .from(contracts)
+      .where(and(eq(contracts.estimateId, id), eq(contracts.userId, userId)))
+      .limit(1);
+
+    if (referencingContracts.length > 0)
+      return {
+        success: false,
+        error: "이 견적서를 참조하는 계약서가 있어 상태를 변경할 수 없습니다",
+      };
+  }
+
   try {
     const setValues: Record<string, unknown> = { status: parsed.data };
     if (parsed.data === "sent") setValues.sentAt = new Date();
@@ -369,6 +421,19 @@ export async function deleteEstimateAction(id: string): Promise<ActionResult> {
 
   if (ownerRows.length === 0)
     return { success: false, error: "권한이 없거나 존재하지 않는 견적서입니다" };
+
+  // M1: 연결된 계약서가 있으면 삭제 차단 (법적 증빙 보호)
+  const referencingContracts = await db
+    .select({ id: contracts.id })
+    .from(contracts)
+    .where(and(eq(contracts.estimateId, id), eq(contracts.userId, userId)))
+    .limit(1);
+
+  if (referencingContracts.length > 0)
+    return {
+      success: false,
+      error: "이 견적서를 참조하는 계약서가 있어 삭제할 수 없습니다",
+    };
 
   try {
     // C3: 트랜잭션으로 원자적 삭제

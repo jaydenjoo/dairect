@@ -2,13 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { getEstimate } from "../actions";
+import { getEstimate, getUserCompanyInfo } from "../actions";
 import {
   estimateStatusLabels,
   estimateStatusColors,
   type EstimateStatus,
 } from "@/lib/validation/estimates";
 import { EstimateActions } from "./estimate-actions";
+import { PdfButtons } from "./pdf-buttons";
+import type { EstimatePdfData } from "@/lib/pdf/estimate-pdf";
 import { ArrowLeft, Calendar, FileText, User } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -36,16 +38,44 @@ interface PageProps {
 
 export default async function EstimateDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const estimate = await getEstimate(id);
+  const [estimate, company] = await Promise.all([
+    getEstimate(id),
+    getUserCompanyInfo(),
+  ]);
 
   if (!estimate) notFound();
 
   const status = estimate.status as EstimateStatus;
 
+  const pdfData: EstimatePdfData = {
+    estimateNumber: estimate.estimateNumber,
+    title: estimate.title,
+    validUntil: estimate.validUntil,
+    createdAt: estimate.createdAt,
+    clientName: estimate.clientName,
+    projectName: estimate.projectName,
+    supplyAmount: estimate.supplyAmount,
+    taxAmount: estimate.taxAmount,
+    totalAmount: estimate.totalAmount,
+    totalDays: estimate.totalDays,
+    notes: estimate.notes,
+    items: estimate.items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      manDays: item.manDays,
+      difficulty: item.difficulty,
+      unitPrice: item.unitPrice,
+      quantity: item.quantity,
+      subtotal: item.subtotal,
+    })),
+    paymentSplit: estimate.paymentSplit,
+  };
+
   return (
     <div className="py-10">
       {/* 헤더 */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <Link
             href="/dashboard/estimates"
@@ -68,7 +98,19 @@ export default async function EstimateDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        <EstimateActions id={estimate.id} status={status} />
+        <div className="flex flex-col items-end gap-2">
+          <PdfButtons estimate={pdfData} company={company} />
+          {status === "accepted" && (
+            <Link
+              href={`/dashboard/contracts/new?estimateId=${estimate.id}`}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              계약서 생성
+            </Link>
+          )}
+          <EstimateActions id={estimate.id} status={status} />
+        </div>
       </div>
 
       {/* 메타 정보 */}

@@ -9,6 +9,7 @@ import {
   date,
   jsonb,
   decimal,
+  unique,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -220,29 +221,36 @@ export const estimateItems = pgTable("estimate_items", {
 // 계약서
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-export const contracts = pgTable("contracts", {
-  id: uuid().primaryKey().default(sql`gen_random_uuid()`),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id),
-  projectId: uuid("project_id").references(() => projects.id),
-  estimateId: uuid("estimate_id").references(() => estimates.id),
-  contractNumber: text("contract_number").notNull(),
-  status: text({
-    enum: ["draft", "sent", "signed", "archived"],
-  }).default("draft"),
-  warrantyMonths: integer("warranty_months").default(3),
-  ipOwnership: text("ip_ownership", {
-    enum: ["client", "developer", "shared"],
-  }).default("client"),
-  liabilityLimit: bigint("liability_limit", { mode: "number" }),
-  specialTerms: text("special_terms"),
-  mosignUrl: text("mosign_url"),
-  signedAt: timestamp("signed_at", { withTimezone: true }),
-  signedFileUrl: text("signed_file_url"),
-  pdfUrl: text("pdf_url"),
-  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-});
+export const contracts = pgTable(
+  "contracts",
+  {
+    id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    projectId: uuid("project_id").references(() => projects.id),
+    estimateId: uuid("estimate_id").references(() => estimates.id),
+    contractNumber: text("contract_number").notNull(),
+    status: text({
+      enum: ["draft", "sent", "signed", "archived"],
+    }).default("draft"),
+    warrantyMonths: integer("warranty_months").default(3),
+    ipOwnership: text("ip_ownership", {
+      enum: ["client", "developer", "shared"],
+    }).default("client"),
+    liabilityLimit: bigint("liability_limit", { mode: "number" }),
+    specialTerms: text("special_terms"),
+    mosignUrl: text("mosign_url"),
+    signedAt: timestamp("signed_at", { withTimezone: true }),
+    signedFileUrl: text("signed_file_url"),
+    pdfUrl: text("pdf_url"),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (table) => [
+    // 채번 경합 방지: (userId, contractNumber) 조합 유니크
+    unique("contracts_user_number_unique").on(table.userId, table.contractNumber),
+  ],
+);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 인보이스 (청구서 / 수금)
