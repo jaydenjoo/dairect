@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-17 (후반 6회차)
-> 현재 위치: Phase 3 진행 중 (Task 3-1 + 3-2 + 3-3 + 3-4 완료, 4/5) → Task 3-5 대기
+> 최종 업데이트: 2026-04-18 (Task 3-5 Option B 완료)
+> 현재 위치: Phase 3 Option B 완료 (Task 3-1~3-5 구현+리뷰+일괄수정, 5/5 중 옵션 B 범위 100%) — M3(W2 cron)/M4(W3 cron)는 백로그
 
 ## 전체 진행률
 
@@ -10,7 +10,7 @@
 | Phase 0 | 기반 설정 | ✅ 완료 | 100% |
 | Phase 1 | 대시보드 핵심 | ✅ 완료 | 100% |
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
-| Phase 3 | AI + 자동화 + 리드 CRM | 🟡 진행중 | 80% (4/5) |
+| Phase 3 | AI + 자동화 + 리드 CRM | 🟢 Option B 완료 | 100% (5/5, cron 2건 백로그) |
 | Phase 4 | 고객 포털 + /demo + PWA | ⬜ 대기 | 0% |
 | Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
 
@@ -157,7 +157,7 @@ code-reviewer + security-reviewer 병렬 리뷰, 총 14건 수정:
 - [x] **Task 3-1** — AI 견적 초안 생성 (Claude Sonnet 4.6 API + tool_use + 일일 한도 50회 + 프롬프트 인젝션 방어)
 - [x] **Task 3-2** — AI 주간 브리핑 (대시보드 홈 위젯 + briefings 테이블 + 10초 쿨다운 + generation_type 감사 + RLS 방어선)
 - [x] **Task 3-3** — AI 주간 보고서 PDF (프로젝트 상세 카드 + weekly_reports 테이블 + 고객 발송용 PDF + shared-text 공통 방어)
-- [ ] **Task 3-5** — n8n Webhook 4종 (Slack/리마인더/주간/만족도)
+- [x] **Task 3-5 (Option B)** — n8n Webhook 2종 (W1 `project.status_changed` Slack / W4 `project.completed` Gmail) + fire-and-forget 클라이언트 + HMAC+nonce+rawBody + SSRF 방어. W2(invoice.overdue)/W3(weekly cron)은 cron 인프라 도입 후 백로그.
 
 ### 코드/보안 리뷰 수정 내역 (Task 3-1) — 10건
 
@@ -240,6 +240,38 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 5 + MEDIUM 5 수정 (CRITI
 - priorityKey 이중 폴백 제거 (Zod SoT 신뢰)
 - 입력 토큰 pre-check (고객사 수 증가 시)
 
+### 코드/보안 리뷰 수정 내역 (Task 3-5 Option B) — 11건
+
+code-reviewer + security-reviewer 병렬 리뷰, HIGH 6 + MEDIUM 5 일괄 수정 (CRITICAL 0):
+
+| 심각도 | 이슈 | 수정 |
+|--------|------|------|
+| 🟡 HIGH | n8n Webhook 기본 파싱 경로에서 `JSON.stringify(body)` 재직렬화 round-trip에 HMAC 검증 의존 — `\u2028`·특수문자·키 순서에서 비결정적 불일치 → 정상 메시지가 조용히 401로 거부 | Webhook 노드 `options.rawBody:true` + Code 노드에서 `item.binary.data.data` (base64) → utf8 원본 바이트로 HMAC 재계산. canonical = `${ts}.${nonce}.${rawBody}` |
+| 🟡 HIGH | `updateProjectStatusAction`의 SELECT→UPDATE 2-step — 동시 요청 시 잘못된 `from_status` 이벤트 발사, `completed` 상태 점프 시 W4 누락 | `db.transaction` + `.for("update", { of: projects })` — projects 행만 배타 락, clients JOIN 무영향 |
+| 🟡 HIGH | Slack/Gmail 실패 시 `Respond 200` 스킵 → n8n 재시도 폭주 + executions DB 팽창, 서버에 AbortError 오탐 | 토폴로지 재구성: `Verified? → Respond 200 → Slack/Gmail (continueOnFail:true, retryOnFail:false)` — 응답 먼저, 사이드이펙트 격리 |
+| 🟡 HIGH | `N8N_WEBHOOK_URL_*` 오설정 시 사설/링크로컬/메타데이터(169.254.169.254)로 PII POST 경로 (SSRF) — env 신뢰 가정 깨짐 | `PRIVATE_HOSTNAME_PATTERNS` production 차단: 127/10/172.16-31/192.168/169.254/::1/fc/fe80/localhost/0. 개발환경 localhost 허용. |
+| 🟡 HIGH | `N8N_WEBHOOK_SECRET` 미설정 상태로 production 배포 시 `X-Dairect-Signature: unsigned` 그대로 PII 송신 — TLS intercept/프록시 로그에 평문 노출 | `if (!signature && NODE_ENV==='production') return` — fetch 전 early return + 구조화 error 로그 |
+| 🟡 HIGH | ±5분 윈도우 내 동일 `(ts, body, sig)` 재전송 미차단 — W4 고객 Gmail 반복 발송 가능 (execution history 덤프·프록시 로그·DevTools 복사 경로) | 서버 `X-Dairect-Nonce: crypto.randomUUID()` 헤더 추가 (HMAC 입력에 포함) + n8n Code `$getWorkflowStaticData('global').seen` 5분+1분 grace TTL dedupe — HMAC 통과 후에만 seen에 등록 (무효 nonce flood 방지) |
+| 🟢 MEDIUM | `urlCache`가 null을 permanent 캐싱 → env 주입 순서/hot reload 이슈로 영구 no-op 가능 | 유효 URL만 캐싱, null은 매 호출 재평가 (파싱 비용 미미) |
+| 🟢 MEDIUM | W4 Gmail HTML 템플릿에 `project_name`/`client_contact_name` 직접 보간 — `"`·`<` 포함 시 속성/렌더 깨짐 (내부 도구라 XSS 리스크 낮으나 방어 필요) | `Compose Email`을 Set 노드에서 Code 노드로 교체: `escHtml`(5문자 엔티티) + `stripCtrl`(제어문자 제거) |
+| 🟢 MEDIUM | n8n executions DB에 W4 Gmail 본문(PII) 영구 저장 가능 | 워크플로우 `settings.saveDataSuccessExecution:"none"` 기본값 + README에 `EXECUTIONS_DATA_MAX_AGE`/prune 운영 가이드 |
+| 🟢 MEDIUM | `updateProjectStatusAction` catch 블록 `console.error("[...]", err)`로 err 객체 전체 덤프 | `err instanceof Error ? err.message : String(err)`만 구조화 로그 `{event, message}` (Sentry scrubber 전 1차 방어) |
+| 🟢 MEDIUM | secret 없을 때도 `unsigned` 헤더로 n8n에 도달 → 의미 없는 401 executions 누적 | H5 fetch skip과 통합 처리 — dev 환경만 warn + 송신, production은 차단 |
+
+**검증**: `pnpm tsc --noEmit` 무출력 통과 / `pnpm lint` 0 errors (1 pre-existing warning) / `pnpm build` 23 pages 성공.
+
+**스모크**: 셀프호스트 n8n 준비 + Slack/Gmail Credentials 연결 필요. 코드 레벨은 타입/빌드/lint 통과로 확정, 런타임 스모크는 Jayden 셀프호스트 후 별도 수행.
+
+### 다음 Task로 이관된 이슈 (Task 3-5 Option B 스코프 아웃)
+
+- **W2** `invoice.overdue` 일 1회 크론 — cron/Vercel Cron/Upstash 인프라 도입 후 Task 3-5 재개
+- **W3** weekly reports 금요일 크론 — 동일
+- **W4 고객 만족도 설문** — 완료 메일에 설문 링크 별도 Task
+- **관찰성 개선**: `activity_logs`에 `webhook_emit` 종류 기록 (silent failure 가시화)
+- **대시보드 발송 이력 UI**: 고객사별 메일/알림 발송 로그 조회
+- **`ALLOWED_N8N_HOSTS` allowlist**: 현재는 blocklist — 운영 성숙도에 맞춰 allowlist 전환 검토
+- **PDFDownloadLink dynamic 패턴**을 기존 estimate/contract/invoice pdf-buttons에도 적용 (Task 3-3에서 이관)
+
 ### 코드/보안 리뷰 수정 내역 (Task 3-4) — 4건
 
 code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
@@ -269,7 +301,24 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 - 구조화 로깅
 - `budget_range`/`schedule`/`status` 컬럼 CHECK 제약 일괄 추가
 
-## 현재 세션 (2026-04-17 후반 6회차)
+## 현재 세션 (2026-04-18 Task 3-5 Option B)
+
+- **완료**:
+  - Task 3-5 Option B 구현 완료 (M1 + M2 + M5 + 워크플로우 JSON 2종 + 배포 가이드)
+    - **M1**: `src/lib/n8n/client.ts` (fire-and-forget 클라이언트) — `emitN8nEvent(workflow, event, data)` + HMAC-SHA256 `${ts}.${nonce}.${rawBody}` + `X-Dairect-Nonce` UUID + AbortController 3s timeout + 유효 URL 전용 캐시 + 프로덕션 HTTPS 강제 + 사설/링크로컬 hostname 차단 (SSRF 방어) + 프로덕션에서 unsigned 차단
+    - **M2**: `updateProjectStatusAction` — `db.transaction` + `.for("update", { of: projects })`로 race 방지, UPDATE 후 `void emitN8nEvent("project_status_changed", ...)` 발사
+    - **M5**: 동일 액션 내 `to_status === "completed"`일 때만 `void emitN8nEvent("project_completed", ...)` 발사 (PII 포함: 고객 이메일/담당자명/회사명)
+    - **W1 JSON** (`n8n/workflows/W1_project_status_changed.json`): Webhook(rawBody:true) → Verify HMAC (nonce dedupe via `$getWorkflowStaticData`) → If → Respond 200 → Slack Post(continueOnFail)
+    - **W4 JSON** (`n8n/workflows/W4_project_completed.json`): Webhook → Verify HMAC → If(verified && email) → Respond 200 → Compose Email(Code 노드 + escHtml/stripCtrl) → Gmail Send(continueOnFail) + `saveDataSuccessExecution:"none"`로 PII 실행 이력 차단
+    - **n8n/README.md**: Dairect/n8n 양측 env · credentials 연결 · Slack Bot Token + Gmail OAuth2 절차 · 스모크 실패 메시지 레퍼런스 · PII execution history 경고 · 유지보수 주의사항 (HMAC canonical 명시)
+  - code-reviewer + security-reviewer 병렬 리뷰, **11건 일괄 수정 반영** (HIGH 6 + MEDIUM 5, CRITICAL 0)
+  - 에러 확률 최소화 6종 기법 설계 적용: AbortController timeout · URL Zod(new URL) 검증 · HMAC+timingSafeEqual · ±5분 timestamp + nonce dedupe · Date→ISO 사전 변환 · at-most-once (재시도 금지)
+- **신규 파일 4** (`src/lib/n8n/client.ts`, `n8n/workflows/W1_...json`, `n8n/workflows/W4_...json`, `n8n/README.md`) / **수정 파일 1** (`src/app/dashboard/projects/actions.ts`)
+- **검증**: tsc 무출력 통과 / lint 0 errors / build 23 pages 성공
+- **다음**: (옵션) Task 3-5 Option B 런타임 스모크 (Jayden 셀프호스트 n8n 준비 후) → Phase 4 고객 포털 + /demo + PWA
+- **차단 요소**: 없음 (런타임 스모크는 인프라 준비 대기, 코드 레벨 확정)
+
+## 이전 세션 (2026-04-17 후반 6회차)
 
 - **완료**:
   - Task 3-3 AI 주간 보고서 PDF 구현 완료 (7 마일스톤)
@@ -287,7 +336,7 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 - **다음**: Task 3-5 (n8n Webhook 4종 — Slack/리마인더/주간/만족도)
 - **차단 요소**: 없음
 
-## 이전 세션 (2026-04-17 후반 5회차)
+## 이전 이전 세션 (2026-04-17 후반 5회차)
 
 - **완료**:
   - Task 3-2 AI 주간 브리핑 구현 완료 (6 마일스톤)
@@ -418,6 +467,14 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 | 2026-04-17 | PDFDownloadLink는 반드시 `dynamic(ssr:false)` 래핑 | `@react-pdf/renderer`는 web-only API. `"use client"` 컴포넌트라도 Next.js 서버 렌더 단계에서 실행되면 500 에러. 기존 estimate/contract/invoice pdf-buttons도 동일 리스크 잔존 (백로그) |
 | 2026-04-17 | AI fallback 메시지도 Zod 재검증 후 저장 | `buildEmptyReport` 같은 정적 생성물이라도 projectName 등 외부 입력을 interpolation하면 위험. 저장 전 schema.safeParse로 drift 루프 DoS 원천 차단 |
 | 2026-04-17 | AI 주간 보고서 카드 위치: 프로젝트 상세 overview 탭 하단 | 공개 프로필 아래 → Jayden이 고객 발송 플로우 진입 시 자연스럽게 검토. 별도 탭 분리는 향후 보고서 이력이 쌓이면 고려 |
+| 2026-04-18 | n8n Webhook HMAC canonical = `${timestamp}.${nonce}.${rawBody}` | `rawBody:true` + binary 원본 바이트로 HMAC → n8n의 JSON 재직렬화 round-trip 엣지케이스(\u2028·키 순서·특수문자) 전면 제거. parsed 객체로 HMAC 금지 |
+| 2026-04-18 | fire-and-forget 4계층 격리 (`void emitN8nEvent` + 내부 try/catch + AbortController 3s + production unsigned 차단) | 외부 webhook 실패가 Server Action 본 흐름(DB 업데이트)에 절대 영향 안 주도록. 절대 throw 금지, await 금지 |
+| 2026-04-18 | n8n env URL SSRF 방어 — `PRIVATE_HOSTNAME_PATTERNS` production 차단 | `N8N_WEBHOOK_URL_*` 오설정 시 169.254.169.254(클라우드 메타데이터)/10.x/127.x로 PII POST 경로 차단. env 신뢰 가정은 오설정 시점에 무너지므로 hostname 레이어로 2중 방어 |
+| 2026-04-18 | Replay 방어 = timestamp 윈도우 + nonce dedupe (n8n `$getWorkflowStaticData`) | ±5분 + 1분 grace TTL로 `seen[nonce]=now` 저장. HMAC 통과 후에만 등록 → 무효 nonce flood 차단. 재시작 시 메모리 리셋 허용 (리스크 <1분 공백) |
+| 2026-04-18 | n8n 워크플로우 `Respond 200` → 사이드이펙트 토폴로지 | Slack/Gmail 실패가 Respond 지연·executions DB 팽창으로 이어지지 않도록 응답 먼저 반환. `continueOnFail:true, retryOnFail:false`로 n8n 재시도 폭주 차단 |
+| 2026-04-18 | SELECT→UPDATE는 `db.transaction` + `.for("update", { of: projects })` | 이벤트 from_status 정확성 보장. clients JOIN 행은 락에서 제외 (불필요한 경합 방지) |
+| 2026-04-18 | W4 Gmail 템플릿은 Set 대신 Code 노드(escHtml + stripCtrl) | 내부 사용자 입력이 HTML로 보간되는 경계에서 5문자 엔티티 + 제어문자 제거. XSS 리스크 낮은 내부 도구라도 방어 관성 유지 |
+| 2026-04-18 | n8n `saveDataSuccessExecution: "none"` 기본값 | W4 Gmail 본문(고객 PII) 영구 DB 저장 차단. 에러 실행만 디버깅용 잔존 |
 
 ## 주요 파일 구조
 
@@ -480,13 +537,17 @@ src/
 │   └── ui/
 ├── lib/
 │   ├── auth/get-user-id.ts
-│   ├── validation/ (settings, clients, projects, milestones, estimates, contracts, invoices)
+│   ├── validation/ (settings, clients, projects, milestones, estimates, contracts, invoices, shared-text, briefing, report, ai-estimate)
 │   ├── supabase/ (client, server)
 │   ├── db/ (schema, index, migrations/)
+│   ├── ai/ (claude-client, briefing-*, report-*, estimate-prompt)
+│   ├── n8n/                    ← Task 3-5 신규
+│   │   └── client.ts           ← fire-and-forget emitN8nEvent (HMAC+nonce+SSRF 방어)
 │   └── pdf/
 │       ├── estimate-pdf.tsx
 │       ├── contract-pdf.tsx
-│       └── invoice-pdf.tsx     ← Task 2-4
+│       ├── invoice-pdf.tsx     ← Task 2-4
+│       └── weekly-report-pdf.tsx ← Task 3-3
 ├── middleware.ts
 ├── fonts/PretendardVariable.woff2
 └── public/fonts/               ← react-pdf용 OTF
@@ -494,4 +555,10 @@ src/
     ├── Pretendard-Medium.otf
     ├── Pretendard-SemiBold.otf
     └── Pretendard-Bold.otf
+
+n8n/                             ← Task 3-5 신규
+├── README.md                    ← 배포 가이드 (env · credentials · 스모크 · 유지보수 · PII 경고)
+└── workflows/
+    ├── W1_project_status_changed.json  ← Webhook→Verify HMAC→If→Respond200→Slack
+    └── W4_project_completed.json       ← Webhook→Verify HMAC→If(verified&email)→Respond200→Compose(Code)→Gmail
 ```

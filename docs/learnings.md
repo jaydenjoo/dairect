@@ -429,3 +429,32 @@
   4. 전 테이블 일괄 적용이 이상적이지만 Task 범위 초과 시 **개별 Task에서 새 테이블만** 방어선 추가. Phase 3 백로그에 "기존 12 테이블 일괄 RLS 전환" 별도 Task로 등록.
   5. service_role 우회 여부 확인법: `SELECT current_user, session_user` 쿼리. `postgres`/`postgres.{ref}` 라면 superuser라 RLS 우회. `authenticated`/`anon`이라면 RLS 정책 적용 대상.
   6. Supabase 공식 문서는 "RLS 켜자"고 말하지만, 실제 효과는 접속 role에 달려있다. 정책만 보면 안전해 보이지만 `current_user` 확인 없이는 "안전"이라고 단정 금지.
+
+## 2026-04-18 — n8n Webhook HMAC은 raw body로만 — JSON 재직렬화 round-trip 금지
+
+- **증상**: Task 3-5 보안 리뷰에서 "n8n이 body를 JSON.parse한 뒤 Code 노드에서 `JSON.stringify(body)`로 재직렬화해 HMAC을 비교하는 구조는 `\u2028`·특수문자·숫자 표현·키 순서 엣지케이스에서 비결정적 불일치 → 정상 메시지가 401로 조용히 거부될 수 있음" HIGH 판정. 실제로 n8n 버전 업데이트·JSON 파서 교체 시 모든 알림이 침묵할 수 있는 silent failure 경로.
+- **원인**: Node.js `JSON.parse`/`JSON.stringify`가 object key insertion order를 보존하긴 하지만 **바이트 동일 보장은 아님**. 파서가 유니코드 이스케이프(`\u2028`)를 다르게 처리하거나, 숫자(`1.0` → `1`)가 변환되거나, 빈 문자열·null 처리에서 미세한 차이가 누적. 특히 사용자 입력(프로젝트명·고객사명)이 포함되는 HMAC 대상 문자열에서 언제든 깨질 수 있음.
+- **해결**: n8n Webhook 노드 `options.rawBody:true` 설정으로 **원본 바이트를 base64 binary로 받기** → Code 노드에서 `Buffer.from(item.binary.data.data, 'base64').toString('utf8')`로 복원 → 이 원본 문자열 그대로 HMAC 재계산. 서버측(`src/lib/n8n/client.ts`)은 이미 `JSON.stringify(envelope)` 결과를 그대로 서명하므로 양쪽이 "서버가 보낸 바이트 = n8n이 받은 바이트"로 수렴.
+- **규칙**:
+  1. **시스템 경계를 넘는 HMAC 검증은 원본 바이트(raw body)만 사용**. parsed 객체를 re-serialize해서 비교하는 구조는 언제든 "침묵 실패"로 전환된다.
+  2. Webhook JSON 파싱은 다음 단계(데이터 소비) 전용. HMAC 검증은 별도로 raw buffer에서 수행.
+  3. HMAC canonical은 반드시 `${timestamp}.${nonce}.${rawBody}` 같은 **명시적 구분자 포함 문자열**로 정의해서 양 끝단이 재현 가능하게 할 것. 연결 순서·구분자까지 프로토콜의 일부로 문서화.
+  4. Replay 방어는 timestamp 윈도우만으로 불완전 — 같은 (ts, body, sig)를 5분 내 재전송 가능. `crypto.randomUUID()` nonce를 HMAC 입력에 포함하고 수신측에서 nonce dedupe(`$getWorkflowStaticData('global').seen`) 필수. HMAC 검증 **통과 후에만** seen에 등록해서 무효 nonce flood 방지.
+  5. JSON round-trip은 "테스트 한 번 통과했다"로 안전을 결론 내리면 안 됨. 사용자 입력의 유니코드 변이(BiDi/U+2028/U+0085/이모지 변이) 공간이 너무 넓어 언제든 깨진다.
+
+## 2026-04-18 — fire-and-forget Server Action 외부 발사 4계층 격리
+
+- **증상**: Task 3-5 계획 단계에서 "n8n webhook 호출 실패가 `updateProjectStatusAction`의 DB 업데이트까지 같이 실패시키면 안 됨"이라는 격리 요구가 있었음. 리뷰 후 "secret 미설정 시 production에 unsigned로 PII 송신될 수 있다"·"n8n URL 오설정 시 SSRF"·"Slack 실패 시 n8n retry 폭주" 3가지 부수 silent failure 경로도 발견.
+- **원인**: Server Action에서 외부 HTTP 호출을 단순히 `await fetch(...)`로 묶으면 (a) 네트워크 타임아웃이 사용자 응답 지연, (b) 404/5xx throw가 본 플로우 롤백, (c) env 설정 오류가 전체 장애로 확대. "fire-and-forget"은 단순히 `void fn()`만이 아니라 **4계층 방어**가 필요: 호출자 격리 + 함수 내부 throw 금지 + timeout + 부트스트랩 guard.
+- **해결**: 단일 패턴으로 통합 — `src/lib/n8n/client.ts`의 `emitN8nEvent(workflow, event, data)`.
+  - **Layer 1 (호출자)**: `void emitN8nEvent(...)` — 반환 Promise를 의도적으로 무시. `await` 금지.
+  - **Layer 2 (함수 계약)**: `async function`이지만 절대 throw/reject 하지 않음. 모든 실패는 함수 내부에서 catch + 구조화 console.error. 호출자는 예외 처리 불필요.
+  - **Layer 3 (네트워크 경계)**: `AbortController` + 3s `setTimeout(controller.abort, ...)` → `clearTimeout` finally. n8n hang이 호출 스레드 차지 불가.
+  - **Layer 4 (부트스트랩 guard)**: env 미설정 / URL 파싱 실패 / 프로덕션 HTTP / 프로덕션 사설 hostname / 프로덕션 secret 미설정 → **fetch 전 early return** + 구조화 warn/error. 조용한 실패는 구조화 로그(`{event:"n8n_emit_*", workflow, reason}`)로만 가시화 (Sentry/로그파이프 자동 수집).
+- **규칙**:
+  1. **외부 시스템으로 나가는 사이드 이펙트는 본 플로우와 독립된 실패 모드를 가져야 한다.** 실패 상관관계를 "0"으로 만드는 게 목표.
+  2. fire-and-forget은 4계층(호출자 격리 + 내부 비-throw + timeout + bootstrap guard)이 모두 있어야 실제 격리 — 하나라도 빠지면 silent failure로 전환.
+  3. "env 신뢰" 가정은 오설정 시점에 무너진다 → **프로덕션 아웃바운드 URL은 반드시 hostname blocklist/allowlist**로 2중 방어 (사설 대역: 127/10/172.16-31/192.168/169.254/::1/fc/fe80/localhost/0).
+  4. 보안 secret 누락은 silent warn이 아니라 **프로덕션에선 fetch 자체를 차단**. `X-Signature: unsigned` 같은 의도 없는 헤더로 평문 PII가 outbound 되는 리스크는 운영 사고 1회로 고객 신뢰 붕괴.
+  5. 로그는 **err 객체 전체 덤프 금지**, `err.message`만 구조화(`{event, workflow, err_name, message}`) — Sentry scrubber 도달 전 1차 방어선. err.stack이 DB 쿼리 파라미터(PII) 포함하는 경로 있음.
+  6. 재시도는 **at-most-once 원칙** — 외부 사이드 이펙트(Slack 메시지·Gmail·결제 api)에 대한 자동 재시도는 중복 발송의 원인. 서버 측 `maxRetries:0`, n8n 측 `retryOnFail:false`, fetch 측 AbortController 유일 체크. 중복 방지가 가용성보다 우선인 도메인에서 특히 엄수.
