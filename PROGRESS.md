@@ -214,7 +214,7 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 ✅ lint      — PASS (0 errors, Task 2-1 기존 경고 1개 잔존)
 ✅ build     — PASS (25 routes, /dashboard/leads 추가, postgres.js max:1로 pool 경합 해결)
 ✅ db:push   — PASS (14 tables, 0005 CHECK 제약 적용)
-⏳ 스모크    — Jayden 수동 확인 예정 (/dashboard/leads 생성·전환·랜딩폼→리드·모바일 탭)
+✅ 스모크    — Jayden 수동 확인 완료 (리드 생성·전환·랜딩폼 연동·모바일 탭 모두 정상 작동)
 ```
 
 ## 기술 결정 기록
