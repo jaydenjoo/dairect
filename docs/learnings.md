@@ -65,6 +65,36 @@
   4. `PDFViewer`는 브라우저 전용(iframe+blob) → `dynamic(ssr: false)`로만 사용
   5. 파일명은 `sanitizeFileName()` 통과 (`[^A-Za-z0-9_-]` → `_`) — 사용자 설정 prefix의 injection 차단
 
+## 2026-04-17 — 트랜잭션 내 MAX 기반 채번의 offset 함정 (자동 3분할 버그)
+
+- **증상**: 견적서 기반 청구서 자동 3분할 생성 시, 첫 번째 INSERT는 성공하지만 두 번째부터 `23505 unique_violation`으로 전체 트랜잭션 롤백. 재시도 루프도 같은 로직이라 항상 실패.
+- **원인**: `generateInvoiceNumber(tx, userId)`가 같은 트랜잭션 내에서 N번 호출되는데, READ COMMITTED 격리 수준에서 **직전 INSERT는 커밋 전이므로 MAX 서브쿼리에 반영되지 않음** → 모두 동일한 번호 반환 → UNIQUE 제약 위반.
+- **해결**: `generateInvoiceNumber(tx, userId, offset)` 세 번째 파라미터 추가. 호출자(루프)가 `i`를 offset으로 전달. `nextNum = max + 1 + offset`으로 중복 방어.
+- **규칙**:
+  1. 트랜잭션 내에서 **같은 테이블에 N회 INSERT하면서 MAX로 채번**하는 패턴은 항상 offset 필요. 단일 INSERT에서는 문제 없음 (트랜잭션 커밋 후 다음 트랜잭션이 MAX 재조회).
+  2. 더 안전한 대안: `FOR UPDATE` 락 + 전용 카운터 컬럼, 또는 DB sequence. 현재 방어법은 "offset + UNIQUE + 23505 재시도" 조합.
+  3. 리뷰 관점: 루프 내 채번은 반드시 재현 테스트 필요. 단건 생성만 테스트하면 버그가 숨는다.
+
+## 2026-04-17 — 공용 Nav 컴포넌트의 activeHref vs id 기반 매칭
+
+- **증상**: `LandingNav activeHref="/about"` 전달 시 "서비스"와 "소개" 두 메뉴가 동시에 active로 강조됨.
+- **원인**: 두 메뉴 모두 `href="/about"`으로 같은 경로를 공유. `href === activeHref` 문자열 비교만으로는 구분 불가.
+- **해결**: `active: NavActiveId` (`"service" | "portfolio" | "pricing" | "about"`) enum prop으로 변경. 각 항목이 고유 id를 가지고 id === active로 매칭.
+- **규칙**:
+  1. 공용 Nav 설계 시 **활성화 매칭은 항상 고유 id(enum)로 구현**. href 기반 매칭은 동일 경로가 여러 메뉴에서 쓰일 때 깨진다.
+  2. TypeScript strict로 `active?: NavActiveId`를 쓰면 호출측에서 오타/잘못된 값 컴파일 차단.
+  3. 서비스 소개 섹션을 `/about#service` 같은 해시로 분리하는 편이 명확하나, UX상 같은 페이지를 향하는 두 메뉴 자체를 재검토할 것.
+
+## 2026-04-17 — No-Line Rule과 접근성(semantic `<table>`)의 양립
+
+- **증상**: 비교 표를 `<div className="grid grid-cols-4">` + `role` 없이 구현. 스크린리더에서 "4개의 리스트"로 인식되고 행/열 헤더 관계가 전달되지 않음. 반면 시안의 `border-b` 기반 테이블은 DESIGN.md "No-Line Rule" 위반.
+- **원인**: "No-Line Rule"을 지키기 위해 div grid로 도피했으나 semantic HTML 상실.
+- **해결**: `<table>` + `<thead>/<tbody>` + `<th scope="row|col">` + `<colgroup>` 정통 구조로 전환. `border-collapse` + border 클래스 전혀 사용 안 하고, 행 구분은 `surface-card`/`surface-base` **교차 배경**, MVP 열 강조는 `bg-primary/[0.06]` tint로 처리.
+- **규칙**:
+  1. **semantic HTML과 디자인 원칙은 충돌하지 않는다**. `<table>`도 `border-0`으로 No-Line Rule 준수 가능.
+  2. 테이블 형태 데이터(행 × 열 의미 있음)는 반드시 `<table>` + scope 사용. `<div>` + `role="table"` ARIA는 차선책.
+  3. MVP 열처럼 한 열 전체를 강조할 때는 `<colgroup>`에 배경 지정보다, 각 td/th에 개별 bg 클래스를 주는 편이 Tailwind와 궁합이 좋다 (colgroup background는 일부 브라우저에서 무시됨).
+
 ## 2026-04-16 — proxy.ts vs middleware.ts (Next.js 16.2)
 
 - **증상**: `proxy.ts`로 내보낸 미들웨어가 작동하지 않음 (인증 보호 무효)
