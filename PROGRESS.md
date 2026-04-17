@@ -157,9 +157,16 @@ code-reviewer + security-reviewer 병렬 리뷰, 총 14건 수정:
   - Task 2-8 구현 (`/projects` Bento Grid + `/projects/[id]` 상세 + Nav service 제거)
   - Task 2-8-B 구현 (대시보드 공개 프로필 토글 Server Action)
   - code-reviewer + security-reviewer 병렬 리뷰 **2라운드**, 총 **22건 수정** 반영 (14 + 8)
-  - 신규 파일 4개 / 수정 파일 5개, 마이그레이션 0건 (스키마 이미 존재)
+  - **풀 자동 검증**: Jayden 수동 편집 + Playwright 자동 공개 페이지 반영 확인 — Bento Grid 카드 / 상세 페이지 / 라이브 버튼 / 404 / 악성 입력 거부 모두 PASS
+  - **Supabase OAuth 3이슈 해결**:
+    1. Google OAuth Client 타입 Desktop → **Web Application** 재생성
+    2. Supabase Site URL `localhost:3000` → **`localhost:3700`** 수정
+    3. `.env.local` anon key를 다른 프로젝트 것 → **dairect 프로젝트 키**로 교체
+  - **auth.users ↔ public.users 자동 동기화**: `dashboard/layout.tsx`에 `onConflictDoNothing` upsert 추가 (Task 0-3 누락 보정)
+  - 신규 파일 4개 / 수정 파일 6개, 마이그레이션 0건
   - 메모리 2건 저장 (`feedback_coding_efficiency.md`, `feedback_plan_before_task.md`)
-- **다음**: 수동 UI 검증 (Jayden 브라우저) → Phase 3 계획 수립
+  - 교훈 2건 추가 (Supabase OAuth 3단계 함정 / auth-public users 동기화)
+- **다음**: Phase 3 계획 수립 (AI + 자동화 + 리드 CRM)
 - **차단 요소**: 없음
 
 ## 검증 상태

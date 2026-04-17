@@ -176,6 +176,51 @@
   4. 동적 라우트 `[id]`는 기본 `ƒ Dynamic`이지만 `revalidate` 추가로 1분 캐시 가능 (build 로그 `ƒ`로 표시되어도 실제로는 캐시됨).
   5. 대시보드 mutation Server Action에서 `revalidatePath("/projects")` 호출 → revalidate 대기 없이 즉시 재생성 가능.
 
+## 2026-04-17 — Supabase + Google OAuth 설정 3단계 함정 (redirect→key→site_url)
+
+- **증상**: Task 2-8-B 검증 중 로그인 실패 3회 연속. 매번 다른 에러.
+  1. 1차: `400 redirect_uri_mismatch`
+  2. 2차: `/auth/callback` 후 "인증 실패" 화면
+  3. 3차: `/auth/callback` 성공했지만 `exchangeCodeForSession failed: Invalid API key`
+- **원인**: Supabase + Google OAuth 연동 시 놓치기 쉬운 3단계가 있음. 하나만 빠져도 다른 얼굴의 에러로 나타나 원인 파악 어려움.
+  1. **Google Cloud Console OAuth Client 타입**: "Desktop" 타입으로 만들면 `Authorized redirect URIs` 필드 자체가 없음. **Web Application** 타입 필수. redirect URI = `https://<ref>.supabase.co/auth/v1/callback` (앱 URL 아님).
+  2. **Supabase Site URL / Redirect URLs**: Supabase Auth → URL Configuration에서 개발 포트(localhost:3700)가 Site URL 또는 Redirect URLs allow list에 없으면 callback 후 다른 포트(예: localhost:3000)로 redirect되어 연결 실패.
+  3. **`.env.local`의 NEXT_PUBLIC_SUPABASE_ANON_KEY**: 다른 Supabase 프로젝트(chatsio/autovox)의 키가 복붙되어 있으면 `exchangeCodeForSession`이 `Invalid API key (401)` 반환. JWT payload의 `ref` 필드가 현재 프로젝트 ref와 일치해야 함.
+- **해결**: 진단 장비 3종 세트 — (a) Playwright로 실제 전송되는 `client_id`, `redirect_uri` 캡처, (b) Supabase `get_logs(service="auth")` MCP로 서버측 통과 여부 확인, (c) Next.js callback route에 임시 `console.error`로 실제 에러 메시지 출력 → dev 서버 로그 조회.
+- **규칙**:
+  1. 새 Supabase 프로젝트에 Google OAuth 붙일 때는 **3단계 체크리스트**를 반드시 먼저:
+     - ① Google Cloud Console: OAuth Client = **Web Application** 타입 + Authorized redirect URIs에 `https://<supabase-ref>.supabase.co/auth/v1/callback` 등록
+     - ② Supabase Dashboard → Auth → URL Configuration: Site URL + Redirect URLs가 **실제 앱 포트**와 일치 (dairect의 경우 `http://localhost:3700`)
+     - ③ `.env.local` anon key JWT payload `ref` 필드가 현재 프로젝트 ref와 일치 (jwt.io 디코딩으로 확인 가능)
+  2. OAuth 디버깅 시 **실패 지점을 3단계로 분리**해 각각 확인: Google → Supabase Auth → Next.js callback. 한 번에 다 보려 하지 말 것.
+  3. 프로젝트 간 `.env.local` 복사 금지. 각 Supabase 프로젝트마다 anon key가 고유. "이전 프로젝트에서 잘 됐으니 그대로 쓰면 되겠지"가 가장 흔한 함정.
+  4. `auth/callback/route.ts`에서 `exchangeCodeForSession` 에러는 **기본값으로 `console.error` 출력 필요**. 현재 구현은 에러 숨기고 `/login?error=auth_failed`로만 보냄 → 운영자가 원인 파악 불가. Phase 3에서 error 메시지 로깅 + Sentry 연동 고려.
+
+## 2026-04-17 — auth.users ↔ public.users 동기화 부재 (FK 위반)
+
+- **증상**: 로그인 성공 후 프로젝트 생성 시 `PostgresError 23503: foreign key constraint "projects_user_id_users_id_fk"` / `Key (user_id)=(...) is not present in table "users"`.
+- **원인**: Supabase Auth가 관리하는 `auth.users` 스키마와, 앱 스키마의 `public.users`는 별개 테이블. Supabase는 기본적으로 **동기화 안 함**. `projects` 테이블이 `public.users`를 FK로 참조하는데, Jayden은 `auth.users`에만 존재하고 `public.users`엔 row 없음 → 삽입 실패.
+- **해결**: **dashboard/layout.tsx에 자동 upsert 추가**.
+  ```ts
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user || !user.email) redirect("/login");
+
+  await db.insert(users).values({
+    id: user.id,
+    email: user.email,
+    name: metadata.full_name ?? metadata.name ?? null,
+    avatarUrl: metadata.avatar_url ?? metadata.picture ?? null,
+  }).onConflictDoNothing({ target: users.id });
+  ```
+- **규칙**:
+  1. Supabase Auth + 커스텀 `public.users` 스키마 조합 시 **반드시 동기화 전략 1개 이상 구현**. 선택지:
+     - (a) **App-level upsert**: `dashboard/layout.tsx` 또는 `middleware` 같이 인증 후 첫 진입점에서 `onConflictDoNothing` upsert. Drizzle 사용 가능. Edge runtime 제약 없는 위치여야 함 (middleware는 Edge).
+     - (b) **DB-level trigger**: `auth.users` INSERT 트리거로 `public.users` 자동 생성. Supabase SQL Editor에서 설정. `handle_new_user()` function + `on_auth_user_created` trigger 표준 패턴.
+  2. (a)는 코드로 해결 가능·추적 쉬움 / (b)는 자동화·성능 이득. 두 방식 중 하나만 선택, 중복 금지.
+  3. `onConflictDoNothing({ target: users.id })`는 매 진입 시 한 번씩 실행되지만 충돌 시 no-op이라 비용 미미.
+  4. middleware에서 처리하려면 Edge runtime 호환 DB 라이브러리(예: `postgres` with `fetch`) 필요. 기본 `postgres.js`는 Node.js 전용이라 middleware 불가 → **layout.tsx 선호**.
+  5. Task 0-3 (Auth 설정)에서 이 동기화 로직이 빠졌다. 새 프로젝트 init 체크리스트에 반드시 추가.
+
 ## 2026-04-16 — proxy.ts vs middleware.ts (Next.js 16.2)
 
 - **증상**: `proxy.ts`로 내보낸 미들웨어가 작동하지 않음 (인증 보호 무효)
