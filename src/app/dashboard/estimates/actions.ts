@@ -243,8 +243,11 @@ export async function getEstimate(id: string) {
 
 // ─── 생성 (C3: 트랜잭션 / I3: 채번 트랜잭션 내 / I4: projectId 소유권) ───
 
+const inputModeSchema = z.enum(["manual", "auto", "ai"]);
+
 export async function createEstimateAction(
   data: EstimateFormData,
+  inputMode: "manual" | "auto" | "ai" = "manual",
 ): Promise<ActionResult> {
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
@@ -255,6 +258,14 @@ export async function createEstimateAction(
       success: false,
       error: parsed.error.issues[0]?.message ?? "입력값이 올바르지 않습니다",
     };
+
+  // inputMode 재검증 (클라이언트 입력 신뢰 금지)
+  // silent downgrade 금지: 조작·오타·미인증 값은 감사 추적 왜곡 방지를 위해 거부 (10패턴7 준수)
+  const modeCheck = inputModeSchema.safeParse(inputMode);
+  if (!modeCheck.success) {
+    return { success: false, error: "유효하지 않은 입력 모드입니다" };
+  }
+  const validInputMode = modeCheck.data;
 
   const v = parsed.data;
 
@@ -314,7 +325,7 @@ export async function createEstimateAction(
           estimateNumber,
           title: v.title,
           status: "draft",
-          inputMode: "manual",
+          inputMode: validInputMode,
           validUntil: v.validUntil,
           paymentSplit: v.paymentSplit,
           supplyAmount,

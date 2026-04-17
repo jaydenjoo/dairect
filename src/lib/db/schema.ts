@@ -54,6 +54,14 @@ export const userSettings = pgTable("user_settings", {
   // 기능 프리셋 (자동 산정용)
   featurePresets: jsonb("feature_presets").default(sql`'[]'::jsonb`),
 
+  // AI 호출 한도 (Task 3-1)
+  // NOT NULL + default: 기존 row에 NULL이 남아 `aiLastResetAt < CURRENT_DATE`가 NULL(false) 판정되어
+  // 한도 영구 잠김되는 상황 방어. 신규 INSERT 시 default(0, now())로 자동 채움.
+  aiDailyCallCount: integer("ai_daily_call_count").default(0).notNull(),
+  aiLastResetAt: timestamp("ai_last_reset_at", { withTimezone: true })
+    .default(sql`now()`)
+    .notNull(),
+
   updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
 });
 

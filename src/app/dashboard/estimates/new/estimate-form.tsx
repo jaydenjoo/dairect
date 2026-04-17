@@ -3,7 +3,16 @@
 import { useState, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createEstimateAction } from "../actions";
+import { generateEstimateDraftAction } from "../ai-actions";
 import type { EstimateFormData, EstimateItemFormData } from "@/lib/validation/estimates";
+import {
+  AI_DAILY_LIMIT,
+  AI_REQUIREMENTS_MAX,
+  AI_REQUIREMENTS_MIN,
+  aiCategoryLabels,
+  aiDifficultyCoefficient,
+  type AiEstimateItem,
+} from "@/lib/validation/ai-estimate";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Plus, Sparkles, Trash2 } from "lucide-react";
 
 interface PaymentSplitItem {
   label: string;
@@ -64,9 +73,23 @@ function defaultValidUntil(): string {
   return d.toISOString().slice(0, 10);
 }
 
+function aiItemToFormItem(item: AiEstimateItem, dailyRate: number): ItemWithId {
+  return {
+    _id: crypto.randomUUID(),
+    name: item.name,
+    description: "",
+    category: aiCategoryLabels[item.category],
+    manDays: item.manDays,
+    difficulty: aiDifficultyCoefficient[item.difficulty],
+    unitPrice: dailyRate,
+    quantity: 1,
+  };
+}
+
 export function EstimateForm({ clientOptions, projectOptions, defaults }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [aiPending, startAiTransition] = useTransition();
 
   const [title, setTitle] = useState("");
   const [clientId, setClientId] = useState("");
@@ -80,6 +103,12 @@ export function EstimateForm({ clientOptions, projectOptions, defaults }: Props)
     defaultItem(defaults.dailyRate),
   ]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // ─── AI 초안 state ───
+  const [aiRequirements, setAiRequirements] = useState("");
+  const [aiWasGenerated, setAiWasGenerated] = useState(false);
+  const [aiDailyCount, setAiDailyCount] = useState<number | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // ─── 항목 CRUD ───
 
@@ -122,6 +151,51 @@ export function EstimateForm({ clientOptions, projectOptions, defaults }: Props)
   );
   const splitTotal = paymentSplit.reduce((s, i) => s + i.percentage, 0);
 
+  // ─── AI 초안 생성 ───
+
+  function handleGenerate() {
+    setAiError(null);
+
+    if (aiRequirements.length < AI_REQUIREMENTS_MIN) {
+      setAiError(
+        `요구사항을 ${AI_REQUIREMENTS_MIN}자 이상 입력해주세요 (현재 ${aiRequirements.length}자)`,
+      );
+      return;
+    }
+    if (aiRequirements.length > AI_REQUIREMENTS_MAX) {
+      setAiError(`요구사항은 ${AI_REQUIREMENTS_MAX}자 이내로 입력해주세요`);
+      return;
+    }
+
+    // 기존에 수동으로 입력한 항목이 있으면 덮어쓰기 확인 (실수 방지)
+    const hasManualItems = items.some((it) => it.name.trim().length > 0);
+    if (hasManualItems) {
+      const ok = window.confirm(
+        "현재 입력한 견적 항목이 모두 AI 초안으로 대체됩니다. 계속하시겠습니까?",
+      );
+      if (!ok) return;
+    }
+
+    startAiTransition(async () => {
+      const result = await generateEstimateDraftAction(aiRequirements);
+      if (result.success) {
+        const aiItems = result.items.map((item) =>
+          aiItemToFormItem(item, defaults.dailyRate),
+        );
+        setItems(aiItems);
+        setAiWasGenerated(true);
+        setAiDailyCount(result.dailyCount);
+        setAiError(null);
+        if (!title.trim()) setTitle("AI 견적 초안");
+        toast.success(`AI가 ${result.items.length}개 항목을 생성했습니다`);
+      } else {
+        setAiError(result.error);
+        if (typeof result.dailyCount === "number") setAiDailyCount(result.dailyCount);
+        toast.error(result.error);
+      }
+    });
+  }
+
   // ─── 제출 ───
 
   function handleSubmit() {
@@ -152,7 +226,7 @@ export function EstimateForm({ clientOptions, projectOptions, defaults }: Props)
     };
 
     startTransition(async () => {
-      const result = await createEstimateAction(data);
+      const result = await createEstimateAction(data, aiWasGenerated ? "ai" : "manual");
       if (result.success && result.id) {
         toast.success("견적서가 생성되었습니다");
         router.push(`/dashboard/estimates/${result.id}`);
@@ -164,6 +238,77 @@ export function EstimateForm({ clientOptions, projectOptions, defaults }: Props)
 
   return (
     <div className="space-y-8">
+      {/* AI 초안 생성 (선택) */}
+      <section className="rounded-2xl bg-primary/[0.04] p-6">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+            <Sparkles className="h-4 w-4" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-base font-semibold text-foreground">AI 견적 초안 (선택)</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              요구사항 텍스트를 입력하면 Claude AI가 견적 항목을 자동으로 분해합니다. 생성된 초안은 반드시 검토·수정 후 저장하세요.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <Textarea
+            value={aiRequirements}
+            onChange={(e) => setAiRequirements(e.target.value)}
+            placeholder="예: 쇼핑몰을 만들고 싶어요. 회원가입, 상품 목록, 장바구니, 결제(토스페이먼츠), 관리자 대시보드가 필요합니다. 모바일 반응형 필수."
+            rows={5}
+            maxLength={AI_REQUIREMENTS_MAX}
+            disabled={aiPending}
+            aria-describedby="ai-req-help"
+          />
+          {aiError && (
+            <p className="mt-2 text-xs text-destructive" role="alert">
+              {aiError}
+            </p>
+          )}
+          <div
+            id="ai-req-help"
+            className="mt-2 flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:justify-between"
+          >
+            <span
+              className={`tabular-nums ${
+                aiRequirements.length > 0 && aiRequirements.length < AI_REQUIREMENTS_MIN
+                  ? "text-destructive"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {aiRequirements.length} / {AI_REQUIREMENTS_MAX}자
+              {aiRequirements.length > 0 &&
+                aiRequirements.length < AI_REQUIREMENTS_MIN &&
+                ` (최소 ${AI_REQUIREMENTS_MIN}자)`}
+            </span>
+            <div className="flex items-center gap-3">
+              {aiDailyCount !== null && (
+                <span className="text-muted-foreground">
+                  오늘 사용:{" "}
+                  <span className="font-medium tabular-nums text-foreground">
+                    {aiDailyCount}
+                  </span>
+                  /{AI_DAILY_LIMIT}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={
+                  aiPending || aiRequirements.length < AI_REQUIREMENTS_MIN
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {aiPending ? "AI 생성 중..." : "AI 초안 생성"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* 기본 정보 */}
       <section className="rounded-2xl bg-card p-6">
         <h2 className="text-base font-semibold text-foreground">기본 정보</h2>
@@ -232,6 +377,25 @@ export function EstimateForm({ clientOptions, projectOptions, defaults }: Props)
           </div>
         </div>
       </section>
+
+      {/* AI 생성 경고 배너 — 정적 주의 안내이므로 role="note" + polite live region */}
+      {aiWasGenerated && (
+        <div
+          className="flex items-start gap-3 rounded-2xl bg-amber-50 p-4 dark:bg-amber-500/10"
+          role="note"
+          aria-live="polite"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <div className="flex-1 text-sm">
+            <p className="font-medium text-amber-900 dark:text-amber-100">
+              주의: AI 생성 초안입니다 — 반드시 검토하세요
+            </p>
+            <p className="mt-0.5 text-xs text-amber-800/90 dark:text-amber-100/80">
+              AI가 생성한 공수·난이도·카테고리를 확인하고, 요구사항에서 누락된 항목이 없는지 점검한 뒤 수정 후 저장해주세요. 저장된 견적서에는 AI 생성 태그가 기록됩니다.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 견적 항목 */}
       <section className="rounded-2xl bg-card p-6">
