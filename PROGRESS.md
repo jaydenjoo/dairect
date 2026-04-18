@@ -390,12 +390,14 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 - **검증**:
   - tsc 0 errors / lint 0 errors (기존 경고 1건 잔존) / build **41 routes 성공** (기존 40 + `/offline` 신규) / postbuild `public/sw.js` 존재 검증 ✅ / sw.js 54KB · `/offline` 문자열 2회 등장 (precache + fallback matcher 양쪽)
   - 기반 스테이지의 Turbopack→webpack 전환(`build --webpack`) · `transpilePackages: ["@react-pdf/renderer"]` · postbuild `test -f public/sw.js` hook · `.gitignore` / `eslint.config.mjs`의 `public/sw.js` · `swe-worker-*.js` 제외 모두 기존대로 정상 동작.
-- **다음 세션 선택지**:
+- **다음 세션 선택지** (우선순위 순):
+  - **M8 B-2 E2E 포털 스모크 완결** (미커밋 스테이지 보존 중) — `playwright.config.ts`(주석상 "Task 4-2 M8 B-2") + `e2e/` 폴더가 현재 untracked. dev 서버 + Playwright로 포털 핵심 흐름(토큰 → 피드백 → 읽음) 자동 스모크. `seed-portal.ts` 픽스처로 DB 직접 시드. 실행 + 안정화 + 리뷰 후 별도 커밋 예상.
   - **리팩토링 Task** — `sanitizeHeader` / `stripFormulaTriggers` / `HoneypotField` / timing guard를 `src/lib/security/`로 공통화 (공개 폼 4종 세트 재사용 확대)
   - **Vercel 배포 준비** — `after()`/waitUntil 도입 검토 + env 변수 세팅 + n8n W5 워크플로 실제 구축(Jayden)
   - **Phase 5 SaaS 전환 준비** — 회원가입 UI, multi-tenant, anon client + RLS 전면 재검증
 - **차단 요소**: 없음
-- **교훈 2건 추가** (learnings.md): SW fallback matcher 민감 경로 제외 / Serwist + Turbopack 비호환 → webpack 전환 결정
+- **푸시 대기**: M8 커밋 `6ffb9a0` 포함 로컬이 `origin/main`보다 6커밋 앞섬 — Jayden 승인 후 일괄 푸시 예정
+- **교훈 1건 추가** (learnings.md): SW fallback matcher 민감 경로 제외. Serwist + Turbopack 비호환 교훈은 Jayden 이전 세션에 이미 기록 존재하여 중복 방지
 
 ## 이전 세션 (2026-04-18 Task 4-2 M4~M7 — 고객 포털 완성 + n8n 알림 + 리뷰 42건 반영)
 
