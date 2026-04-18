@@ -9,7 +9,13 @@ import { ProjectStatusSelect } from "../project-status-select";
 import { MilestoneList } from "./milestone-list";
 import { PublicProfileForm } from "./public-profile-form";
 import { PortalLinkCard } from "@/components/dashboard/portal-link-card";
+import { ProjectFeedbackSection } from "@/components/dashboard/project-feedback-section";
 import { getActivePortalToken } from "./portal-actions";
+import {
+  getProjectFeedbacks,
+  getUnreadFeedbackCount,
+  type ProjectFeedbackSummary,
+} from "./feedback-actions";
 import { WeeklyReportCard } from "@/components/dashboard/weekly-report-card";
 import { getCurrentWeeklyReport } from "@/lib/ai/report-actions";
 import { getUserCompanyInfo } from "../../estimates/actions";
@@ -38,6 +44,7 @@ function formatKRW(amount: number | null): string {
 const tabs: { key: string; label: string; disabled?: boolean }[] = [
   { key: "overview", label: "개요" },
   { key: "milestones", label: "마일스톤" },
+  { key: "feedback", label: "피드백" },
   { key: "estimates", label: "견적", disabled: true },
   { key: "contracts", label: "계약", disabled: true },
   { key: "invoices", label: "정산", disabled: true },
@@ -55,15 +62,28 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
   const { id } = await params;
   const { tab } = await searchParams;
   const validTabs = tabs.filter((t) => !t.disabled).map((t) => t.key);
-  const activeTab = validTabs.includes(tab ?? "") ? tab! : "overview";
+  const activeTab = tab && validTabs.includes(tab) ? tab : "overview";
 
-  const [project, milestoneList, weeklyReport, company, portalToken] = await Promise.all([
-    getProject(id),
-    getMilestones(id),
-    getCurrentWeeklyReport(id),
-    getUserCompanyInfo(),
-    getActivePortalToken(id),
-  ]);
+  // 피드백 탭 활성 시에만 전체 items 로드. 다른 탭에서는 뱃지용 unread count만.
+  // 수백~수천 건 축적 시 대시보드 첫 진입 시간 방어.
+  const needsFeedbackItems = activeTab === "feedback";
+
+  const [project, milestoneList, weeklyReport, company, portalToken, feedbacksData] =
+    await Promise.all([
+      getProject(id),
+      getMilestones(id),
+      getCurrentWeeklyReport(id),
+      getUserCompanyInfo(),
+      getActivePortalToken(id),
+      needsFeedbackItems
+        ? getProjectFeedbacks(id)
+        : getUnreadFeedbackCount(id).then<ProjectFeedbackSummary>((unread) => ({
+            items: [],
+            total: 0,
+            unread,
+          })),
+    ]);
+  const feedbacks = feedbacksData;
 
   if (!project) notFound();
 
@@ -160,6 +180,11 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
                     {milestoneCompleted}/{milestoneTotal}
                   </span>
                 )}
+                {t.key === "feedback" && feedbacks.unread > 0 && (
+                  <span className="ml-1.5 inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                    미확인 {feedbacks.unread}
+                  </span>
+                )}
               </Link>
             )
           ))}
@@ -254,6 +279,25 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
               <div className="mt-4">
                 <MilestoneList projectId={id} initialMilestones={milestoneList} />
               </div>
+            </div>
+          )}
+
+          {activeTab === "feedback" && (
+            <div className="max-w-3xl">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  <h2 className="font-heading text-sm font-semibold text-foreground">
+                    고객 피드백
+                  </h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    포털에서 고객이 남긴 의견입니다. 읽음 처리는 감사 로그에 기록됩니다.
+                  </p>
+                </div>
+                <span className="font-mono text-xs text-muted-foreground">
+                  전체 {feedbacks.total} · 미확인 {feedbacks.unread}
+                </span>
+              </div>
+              <ProjectFeedbackSection items={feedbacks.items} />
             </div>
           )}
         </div>

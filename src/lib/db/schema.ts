@@ -520,6 +520,9 @@ export const portalFeedbacks = pgTable("portal_feedbacks", {
   // 감사용 — sanitizeHeader로 제어문자/길이 제한 후 저장.
   clientIp: text("client_ip"),
   userAgent: text("user_agent"),
+  // PM 읽음 상태 — M6에서 추가. 기본 false, 읽음 처리 시 readAt도 함께 기록.
+  isRead: boolean("is_read").default(false).notNull(),
+  readAt: timestamp("read_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .default(sql`now()`)
     .notNull(),
