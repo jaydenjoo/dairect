@@ -368,7 +368,22 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 - 고객 포털 **파일 업로드 기능 금지** (Phase 5에서도)
 - 고객 포털 다크 모드 (범위 외)
 
-## 현재 세션 (2026-04-18 Task 3-5 E2E 스모크 + 런타임 검증)
+## 현재 세션 (2026-04-18 Phase 3 백로그 2건 + Phase 4 Task 분해 + 4-1 M1~M3)
+
+- **완료**:
+  - **B-1** (Phase 3 백로그 해소): `PDFDownloadLink dynamic(ssr:false)` 패턴을 estimate/contract/invoice pdf-buttons 3곳에 적용. Task 3-3 weekly-report-card에서 확립된 패턴 확산 — `@react-pdf/renderer` web-only API를 SSR 번들에서 완전 제외
+  - **B-2** (Phase 3 백로그 해소): `shared-text` 방어 regex를 5파일 · 13필드에 확대. estimates/contracts/invoices/inquiry/leads. 기존 `SAFE_LINE = /^[^\r\n\t<>]+$/` → `guardSingleLine`/`guardMultiLine` 전환으로 BiDi/NEL(U+0085)/LS(U+2028)/PS(U+2029)/CSV 리딩까지 일관 방어
+  - **옵션 C** Phase 4 Task 분해 — Task 4-1 /demo (6M, 8h) / 4-2 /portal/[token] (8M, 12h) / 4-3 expenses 선택 (4M, 4h) / 4-4 PWA (4M, 4h). Milestone 22개. 권장 순서: 4-1 → 4-2 → 4-4 → 4-3
+  - **Task 4-1 M1**: `src/lib/demo/sample-data.ts` — 프로젝트 5(상태별) + 고객 3 + 견적 3 + 인보이스 12 + 마일스톤 16 + 활동로그 10 + 6개월 KPI. Drizzle `InferSelectModel`로 DB row 타입 호환
+  - **Task 4-1 M2**: `src/lib/demo/guard.tsx` — `DemoContextProvider` + `useIsDemo` + `useDemoGuard(intent)` + `DemoSafeButton` + `DemoSafeForm` wrapper. `data-demo` 속성 컨벤션
+  - **Task 4-1 M3**: Sidebar `basePath` prop 리팩토링 (`/dashboard` | `/demo`) + DemoBanner (로그인 CTA) + DemoHeader (샘플 사용자) + `/demo/layout.tsx` 신규 (`force-dynamic`) + `/demo/page.tsx` 재작성 (M4 placeholder)
+  - 커밋 + 푸시 (`c333ac4`): 16 files, +1047/−121
+- **검증**: tsc 무출력 / lint 0 errors / build 22 pages 성공 (`/demo` force-dynamic) / 브라우저 preview 데스크톱(사이드바 7 + 배너 + 헤더) · 모바일(탭바 5) 렌더 + 콘솔 에러 0
+- **교훈**: 1건 추가 (Next.js 16.2 Typed Routes dev cache stale + `.next` 백업 시 ESLint 오염)
+- **다음**: Task 4-1 M4 — 홈 KPI 카드 4개 + 6개월 매출 차트 + 프로젝트 목록 데모 뷰 (기존 dashboard 컴포넌트 재사용 + `getDemoData()` 주입)
+- **차단 요소**: 없음
+
+## 이전 세션 (2026-04-18 Task 3-5 E2E 스모크 + 런타임 검증)
 
 - **완료**:
   - elest.io 셀프호스트 n8n에 W1/W4 워크플로우 임포트 + Slack App OAuth(Bot Token) + Gmail OAuth2 자격증명 연결 완료
