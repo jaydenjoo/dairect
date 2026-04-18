@@ -368,7 +368,35 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 - 고객 포털 **파일 업로드 기능 금지** (Phase 5에서도)
 - 고객 포털 다크 모드 (범위 외)
 
-## 현재 세션 (2026-04-18 Task 4-2 M1~M3 — 고객 포털 토큰 발급 기반 + 리뷰 5건 반영)
+## 현재 세션 (2026-04-18 Task 4-2 M4~M7 — 고객 포털 완성 + n8n 알림 + 리뷰 42건 반영)
+
+- **완료 Task 4건** (커밋 4건, HEAD=060472a):
+  - **M4 `/portal/[token]` 고객 뷰 페이지** (c017d26) — queries/formatters + 5 컴포넌트 + layout/page/loading/error/invalid + PortalUrlScrub · 리뷰 HIGH 7+MEDIUM 5 반영 (No-Line Rule, Referrer-Policy, history.replaceState, middleware matcher 분리) · 교훈 1건(URL path 토큰은 history.replaceState로 마스킹)
+  - **M5 피드백 제출 폼** (cf676fa) — validation/portal.ts + feedback-actions.ts + PortalFeedbackForm · 방어선 7개(honeypot off-screen, timing guard sanity + normalizeTiming 400-600ms 랜덤, Zod strict, sanitizeHeader BiDi/NEL, stripFormulaTriggers 라인별) · 리뷰 HIGH 4+MEDIUM 4+LOW 2 반영
+  - **M6 PM 대시보드 피드백 조회/읽음 처리** (38682e9) — schema isRead/readAt + 0014 마이그레이션 + dashboard feedback-actions(getProjectFeedbacks/Unread/markRead) + ProjectFeedbackSection + 탭 조건부 쿼리 + KST 표시 · 리뷰 HIGH 4+MEDIUM 4+LOW 5 반영 (IPv4-mapped IPv6 마스킹, router.refresh, Zod strict, activity_logs metadata from/to)
+  - **M7 사이드바 전역 뱃지 + n8n 이메일** (060472a) — getTotalUnreadFeedbackForUser + dashboard layout 뱃지 prop + Sidebar 데스크톱/모바일 뱃지 + N8nWorkflow `portal_feedback_received` + portal emit fire-and-forget + W5 README 가이드(Compose Email Code jsCode + saveDataErrorExecution none) · 리뷰 HIGH 3+MEDIUM 2+LOW 2 반영
+
+- **신규 파일 17 + 수정 파일 10** (4개 커밋 누적): 4315 insertions / 18 deletions
+- **검증**: 매 Task마다 tsc 0 errors + lint 0 errors + 브라우저 스모크 3~4경로 + 테스트 데이터 정리
+- **보안 방어선 누적** (회귀 없이 M4~M7 내내 유지):
+  - 토큰 검증: UUID Zod + revoked/expired/deleted + 모든 실패 success 위장
+  - SEO 차단: robots noindex/nofollow/nocache + referrer no-referrer + force-dynamic
+  - 공격 표면 분리: middleware `/portal` 제외 + PortalUrlScrub history.replaceState
+  - 입력 방어: guardMultiLine + stripFormulaTriggers 라인별 + sanitizeHeader BiDi
+  - Timing oracle: normalizeTiming 400-600ms 랜덤 지터 + timing guard sanity 상한
+  - Information disclosure: Zod strict unrecognized_keys 분리 로그 + err.name만 클라 응답
+  - n8n emit: 토큰/IP/UA 제외, messagePreview 140자, projectName SMTP 헤더 sanitize
+  - 대시보드: 소유권 JOIN + 멱등 체크 JOIN 뒤 + 트랜잭션 + activity_logs 감사
+- **교훈 2건 기록** (learnings.md): PortalUrlScrub 패턴(M4), n8n 워크플로 복제 가이드 함정(M7 추가)
+- **다음 세션 선택지**:
+  - Task 4-2 **M8** — PWA 설치 유도(manifest + service worker) — Phase 4 마무리
+  - **리팩토링 Task** — sanitizeHeader/stripFormulaTriggers/HoneypotField를 `src/lib/security/`로 공통화
+  - **Vercel 배포 준비** — `after()`/waitUntil 도입 + env 변수 세팅 + n8n W5 워크플로 실제 구축(Jayden)
+- **차단 요소**: 없음
+
+---
+
+## 이전 세션 (2026-04-18 Task 4-2 M1~M3 — 고객 포털 토큰 발급 기반 + 리뷰 5건 반영)
 
 - **완료**:
   - **Task 4-2 M1 스키마 + 마이그레이션** (신규 2 테이블):

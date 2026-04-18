@@ -1,5 +1,17 @@
 # Dairect — 교훈 기록
 
+## 2026-04-18 — n8n 워크플로 복제 가이드는 "Webhook + Gmail Send"만 바꾸면 안 된다 — Compose Email Code 노드가 실제 핵심
+
+- **상황**: Task 4-2 M7 `W5 portal_feedback.received` 추가 시, 저장소에 json 파일을 포함하는 대신 "W4(project.completed)를 n8n UI에서 복제 후 webhook path + Gmail Send 필드만 교체"로 README 가이드. 초안에는 Compose Email 언급 없이 Gmail Send의 `To/Subject/Body`를 `$json.body.data.*`로 직접 바인딩하도록 안내.
+- **문제 분석**: code-reviewer가 "W4 실제 구조에는 `Verify HMAC → If → Respond 200 → **Compose Email (Code 노드)** → Gmail Send`가 있고, Compose Email가 payload에서 `to/subject/html`을 만들면서 `escHtml`/`stripCtrl`로 HTML escape + 제어문자 strip + SMTP 헤더 sanitize를 수행한다. W4를 복제하면 이 Code 노드가 그대로 따라오기 때문에 Gmail Send만 바꾸면 (a) 빈 `to`로 발송 실패 또는 (b) 원본 `messagePreview`가 escape 없이 본문에 들어가 XSS·SMTP injection 재발" 지적.
+- **해결**: README W5 섹션에 **Compose Email Code 노드 jsCode 전체 교체 블록**을 제공. `stripCtrl(recipientEmail)` + `escHtml(preview)` + `stripCtrl(projectName)` + `saveDataErrorExecution: "none"`까지 함께 안내. 서버 측(`feedback-actions.ts`)에서도 emit 직전 `safeProjectName` sanitize로 심층 방어.
+- **규칙**:
+  1. **워크플로 복제 가이드에서는 "실제로 핵심 로직을 담는 노드"가 어디인지부터 파악**. n8n의 Gmail/Slack 노드는 단순 출력 노드이고, 실제 데이터 변환/방어는 직전 Code 노드가 담당하는 경우가 많음. README는 "표면(bindings) 교체"가 아니라 "흐름(compose → send) 교체" 단위로 작성.
+  2. **HTML 이메일 본문 = 신뢰 경계**. 고객 입력이 수신자 inbox에서 렌더되므로 `escHtml` 필수. 서버가 guardMultiLine으로 1차 방어해도 n8n 측에서도 2차 escape (심층 방어).
+  3. **SMTP 헤더는 `\r\n` 분리를 신뢰**. Subject/To/From에 들어가는 모든 문자열은 `stripCtrl`로 제어문자/개행 제거. DB가 신뢰 경계라고 가정 금지 — 스키마 이전 row나 직접 편집 가능성 항상 존재.
+  4. **n8n `saveDataErrorExecution`의 기본값(`all`)은 PII 보존 문제**. 워크플로마다 `none`으로 명시 설정하거나, 실패 시 PII strip된 필드만 에러 워크플로로 전송. W4에서 이미 가이드했어야 할 항목이 W5 시점에서야 발견된 재발 포인트.
+  5. **저장소에 json 파일을 포함할지, README로 대체할지 결정 기준**: 로직이 "구조 + 실제 jsCode"로 복합적이면 json 포함이 안전(리뷰 가능). README로 대체할 경우 **"수정 대상 노드 전체 + 교체할 코드 전체"**를 명시해야 함. 노드 1개 이상에 jsCode 변경이 필요하면 json 포함이 현실적.
+
 ## 2026-04-18 — URL path의 민감 토큰은 `history.replaceState`로 즉시 주소창에서 제거
 
 - **상황**: Task 4-2 M4 `/portal/[token]`은 비로그인 고객이 UUID 토큰으로 접근하는 공개 라우트. security-reviewer가 "토큰이 주소창·브라우저 히스토리·탭 제목·화면 공유/스크린샷·브라우저 동기화를 통해 유출될 수 있음"으로 HIGH 지적.
