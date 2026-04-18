@@ -1,33 +1,26 @@
 import { z } from "zod";
-
-const SAFE_LINE = /^[^\r\n\t<>]+$/;
+import { guardSingleLine, guardMultiLine } from "./shared-text";
 
 export const inquiryFormSchema = z
   .object({
-    name: z
-      .string()
-      .trim()
-      .min(1, "이름을 입력해주세요")
-      .max(50, "이름은 50자 이내로 입력해주세요")
-      .regex(SAFE_LINE, "이름에 허용되지 않은 문자가 있습니다"),
-    contact: z
-      .string()
-      .trim()
-      .min(1, "연락처를 입력해주세요")
-      .max(100, "연락처는 100자 이내로 입력해주세요")
-      .regex(SAFE_LINE, "연락처에 허용되지 않은 문자가 있습니다"),
-    ideaSummary: z
-      .string()
-      .trim()
-      .max(100, "100자 이내로 입력해주세요")
-      .regex(SAFE_LINE, "아이디어 요약에 허용되지 않은 문자가 있습니다")
-      .or(z.literal(""))
+    name: guardSingleLine(
+      z.string().trim().min(1, "이름을 입력해주세요").max(50, "이름은 50자 이내로 입력해주세요"),
+      "이름",
+    ),
+    contact: guardSingleLine(
+      z.string().trim().min(1, "연락처를 입력해주세요").max(100, "연락처는 100자 이내로 입력해주세요"),
+      "연락처",
+    ),
+    ideaSummary: guardSingleLine(
+      z.string().trim().max(100, "100자 이내로 입력해주세요"),
+      "아이디어 요약",
+    )
       .optional()
       .default(""),
-    description: z
-      .string()
-      .trim()
-      .max(2000, "2000자 이내로 입력해주세요")
+    description: guardMultiLine(
+      z.string().trim().max(2000, "2000자 이내로 입력해주세요"),
+      "상세 설명",
+    )
       .optional()
       .default(""),
     budgetRange: z

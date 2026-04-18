@@ -1,0 +1,41 @@
+import type { Metadata } from "next";
+import { Sidebar } from "@/components/dashboard/sidebar";
+import { DemoHeader } from "@/components/demo/header";
+import { DemoBanner } from "@/components/demo/banner";
+import { DemoContextProvider } from "@/lib/demo/guard";
+
+// `getDemoData()`가 `new Date()` 기준 상대 날짜 계산 — 빌드 시점 고정값이 되지 않도록
+// force-dynamic. "항상 최근 데이터"처럼 보이게 매 request마다 재계산.
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: {
+    default: "데모 · dairect",
+    template: "%s | 데모 · dairect",
+  },
+  // 데모는 공개 경로지만 인덱싱 불필요 (포트폴리오와 달리 실제 데이터가 아님)
+  robots: { index: false, follow: false },
+};
+
+export default function DemoLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <DemoContextProvider>
+      <div className="flex min-h-screen bg-background">
+        <Sidebar basePath="/demo" />
+
+        {/* Main content area */}
+        <div className="flex flex-1 flex-col md:ml-60">
+          <DemoBanner />
+          <DemoHeader />
+          <main className="flex-1 px-6 pb-20 md:px-8 md:pb-10">
+            {children}
+          </main>
+        </div>
+      </div>
+    </DemoContextProvider>
+  );
+}

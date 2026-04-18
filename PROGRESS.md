@@ -301,6 +301,73 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 - 구조화 로깅
 - `budget_range`/`schedule`/`status` 컬럼 CHECK 제약 일괄 추가
 
+## Phase 4: 고객 포털 + /demo + PWA ⬜ (Task 분해 완료, 구현 대기)
+
+> 의존성: Phase 3 ✅ | 총 예상 3~4일 (20~28시간) | 권장 순서: 4-1 → 4-2 → 4-4 → 4-3(선택)
+
+### Task 4-1 — `/demo` 대시보드 데모 (1일 = 8시간, 6 마일스톤)
+
+**현재 상태**: `src/app/(public)/demo/page.tsx` skeleton만 존재 (placeholder 문구만). M1부터 전면 구현.
+
+- **M1** (1h): 샘플 데이터 정의 — `src/lib/demo/sample-data.ts` (프로젝트 5 상태별 1개 / 고객 3 / 견적 3 / 마일스톤 / activity_logs / 6개월 매출 + 수금 타임라인)
+- **M2** (1h): 데모 가드 유틸 — `src/lib/demo/guard.ts` (`isDemoContext` React context + "데모 모드에서는 수정할 수 없습니다" 토스트 헬퍼, 비활성 버튼 `data-demo` 속성 일관 처리)
+- **M3** (1.5h): `/demo/layout.tsx` 상단 배너 "샘플 데이터입니다. 실제 사용 → [로그인]" + 샘플 provider + 기존 사이드바/헤더 재활용
+- **M4** (2h): 홈(KPI+차트) + 프로젝트 목록 데모 뷰 (기존 컴포넌트 재사용, 샘플 데이터만 주입)
+- **M5** (1.5h): 프로젝트 상세 + 견적 + 고객 데모 뷰 (읽기 전용, 모든 CRUD 버튼에 가드 적용)
+- **M6** (1h): 반응형 점검 + 로그인 CTA + Playwright 스모크 (비로그인 → 4탭 열람 + 버튼 클릭 시 토스트 확인)
+
+**완료 기준**: 비로그인 방문자가 `/demo`에서 전체 기능(읽기) 체험 + 수정 시도 시 토스트로 안내.
+
+---
+
+### Task 4-2 — 고객 포털 `/portal/[token]` (1.5일 = 12시간, 8 마일스톤)
+
+**의존성**: Supabase anon client RLS 패턴 도입 필요 (Phase 3 백로그 연계). 이메일 전송은 기존 n8n W4 워크플로우 재활용.
+
+- **M1** (1h): `portal_tokens` + `portal_feedbacks` 테이블 + Drizzle 스키마 + 마이그레이션 0011
+- **M2** (1.5h): 토큰 생성 Server Action (`crypto.randomUUID()` + 만료 +1년 + 기존 무효화 후 재발급) + RLS 정책 `Portal access by valid token`
+- **M3** (1.5h): 토큰 검증 + 만료 체크 + `last_accessed_at` 갱신 + 프리랜서 측 "포털 링크 복사" UI (프로젝트 상세)
+- **M4** (2h): 고객 뷰 컨텐츠 (진행률·마일스톤·현재 단계·인보이스 금액/상태 — 계좌번호 등 PII 최소화)
+- **M5** (1.5h): 피드백 폼 (`submitPortalFeedbackAction`) + `guardMultiLine` + honeypot + 공개 엔드포인트 방어 4종 재활용
+- **M6** (1h): 만료/invalid 토큰 에러 페이지 + 토큰 갱신 UI (기존 무효화 후 새 발급, 감사 로그)
+- **M7** (1.5h): (옵션) 이메일 전송 — n8n W4 템플릿 변형. MVP는 "링크 복사" 우선
+- **M8** (2h): code-reviewer + security-reviewer 병렬 리뷰 반영 + E2E 스모크
+
+**완료 기준**: 토큰 URL 비로그인 접근 → 고객 본인 프로젝트 열람 + 피드백 제출 + 프리랜서 측 피드백 확인.
+
+---
+
+### Task 4-3 — 경비 관리 (선택, 0.5일 = 4시간, 4 마일스톤)
+
+**성격**: PRD "Should Have" 선택 기능. 진행 결정 시점: Task 4-2 완료 후.
+
+- **M1** (1h): `expenses` 테이블 (category enum: infrastructure/domain/api/service/other + tax_deductible boolean + occurred_date) + 마이그레이션 0012
+- **M2** (1.5h): CRUD + Server Action + `shared-text` 방어
+- **M3** (1h): 월별 집계 + 매입세액 자동 계산 (`tax_deductible ? amount * 0.1 / 1.1 : 0`) + 카테고리별 바 차트
+- **M4** (0.5h): code-reviewer 리뷰 + 스모크
+
+**완료 기준**: 경비 3건 등록 후 월별 집계 + 매입세액 공제 대상 금액 정확 표시.
+
+---
+
+### Task 4-4 — PWA 지원 (0.5일 = 4시간, 4 마일스톤)
+
+**권장 진행 시점**: Task 4-1/4-2 완료 후 (캐시 대상 경로 확정 후).
+
+- **M1** (1h): `public/manifest.json` + 아이콘 (192/512/maskable) + favicon + apple-touch-icon
+- **M2** (1.5h): Service Worker (`next-pwa`) — 정적 CacheFirst / API NetworkFirst(10s timeout) / HTML StaleWhileRevalidate
+- **M3** (1h): `/offline` 폴백 페이지 + 읽기 전용 배너 + `online`/`offline` 이벤트 감지
+- **M4** (0.5h): 모바일 실기 스모크 (iOS Safari/Android Chrome → 홈 화면 추가 → 비행기 모드 → 캐시 열람)
+
+**완료 기준**: 모바일 브라우저에서 PWA 설치 + 오프라인에서 최근 조회 페이지 읽기.
+
+---
+
+### Phase 4 "만들지 않을 것" (PRD 기준)
+- 경비 관리 **영수증 OCR 추가 금지**
+- 고객 포털 **파일 업로드 기능 금지** (Phase 5에서도)
+- 고객 포털 다크 모드 (범위 외)
+
 ## 현재 세션 (2026-04-18 Task 3-5 E2E 스모크 + 런타임 검증)
 
 - **완료**:

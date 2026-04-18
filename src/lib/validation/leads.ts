@@ -1,6 +1,5 @@
 import { z } from "zod";
-
-const SAFE_LINE = /^[^\r\n\t<>]+$/;
+import { guardSingleLine, guardMultiLine } from "./shared-text";
 
 export const leadSourceSchema = z.enum([
   "wishket",
@@ -24,12 +23,10 @@ export type LeadStatus = z.infer<typeof leadStatusSchema>;
 
 export const leadFormSchema = z
   .object({
-    name: z
-      .string()
-      .trim()
-      .min(1, "이름을 입력해주세요")
-      .max(50, "이름은 50자 이내로 입력해주세요")
-      .regex(SAFE_LINE, "이름에 허용되지 않은 문자가 있습니다"),
+    name: guardSingleLine(
+      z.string().trim().min(1, "이름을 입력해주세요").max(50, "이름은 50자 이내로 입력해주세요"),
+      "이름",
+    ),
     source: leadSourceSchema,
     email: z
       .string()
@@ -39,34 +36,28 @@ export const leadFormSchema = z
       .or(z.literal(""))
       .optional()
       .default(""),
-    phone: z
-      .string()
-      .trim()
-      .max(50, "50자 이내로 입력해주세요")
-      .regex(SAFE_LINE, "연락처에 허용되지 않은 문자가 있습니다")
-      .or(z.literal(""))
+    phone: guardSingleLine(
+      z.string().trim().max(50, "50자 이내로 입력해주세요"),
+      "연락처",
+    )
       .optional()
       .default(""),
-    projectType: z
-      .string()
-      .trim()
-      .max(100, "100자 이내로 입력해주세요")
-      .regex(SAFE_LINE, "프로젝트 유형에 허용되지 않은 문자가 있습니다")
-      .or(z.literal(""))
+    projectType: guardSingleLine(
+      z.string().trim().max(100, "100자 이내로 입력해주세요"),
+      "프로젝트 유형",
+    )
       .optional()
       .default(""),
-    budgetRange: z
-      .string()
-      .trim()
-      .max(100, "100자 이내로 입력해주세요")
-      .regex(SAFE_LINE, "예산 정보에 허용되지 않은 문자가 있습니다")
-      .or(z.literal(""))
+    budgetRange: guardSingleLine(
+      z.string().trim().max(100, "100자 이내로 입력해주세요"),
+      "예산 정보",
+    )
       .optional()
       .default(""),
-    description: z
-      .string()
-      .trim()
-      .max(2000, "2000자 이내로 입력해주세요")
+    description: guardMultiLine(
+      z.string().trim().max(2000, "2000자 이내로 입력해주세요"),
+      "상세 설명",
+    )
       .optional()
       .default(""),
   })
@@ -76,12 +67,10 @@ export type LeadFormData = z.infer<typeof leadFormSchema>;
 export const leadStatusUpdateSchema = z
   .object({
     status: leadStatusSchema,
-    failReason: z
-      .string()
-      .trim()
-      .max(500, "500자 이내로 입력해주세요")
-      .regex(SAFE_LINE, "실패 사유에 허용되지 않은 문자가 있습니다")
-      .or(z.literal(""))
+    failReason: guardSingleLine(
+      z.string().trim().max(500, "500자 이내로 입력해주세요"),
+      "실패 사유",
+    )
       .optional()
       .default(""),
   })

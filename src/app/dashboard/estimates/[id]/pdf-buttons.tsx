@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { PDFDownloadLink } from "@react-pdf/renderer";
+import type { PDFDownloadLink as PDFDownloadLinkType } from "@react-pdf/renderer";
 import { FileDown, Eye, Loader2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -32,6 +32,13 @@ const PDFViewer = dynamic(
     ),
   },
 );
+
+// PDFDownloadLink도 web-only (blob 생성) → dynamic + ssr:false.
+// children render prop 시그니처 유지를 위해 타입 캐스트 (Task 3-3 패턴).
+const PDFDownloadLink = dynamic(
+  () => import("@react-pdf/renderer").then((m) => m.PDFDownloadLink),
+  { ssr: false },
+) as unknown as typeof PDFDownloadLinkType;
 
 interface Props {
   estimate: EstimatePdfData;

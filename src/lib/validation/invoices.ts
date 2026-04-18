@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { guardMultiLine } from "./shared-text";
 
 export const invoiceStatuses = [
   "pending",
@@ -61,7 +62,12 @@ export const invoiceManualFormSchema = z.object({
   taxAmount: z.number().int().min(0).max(100_000_000_000),
   issuedDate: dateString,
   dueDate: dateString,
-  memo: z.string().max(1000).optional().default("").transform(stripInvisibleChars),
+  // shared-text는 제어문자·HTML·BiDi·CSV 리딩 차단 (검증 단계).
+  // stripInvisibleChars는 guard 통과 후 zero-width 문자 제거 (transform 단계, defense-in-depth).
+  memo: guardMultiLine(z.string().max(1000), "메모")
+    .optional()
+    .default("")
+    .transform(stripInvisibleChars),
 });
 
 export type InvoiceManualFormData = z.infer<typeof invoiceManualFormSchema>;

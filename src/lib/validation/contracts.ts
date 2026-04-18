@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { guardMultiLine } from "./shared-text";
 
 export const contractStatuses = [
   "draft",
@@ -52,9 +53,9 @@ export const contractFormSchema = z.object({
     .int()
     .min(0)
     .max(100_000_000_000),
-  specialTerms: z
-    .string()
-    .max(5000)
+  // shared-text는 제어문자·HTML·BiDi·CSV 리딩 차단 (검증 단계).
+  // stripInvisibleChars는 guard 통과 후 zero-width 문자 제거 (transform 단계, defense-in-depth).
+  specialTerms: guardMultiLine(z.string().max(5000), "특약 조건")
     .optional()
     .default("")
     .transform(stripInvisibleChars),
