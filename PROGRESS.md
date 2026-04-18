@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-18 (Task 4-1 M4 완료 + 리뷰 수정 9건)
-> 현재 위치: Phase 4 Task 4-1 M4 완료 (`/demo` 홈 KPI + 차트 + 프로젝트 목록 + code/security 리뷰 후속 패치 9건 반영) — 다음은 M5(프로젝트 상세 + 견적 + 고객 데모 뷰)
+> 최종 업데이트: 2026-04-18 (Task 4-1 완료 — M5 + M6 리뷰 수정 5건 반영)
+> 현재 위치: Phase 4 Task 4-1 전체 완료 (`/demo` 대시보드 데모 10 경로 · M5 옵션 A 전체 재사용 · code/security 리뷰 PR 블록 사유 0건 확인) — 다음은 Task 4-2(고객 포털 `/portal/[token]`)
 
 ## 전체 진행률
 
@@ -11,7 +11,7 @@
 | Phase 1 | 대시보드 핵심 | ✅ 완료 | 100% |
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | 🟢 Option B 완료 | 100% (5/5, cron 2건 백로그) |
-| Phase 4 | 고객 포털 + /demo + PWA | 🟡 Task 4-1 진행 중 | Task 4-1 M4/6 완료 |
+| Phase 4 | 고객 포털 + /demo + PWA | 🟡 Task 4-1 완료 | Task 4-1 ✅ / 4-2 대기 |
 | Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
 
 ## Phase 0: 기반 설정 ✅
@@ -368,7 +368,31 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 - 고객 포털 **파일 업로드 기능 금지** (Phase 5에서도)
 - 고객 포털 다크 모드 (범위 외)
 
-## 현재 세션 (2026-04-18 Task 4-1 M4 + M1~M4 + B-1/B-2 code/security 리뷰 후속 패치 9건)
+## 현재 세션 (2026-04-18 Task 4-1 M5 + M6 — 옵션 A 전체 재사용 + 리뷰 5건)
+
+- **완료**:
+  - **Task 4-1 M5 구현** (신규 14 파일, 수정 0 파일 — 옵션 A "원본 수정 0건" 원칙):
+    - **페이지 9개** (`src/app/(public)/demo/`): `projects/[id]` (탭 + 공개 프로필 + AI CTA + 마일스톤) / `estimates` + `estimates/[id]` / `clients` + `clients/[id]` / `leads` · `contracts` · `invoices` · `settings` (UnavailableSection 안내)
+    - **컴포넌트 5개** (`src/components/demo/`): `milestone-list-demo` / `public-profile-demo` / `weekly-report-cta` / `client-notes-demo` / `unavailable-section`
+    - **DemoSafeButton/Form 커버리지**: PDF 미리보기/다운로드, 편집, 계약서 생성, 새 견적, 새 고객, 마일스톤 체크/추가/삭제, 메모 추가/삭제 — 총 14개 mutation CTA 전수 가드
+  - **code-reviewer + security-reviewer 병렬 리뷰 → "PR 블록 사유 없음"** (CRITICAL 0 + HIGH 0) → MEDIUM 4 + LOW 1 일괄 반영:
+    - [🟢 security M-2] 샘플 email/phone/사업자번호 RFC 2606 예약값으로 교체 — `.kr`/`.com` 실재 도메인 + `02-1234-5678` 실재 형식 → `@techstart.example`/`02-0000-0001`/`000-00-00001`로 전환. 봇 스캐너 harvesting 방어
+    - [🟢 security M-1] `isPublic=false` 프로젝트 memo 보호 — mvpApp/commerce/chatbot 비공개 memo가 /demo에 노출되던 것을 "프로젝트 소유자만 확인" 문구로 대체. 사용자 멘탈 모델 교정 (데모는 RLS로 격리된다는 신호)
+    - [🟢 code M-1] `/demo/clients` totalRevenue 원본 의미 일치 — `paidAmount` 합(실입금) → `contractAmount` 합(계약 체결 매출). 테크스타트 3,710만→7,700만으로 원본 대시보드와 숫자 일치. 로그인 전/후 혼동 방지
+    - [🟢 code M-2] `projectStatusLabels` 로컬 재선언 제거 → `@/lib/validation/projects` import. 중복 제거, M4 `formatKRW` 공용화와 같은 원칙 적용
+    - [🔵 code L-1] `/demo/estimates/[id]` `generateMetadata` 동적 title — 정적 "견적서 상세" → "모바일 앱 MVP 견적서 | 데모 · dairect". 프로젝트/고객 상세와 탭 title 일관
+  - **리뷰에서 "이미 안전" 확인**: path traversal 불가능(fixture `find()` strict equality) · Server Action 호출 0건 · `dangerouslySetInnerHTML` 0건 · sonner toast XSS 불가 · UnavailableSection `/login` CTA open redirect 없음 · M4 DB CHECK + Provider null sentinel 모두 적용 상태
+- **신규 파일 14** / **수정 파일 5** (M6 리뷰 수정: sample-data.ts + clients 2파일 + projects/[id] + estimates/[id])
+- **검증**:
+  - tsc 0 errors / lint 0 errors (기존 경고 1건 잔존) / build 33 pages 성공 (`/demo/*` 10 경로 Static+1m 또는 Dynamic)
+  - preview fetch 스모크: 사이드바 8탭(`/demo` + 7) **모두 200 OK**
+  - 반응형: 모바일 375px에서 사이드바 숨김 + 하단 탭바 5개 `/demo/*` 링크 정상
+  - DemoSafeButton 토스트 동작: "데모 모드에서는 수정할 수 없습니다" + intent 설명 + **[로그인] sonner action 버튼** (M4 수정 반영 확인)
+  - preview로 5건 수정 전수 검증: 7,700만원 · `@techstart.example` · 02-0000-0001 · "프로젝트 소유자만" 문구 · 공개 프로젝트 원본 memo 유지 · 견적 동적 title
+- **다음**: Task 4-2 (고객 포털 `/portal/[token]` — 1.5일 = 12시간, 8 마일스톤. `portal_tokens`/`portal_feedbacks` 테이블 + RLS + 토큰 발급 Server Action + 고객 뷰 + 피드백 폼)
+- **차단 요소**: 없음
+
+## 이전 세션 (2026-04-18 Task 4-1 M4 + M1~M4 + B-1/B-2 code/security 리뷰 후속 패치 9건)
 
 - **완료**:
   - **Task 4-1 M4 구현** (신규 2 + 수정 1):
