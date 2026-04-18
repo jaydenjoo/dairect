@@ -39,3 +39,21 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# serwist / PWA service worker (build artifact)
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js
+public/swe-worker-*.js.map
+
+# playwright e2e (build/run artifacts)
+/playwright-report/
+/test-results/
+/playwright/.cache/
+
+# Claude Code — subagent memory/worktrees (local-only)
+.claude/agent-memory/
+.claude/worktrees/
+
+# Playwright MCP artifacts (local-only)
+.playwright-mcp/

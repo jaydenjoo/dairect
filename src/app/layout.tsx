@@ -1,8 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import { Toaster } from "@/components/ui/sonner";
+import { SerwistProvider } from "./serwist";
 import "./globals.css";
+
+const APP_NAME = "Dairect";
+const APP_DEFAULT_TITLE = "dairect — 머릿속 아이디어를 진짜로 만들어드립니다";
+const APP_DESCRIPTION =
+  "개발을 모르셔도, AI를 못 다루셔도 괜찮습니다. 아이디어만 말씀해주세요. 나머지는 저희가 합니다.";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
@@ -28,13 +34,36 @@ const pretendard = localFont({
 });
 
 export const metadata: Metadata = {
+  applicationName: APP_NAME,
   title: {
-    default: "dairect — 머릿속 아이디어를 진짜로 만들어드립니다",
+    default: APP_DEFAULT_TITLE,
     template: "%s | dairect",
   },
-  description:
-    "개발을 모르셔도, AI를 못 다루셔도 괜찮습니다. 아이디어만 말씀해주세요. 나머지는 저희가 합니다.",
+  description: APP_DESCRIPTION,
   metadataBase: new URL("https://dairect.kr"),
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: APP_NAME,
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#4F46E5",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -48,7 +77,14 @@ export default function RootLayout({
       className={`${dmSans.variable} ${pretendard.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">
-        {children}
+        <SerwistProvider
+          swUrl="/sw.js"
+          disable={process.env.NODE_ENV === "development"}
+          cacheOnNavigation={false}
+          reloadOnOnline={false}
+        >
+          {children}
+        </SerwistProvider>
         <Toaster position="top-right" richColors />
       </body>
     </html>

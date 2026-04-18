@@ -1,5 +1,65 @@
 # Dairect — 교훈 기록
 
+## 2026-04-19 — Service Worker fallback matcher는 `request.mode === "navigate"`만으로 부족하다. 민감 경로를 접두사로 명시 제외해야 한다
+
+- **상황**: Task 4-2 M8에서 Serwist `fallbacks.entries`로 `/offline` 페이지를 등록. 첫 구현은 `matcher({ request }) => request.mode === "navigate"` 단순 조건. 랜딩·공개 콘텐츠 페이지에서 오프라인 안내 UX를 제공하는 것이 목표였음.
+- **문제 분석**: security-reviewer가 "matcher가 `/dashboard /portal /api /auth` navigate 실패도 `/offline`으로 스왑한다. (a) 세션 만료·403·500을 오프라인으로 오인해 로그인 상태 신호를 잃는다 (b) 주소창은 `/dashboard/invoices`인데 내용은 `/offline`이라 URL-콘텐츠 mismatch가 발생한다 (c) `/portal/[token]` navigate 실패 시 `/offline`으로 넘어가도 브라우저 히스토리에는 `/portal/[token]`이 그대로 남는다. Task 4-2 M4에서 배운 'URL path 토큰 `history.replaceState` 스크럽' 방어선과 직접 충돌한다." HIGH 지적.
+- **해결**: matcher에 접두사 4종 명시 제외.
+  ```ts
+  matcher({ request }) {
+    if (request.mode !== "navigate") return false;
+    const url = new URL(request.url);
+    if (url.pathname.startsWith("/dashboard")) return false;
+    if (url.pathname.startsWith("/portal/")) return false;
+    if (url.pathname.startsWith("/api/")) return false;
+    if (url.pathname.startsWith("/auth/")) return false;
+    return true;
+  }
+  ```
+  민감 경로는 SW fallback 없이 브라우저 기본 에러 또는 서버 리다이렉트에 의존. 더불어 `next.config.ts`의 `withSerwistInit({ exclude: [...] })`로 precache 매니페스트 단계에서도 해당 경로 제외 — 2중 방어.
+- **규칙**:
+  1. **SW fallback matcher는 "공개 + 안전하게 고정적인 페이지"만 포함**. 인증/토큰/민감 데이터 경로는 명시 제외. `request.mode === "navigate"`는 "이 요청이 페이지 로드인가"만 판정할 뿐, "이 페이지가 fallback해도 안전한가"는 판정하지 못함.
+  2. **URL mismatch 공격 표면 인식**. `/offline`이 정적 안내 페이지라 PII 노출은 없어도, 주소창에는 원본 URL이 남고 히스토리에도 박힘 → 토큰이 실린 경로라면 그 자체가 유출 채널.
+  3. **Defense-in-depth 체크리스트**: (a) middleware matcher에서 `/portal` 제외 (b) Server 라우트에 token UUID Zod 선검증 (c) `PortalUrlScrub` 클라이언트 `history.replaceState` (d) SW fallback matcher에서 민감 경로 제외 (e) `withSerwistInit({ exclude })`로 precache 원천 차단. 한 레이어가 뚫려도 다음 레이어가 받친다.
+  4. **리뷰 관점**: SW 패치 보면 "어떤 요청이 fallback으로 넘어가는지"를 경로 예시로 시뮬레이션할 것. "오프라인 상태에서 /dashboard 열면 어떻게 되나?" 같은 질문을 matcher 조건마다 던지기. 기존 교훈(2026-04-18 "Serwist 9.5.7 + webpack 고정")에 이 matcher 방어가 누적되는 구조로 이해.
+
+## 2026-04-18 — Serwist 9.5.7 + Next.js 16.2: 프로덕션 빌드는 webpack 강제 + configurator mode는 아직 미성숙 (부채 마커)
+
+- **상황**: Task 4-4 M2 PWA Service Worker 도입 시 `@serwist/next` 표준 경로인 `withSerwistInit` + `next build`를 시도. Next.js 16.2가 **dev/build 모두 Turbopack 기본** 활성화 상태라 webpack config(Serwist 통합용)가 주입되면 "This build is using Turbopack, with a webpack config and no turbopack config" 에러로 빌드 실패.
+- **문제 분석**:
+  1. 공식 configurator mode(`serwist.config.mjs` + `@serwist/cli inject-manifest`)는 Turbopack 호환이 목적이지만 **9.5.7에서 helper(`serwist` 함수)가 자동 주입하는 `esbuildOptions`를 `@serwist/cli`가 unrecognized keys로 거부**. 순수 옵션(`globDirectory`/`globPatterns`/`modifyURLPrefix` 직접 명시)으로 우회 가능하지만 Next.js 정적 자산 매칭을 수동 재현해야 해서 precache 정확성 리스크.
+  2. `@serwist/turbopack`는 "experimental" 상태로 공식 문서도 "Follow https://github.com/serwist/serwist/issues/54" 안내.
+  3. 결과적으로 `next build --webpack` 플래그 + `withSerwistInit`이 가장 안정적. 단, `@react-pdf/renderer`가 ESM 패키지라 webpack에서 `transpilePackages: ["@react-pdf/renderer"]` 추가 필요(Turbopack은 자동 처리).
+- **해결**:
+  1. `package.json` build 스크립트: `"next build --webpack"` 명시 + `postbuild`로 `public/sw.js` 산출물 존재 게이트 추가 → 빌드는 webpack, dev는 Turbopack 유지(비대칭이지만 현실적).
+  2. `next.config.ts`에 `transpilePackages: ["@react-pdf/renderer"]` — PDF 다운로드 기능 회귀 방지.
+  3. SerwistProvider에 `disable: NODE_ENV==="development"`로 dev 서버에서 SW 등록 자체를 건너뛰어 dev/prod 빌드 번들러 불일치로 인한 런타임 회귀 표면 최소화.
+- **규칙**:
+  1. **PWA/SW 같은 "빌드 통합형" 라이브러리는 Next.js 메이저 업그레이드 직후 바로 도입하지 말 것**. 프레임워크의 기본 번들러 전환(webpack→Turbopack) 과도기에는 통합 라이브러리 버전별 지원 상태를 먼저 context7/공식 repo 이슈트래커로 확인. 9.5.7 시점 Serwist는 Turbopack 미지원 — 이를 모르고 표준 가이드 따라가면 빌드 에러 → 우회 → 부채 누적.
+  2. **dev는 Turbopack, build는 webpack 비대칭은 "명시적 부채"로 기록**. learnings.md + `package.json` 주석(또는 PROGRESS.md 백로그)에 "Serwist Turbopack 정식 지원 시 복귀" 트리거 명시. 시간이 지나 잊혀지면 Next.js 17에서 webpack 자체가 제거될 때 폭탄.
+  3. **구현 시 빌드 실패 시나리오에서 가장 먼저 "프레임워크 기본값 vs 라이브러리 가정" 불일치를 의심**. 에러 메시지에 "Turbopack/webpack/esmExternals" 키워드 있으면 번들러 호환성 레이어 확인 먼저(코드 수정 전).
+  4. **webpack 강제 시 ESM 외부 패키지(@react-pdf/renderer 등)는 `transpilePackages`로 명시**. Turbopack은 자동 처리하지만 webpack은 아님 — dev에서 통과하다 build에서만 실패하는 회귀 클래식. 빌드 파이프라인의 `postbuild` 검증 게이트(특정 산출물 존재 여부)가 이런 silent drift를 빠르게 잡음.
+  5. **SW의 "동작" 검증은 production 빌드에서만 가능**. dev에서는 SW disable이 표준(HMR과 충돌). 따라서 매 배포마다 DevTools Application 탭 + Lighthouse PWA 점수로 수동 1회 확인해야 함. 빌드 성공 ≠ SW 동작 정상.
+
+## 2026-04-18 — PWA Service Worker + 인증 영역: "캐시 가능한 것만 캐시" 원칙 — defaultCache 뒤에 인증 영역 NetworkOnly를 앞세우는 게 정답
+
+- **상황**: Task 4-4 M2 Service Worker 설계 시 `/dashboard/*` HTML만 `NetworkFirst(10s)` + `destination === "document"` 조건으로 인증 만료 처리하고 나머지는 `defaultCache`에 위임. security-reviewer가 **CRITICAL 2건** 지적.
+- **문제 분석**:
+  1. `destination === "document"`는 HTML navigation만 매칭. Next.js App Router의 `<Link>` 클릭/hover prefetch는 **RSC fetch**로 발생하는데 이는 `destination === "empty"` + `RSC: 1` 헤더 → 우리 룰 우회 → `defaultCache`의 RSC 룰(`pages-rsc-prefetch`, `pages-rsc`)이 매칭 → **KPI/프로젝트/견적 금액이 24시간 캐시됨**. 같은 디바이스에서 PM A 로그아웃 → PM B 로그인 시 cached RSC payload hit → cross-tenant 노출.
+  2. Dashboard HTML도 NetworkFirst라 인증 쿠키 만료/오프라인/약한 네트워크 시 cache fallback → 사용자 A의 페이지가 사용자 B에게 노출.
+- **해결**:
+  1. `/dashboard/*`를 NetworkFirst 대신 **NetworkOnly로 강화** + `destination` 조건 제거(HTML/RSC/prefetch 모두 포함). Phase 4 `/portal/*` NetworkOnly 보안과 일관 유지.
+  2. **"인증/민감 영역은 SW 캐시 절대 금지" 원칙**으로 단일화: `/portal/*`, `/api/*`, `/auth/*`, `/dashboard/*` 모두 NetworkOnly. 캐시되는 것은 정적 자산(_next/static), 이미지, 공개 페이지(/, /pricing, /about)만.
+  3. SerwistProvider에 `cacheOnNavigation={false}` + `reloadOnOnline={false}` — PortalUrlScrub의 history.replaceState가 SW에 추가 fetch 트리거하지 않도록 (Phase 4 timing oracle 방어 유지).
+  4. `clientsClaim: false` — 활성 세션 즉시 takeover 위험 제거. 다음 nav에서 새 SW 적용(안전한 default).
+  5. Manifest `shortcuts`에서 `/dashboard`, `/dashboard/projects` 제거 — 비인증 사용자에게 내부 라우트 정찰 벡터 제거.
+- **규칙**:
+  1. **Next.js App Router에서 `destination === "document"`만으로 인증 페이지 캐시 제어는 불충분**. RSC payload(`<Link>` prefetch)와 router cache(`router.push`)가 별도 fetch를 발생시키므로 URL 패턴 자체로 NetworkOnly를 걸어야 완전한 차단. 향후 SW 룰을 쓸 때는 "destination 조건 = 우회 가능" 공식.
+  2. **SW 라우팅 룰은 "allow list"보다 "인증 영역 deny list"가 안전**. defaultCache가 StaleWhileRevalidate/CacheFirst를 광범위하게 적용하므로, 인증/민감 라우트는 우리 커스텀 룰 **앞에** 세워서 defaultCache보다 먼저 매칭되도록 배치. 누락하면 defaultCache 광범위 정책에 흡수되는 게 기본값.
+  3. **cross-tenant 노출은 "같은 디바이스 다중 사용자" 시나리오에서 발생**. 개인용 PWA라도 가족/업무 공유 환경에서는 cross-tenant 가능. SW 캐시는 origin 단위지 사용자 단위가 아니라는 점을 설계 전제에 반영.
+  4. **PWA 설치 유도 기능(manifest shortcuts)이 그 자체로 보안 벡터**. 공개 매니페스트에 내부 라우트를 노출하면 라우트 구조 정찰 가능. shortcut은 공개 페이지(/login, /, /pricing)로만 제한하거나 아예 제거.
+  5. **빌드 통합형 SW 도입 시 "PR 단위 보안 리뷰"가 필수**. 단순 새 기능 추가가 아니라 **모든 fetch의 중간자**로 동작하므로 기존 방어선(토큰 마스킹, timing oracle, referrer policy 등)을 우회할 가능성을 매번 재검토. code-reviewer는 구현 품질을 보고 security-reviewer는 intercept 경로를 봄 — 둘 다 필수.
+
 ## 2026-04-18 — n8n 워크플로 복제 가이드는 "Webhook + Gmail Send"만 바꾸면 안 된다 — Compose Email Code 노드가 실제 핵심
 
 - **상황**: Task 4-2 M7 `W5 portal_feedback.received` 추가 시, 저장소에 json 파일을 포함하는 대신 "W4(project.completed)를 n8n UI에서 복제 후 webhook path + Gmail Send 필드만 교체"로 README 가이드. 초안에는 Compose Email 언급 없이 Gmail Send의 `To/Subject/Body`를 `$json.body.data.*`로 직접 바인딩하도록 안내.

@@ -7,6 +7,7 @@ import { PortfolioSection } from "@/components/landing/portfolio-section";
 import { PricingSummarySection } from "@/components/landing/pricing-summary-section";
 import { CtaSection } from "@/components/landing/cta-section";
 import { LandingFooter } from "@/components/landing/footer";
+import { PwaInstallPrompt } from "@/components/shared/pwa-install-prompt";
 
 const heroStats: { value: string; label: string }[] = [
   { value: "10+", label: "프로젝트 완료" },
@@ -165,6 +166,7 @@ export default function LandingPage() {
       <PricingSummarySection />
       <CtaSection />
       <LandingFooter />
+      <PwaInstallPrompt />
     </main>
   );
 }

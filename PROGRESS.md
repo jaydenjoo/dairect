@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-18 (Task 4-2 M7 완료 — 사이드바 전역 뱃지 + n8n 이메일 이벤트 emit + 리뷰 수정 7건 반영)
-> 현재 위치: Phase 4 Task 4-2 M7 완료 (getTotalUnreadFeedbackForUser + dashboard layout 뱃지 prop + Sidebar 데스크톱/모바일 뱃지 + n8n portal_feedback_received 워크플로 추가 + emit fire-and-forget + W5 README 가이드 · code/security 병렬 리뷰 HIGH 3+MEDIUM 2+LOW 2 반영 · projectName SMTP 헤더 injection 방어 + layout 쿼리 catch fallback + W5 Compose Email Code 노드 jsCode 가이드 + saveDataErrorExecution none 경고 + formatBadgeCount NaN/Infinity 가드) — 다음은 Task 4-2 M8 (PWA 설치 유도) 또는 리팩토링 Task (HoneypotField/security/ 공통화)
+> 최종 업데이트: 2026-04-19 (Task 4-2 M8 완료 — PWA 설치 유도 + /offline fallback + Serwist SW 민감 경로 격리 + 리뷰 HIGH 4건 반영)
+> 현재 위치: Phase 4 Task 4-2 **M8 완료 → Task 4-2 전체 완료** (PwaInstallPrompt 신규 + /offline 페이지 + sw.ts fallbacks 옵션 + page.tsx 배너 장착 + next.config.ts precache exclude · code/security 병렬 리뷰 HIGH 4건 수정: sw.ts 민감 경로 제외 matcher, clientsClaim true, handleInstall accepted 분기, next.config precache exclude) — 다음은 리팩토링 Task(security/ 공통화) 또는 Vercel 배포 준비 또는 Phase 5
 
 ## 전체 진행률
 
@@ -11,7 +11,7 @@
 | Phase 1 | 대시보드 핵심 | ✅ 완료 | 100% |
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | 🟢 Option B 완료 | 100% (5/5, cron 2건 백로그) |
-| Phase 4 | 고객 포털 + /demo + PWA | 🟡 Task 4-2 진행 중 | Task 4-1 ✅ / 4-2 M1~M7 ✅ (M8 대기) |
+| Phase 4 | 고객 포털 + /demo + PWA | ✅ 완료 | 100% (Task 4-1 ✅ / 4-2 M1~M8 ✅) |
 | Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
 
 ## Phase 0: 기반 설정 ✅
@@ -368,7 +368,36 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 - 고객 포털 **파일 업로드 기능 금지** (Phase 5에서도)
 - 고객 포털 다크 모드 (범위 외)
 
-## 현재 세션 (2026-04-18 Task 4-2 M4~M7 — 고객 포털 완성 + n8n 알림 + 리뷰 42건 반영)
+## 현재 세션 (2026-04-19 Task 4-2 M8 — PWA 설치 유도 + /offline fallback + 리뷰 HIGH 4건 반영)
+
+- **배경**: 이전 세션에서 Jayden이 PWA 기반(manifest + icons + sw.ts + serwist.tsx + next.config serwist 래핑 + layout.tsx metadata + scripts/generate-pwa-icons.mts)을 미리 스테이지해 둔 상태로 M8 진입. **기반은 보존, 설치 유도 UI + offline fallback을 얹어 Task 4-2 완결**.
+- **완료** (신규 파일 2 + 수정 파일 3):
+  - **Install Prompt 컴포넌트** (`src/components/shared/pwa-install-prompt.tsx` 신규) — `beforeinstallprompt` 이벤트 캐치(TypeScript 기본 정의 없어서 `BeforeInstallPromptEvent` 인터페이스 자체 선언) + iOS Safari/Android Chromium/Desktop Chromium/Unsupported 4분기 UA 감지 + `matchMedia('(display-mode: standalone)')` + `navigator.standalone` 이중 standalone 감지 + `sessionStorage` dismiss + surface-card/shadow-ambient-lg/No-Line Rule 준수. iOS Safari는 `beforeinstallprompt` 미지원이라 "공유 → 홈 화면에 추가" 가이드 UI로 분기.
+  - **Offline 페이지** (`src/app/offline/page.tsx` 신규) — Server Component, robots noindex/nofollow/nocache, Indigo D 배지 + "지금은 연결이 필요해요" 안내 + 홈 복귀 Link. Next.js 라우트라 `__SW_MANIFEST`에 자동 포함 → SW가 precache.
+  - **sw.ts** (수정) — `fallbacks.entries[{url:"/offline", matcher}]` 추가. matcher는 `request.mode === "navigate"` 이면서 동시에 `/dashboard //portal //api //auth` 접두사는 모두 반환 false (민감 경로는 fallback 대상 제외).
+  - **page.tsx** (수정) — LandingFooter 뒤에 `<PwaInstallPrompt />` 삽입 (랜딩 `/`에만 노출, 대시보드/포털/데모 노출 금지).
+  - **next.config.ts** (수정) — `exclude: [/\/dashboard\//, /\/portal\//, /\/api\//, /\/auth\//]` precache 매니페스트 원천 제외 (향후 누군가 force-static/ISR 전환해도 cross-tenant 응답이 SW 캐시에 안 박히도록 예방).
+  - **serwist.tsx** (수정) — "use client" 경계 격리용 thin re-export임을 설명하는 주석 3줄 추가.
+- **code-reviewer + security-reviewer 병렬 리뷰 → 블록 사유 0 + HIGH 4건 일괄 반영**:
+  - [H/code] `clientsClaim: false` + `skipWaiting: true` 조합 의도 불분명 → `clientsClaim: true`로 변경 + 주석으로 "업데이트 즉시 활성화 + 기존 탭 새 SW 제어" 명시. 업데이트 직후 오프라인 전환 시 새 fallback 로직 일관 동작.
+  - [H/code] `handleInstall`의 `accepted` 분기 미처리 (appinstalled 이벤트 미발화 구형 WebView 대비 부재) → `outcome === "accepted"` 시 `setStandalone(true)` 즉시 호출로 배너 재노출 방어.
+  - [H/security] SW fallback matcher가 `/dashboard` `/portal` `/api` `/auth` navigate 실패도 `/offline`으로 스왑 → 세션 만료를 오프라인으로 오인, 토큰 히스토리 잔류 위험 → matcher에 접두사 4종 제외 명시.
+  - [H/security] `precacheEntries: self.__SW_MANIFEST` exclude 부재 (현재 dynamic 라우트라 자동 제외되나 향후 정적화 시 cross-tenant 캐시 위험) → next.config exclude 4종 정규식.
+- **리뷰 재확인만 (수정 불요)**:
+  - [M/security] manifest scope "/" + PWA 히스토리에 포털 토큰 잔류 우려 → Task 4-2 M4에서 이미 `PortalUrlScrub` 컴포넌트(`history.replaceState`)로 방어됨 확인.
+  - [L/security] sessionStorage dismiss key 조작 → UX 방해 수준, 보안 영향 없음. 현 구현 유지.
+  - [code] `/offline` `Link` 스타일 인라인 클래스 → shadcn Button asChild 교체 가능하나 오프라인 JS 의존 낮추려는 의도로 현재 방식 유지.
+- **검증**:
+  - tsc 0 errors / lint 0 errors (기존 경고 1건 잔존) / build **41 routes 성공** (기존 40 + `/offline` 신규) / postbuild `public/sw.js` 존재 검증 ✅ / sw.js 54KB · `/offline` 문자열 2회 등장 (precache + fallback matcher 양쪽)
+  - 기반 스테이지의 Turbopack→webpack 전환(`build --webpack`) · `transpilePackages: ["@react-pdf/renderer"]` · postbuild `test -f public/sw.js` hook · `.gitignore` / `eslint.config.mjs`의 `public/sw.js` · `swe-worker-*.js` 제외 모두 기존대로 정상 동작.
+- **다음 세션 선택지**:
+  - **리팩토링 Task** — `sanitizeHeader` / `stripFormulaTriggers` / `HoneypotField` / timing guard를 `src/lib/security/`로 공통화 (공개 폼 4종 세트 재사용 확대)
+  - **Vercel 배포 준비** — `after()`/waitUntil 도입 검토 + env 변수 세팅 + n8n W5 워크플로 실제 구축(Jayden)
+  - **Phase 5 SaaS 전환 준비** — 회원가입 UI, multi-tenant, anon client + RLS 전면 재검증
+- **차단 요소**: 없음
+- **교훈 2건 추가** (learnings.md): SW fallback matcher 민감 경로 제외 / Serwist + Turbopack 비호환 → webpack 전환 결정
+
+## 이전 세션 (2026-04-18 Task 4-2 M4~M7 — 고객 포털 완성 + n8n 알림 + 리뷰 42건 반영)
 
 - **완료 Task 4건** (커밋 4건, HEAD=060472a):
   - **M4 `/portal/[token]` 고객 뷰 페이지** (c017d26) — queries/formatters + 5 컴포넌트 + layout/page/loading/error/invalid + PortalUrlScrub · 리뷰 HIGH 7+MEDIUM 5 반영 (No-Line Rule, Referrer-Policy, history.replaceState, middleware matcher 분리) · 교훈 1건(URL path 토큰은 history.replaceState로 마스킹)
@@ -681,6 +710,9 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 | 2026-04-18 | SELECT→UPDATE는 `db.transaction` + `.for("update", { of: projects })` | 이벤트 from_status 정확성 보장. clients JOIN 행은 락에서 제외 (불필요한 경합 방지) |
 | 2026-04-18 | W4 Gmail 템플릿은 Set 대신 Code 노드(escHtml + stripCtrl) | 내부 사용자 입력이 HTML로 보간되는 경계에서 5문자 엔티티 + 제어문자 제거. XSS 리스크 낮은 내부 도구라도 방어 관성 유지 |
 | 2026-04-18 | n8n `saveDataSuccessExecution: "none"` 기본값 | W4 Gmail 본문(고객 PII) 영구 DB 저장 차단. 에러 실행만 디버깅용 잔존 |
+| 2026-04-19 | Serwist SW fallback matcher에 민감 경로 4종(/dashboard, /portal, /api, /auth) 명시 제외 | navigation 실패 시 /offline 자동 스왑은 UX에 좋지만 (a) 세션 만료를 오프라인으로 오인 (b) /portal/[token]이 브라우저 히스토리에 잔류 → fallback 적용 범위를 공개 라우트 navigate로만 한정 |
+| 2026-04-19 | `@serwist/next` 때문에 `next build --webpack` 고정 (Turbopack 비호환) + `transpilePackages: ["@react-pdf/renderer"]` + `next.config.ts`에 `exclude: [/\/dashboard\//, /\/portal\//, /\/api\//, /\/auth\//]` | Serwist는 webpack 기반 SW 번들링 필요. Turbopack 빌드 시 SW 빌드 단계 자체가 스킵. `@react-pdf/renderer` 등 CJS/ESM 혼재 의존성은 transpile로 resolve. exclude는 향후 정적화 시 cross-tenant 캐시 방어 |
+| 2026-04-19 | SW `clientsClaim: true` + `skipWaiting: true` 조합 | 업데이트 즉시 활성화 + 기존 탭도 새 SW가 제어 → 업데이트 직후 오프라인 전환 시 새 fallback 로직이 일관 동작. 두 옵션 엇갈리면 "구 SW가 제어 중인 탭"이 신 fallback matcher를 못 받는 일관성 문제 발생 |
 
 ## 주요 파일 구조
 

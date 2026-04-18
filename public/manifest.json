@@ -1,0 +1,41 @@
+{
+  "name": "Dairect — AI 개발 대행 + 프리랜서 PM",
+  "short_name": "Dairect",
+  "description": "AI 개발 대행과 프리랜서 PM을 위한 통합 워크스페이스. 프로젝트, 견적, 계약, 정산, 고객 포털을 한 곳에서.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F9F9F7",
+  "theme_color": "#4F46E5",
+  "lang": "ko",
+  "dir": "ltr",
+  "categories": ["productivity", "business"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
