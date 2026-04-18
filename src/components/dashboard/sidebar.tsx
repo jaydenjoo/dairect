@@ -48,9 +48,22 @@ function isActive(pathname: string, href: string, basePath: BasePath): boolean {
 
 type Props = {
   basePath?: BasePath;
+  // 프로젝트 메뉴에 표시할 "전체 미확인 피드백 합계". /demo 등 layout은 미지정 → 뱃지 숨김.
+  unreadProjectCount?: number;
 };
 
-export function Sidebar({ basePath = "/dashboard" }: Props) {
+// 사이드바 뱃지가 "99+"로 잘리도록 상한 숫자 렌더 (UI 레이아웃 안정성).
+// NaN/Infinity/음수 방어 — 타입 경계(Server Component prop)에서 오염된 값이 들어와도 안전.
+function formatBadgeCount(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "0";
+  const normalized = Math.floor(n);
+  return normalized > 99 ? "99+" : String(normalized);
+}
+
+export function Sidebar({
+  basePath = "/dashboard",
+  unreadProjectCount = 0,
+}: Props) {
   const pathname = usePathname();
 
   return (
@@ -73,6 +86,8 @@ export function Sidebar({ basePath = "/dashboard" }: Props) {
             {NAV_ITEMS.map((item) => {
               const href = resolveHref(basePath, item.path);
               const active = isActive(pathname, href, basePath);
+              const showBadge =
+                item.path === "/projects" && unreadProjectCount > 0;
               return (
                 <li key={href}>
                   <Link
@@ -85,6 +100,14 @@ export function Sidebar({ basePath = "/dashboard" }: Props) {
                   >
                     <item.icon className="h-[18px] w-[18px] shrink-0" />
                     {item.label}
+                    {showBadge && (
+                      <span
+                        aria-label={`읽지 않은 피드백 ${formatBadgeCount(unreadProjectCount)}건`}
+                        className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground"
+                      >
+                        {formatBadgeCount(unreadProjectCount)}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );
@@ -114,15 +137,27 @@ export function Sidebar({ basePath = "/dashboard" }: Props) {
           {MOBILE_NAV_ITEMS.map((item) => {
             const href = resolveHref(basePath, item.path);
             const active = isActive(pathname, href, basePath);
+            const showBadge =
+              item.path === "/projects" && unreadProjectCount > 0;
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex flex-col items-center gap-1 px-3 py-1.5 text-[10px] font-medium transition-colors ${
+                className={`relative flex flex-col items-center gap-1 px-3 py-1.5 text-[10px] font-medium transition-colors ${
                   active ? "text-sidebar-primary" : "text-sidebar-foreground/50"
                 }`}
               >
-                <item.icon className="h-5 w-5" />
+                <span className="relative">
+                  <item.icon className="h-5 w-5" />
+                  {showBadge && (
+                    <span
+                      aria-label={`읽지 않은 피드백 ${formatBadgeCount(unreadProjectCount)}건`}
+                      className="absolute -right-2 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground"
+                    >
+                      {formatBadgeCount(unreadProjectCount)}
+                    </span>
+                  )}
+                </span>
                 {item.label}
               </Link>
             );

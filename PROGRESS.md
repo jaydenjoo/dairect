@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-18 (Task 4-2 M6 완료 — PM 대시보드 피드백 조회/읽음 처리 + 리뷰 수정 13건 반영)
-> 현재 위치: Phase 4 Task 4-2 M6 완료 (schema isRead/readAt + 0014 마이그레이션 + dashboard feedback-actions(getProjectFeedbacks/getUnreadFeedbackCount/markFeedbackReadAction) + ProjectFeedbackSection + 탭 조건부 쿼리 · code/security 병렬 리뷰 HIGH 4+MEDIUM 4+LOW 5 반영 · IPv4-mapped IPv6 마스킹 + router.refresh + Zod strict 런타임 검증 + KST 표시) — 다음은 Task 4-2 M7 (알림 또는 사이드바 뱃지)
+> 최종 업데이트: 2026-04-18 (Task 4-2 M7 완료 — 사이드바 전역 뱃지 + n8n 이메일 이벤트 emit + 리뷰 수정 7건 반영)
+> 현재 위치: Phase 4 Task 4-2 M7 완료 (getTotalUnreadFeedbackForUser + dashboard layout 뱃지 prop + Sidebar 데스크톱/모바일 뱃지 + n8n portal_feedback_received 워크플로 추가 + emit fire-and-forget + W5 README 가이드 · code/security 병렬 리뷰 HIGH 3+MEDIUM 2+LOW 2 반영 · projectName SMTP 헤더 injection 방어 + layout 쿼리 catch fallback + W5 Compose Email Code 노드 jsCode 가이드 + saveDataErrorExecution none 경고 + formatBadgeCount NaN/Infinity 가드) — 다음은 Task 4-2 M8 (PWA 설치 유도) 또는 리팩토링 Task (HoneypotField/security/ 공통화)
 
 ## 전체 진행률
 
@@ -11,7 +11,7 @@
 | Phase 1 | 대시보드 핵심 | ✅ 완료 | 100% |
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | 🟢 Option B 완료 | 100% (5/5, cron 2건 백로그) |
-| Phase 4 | 고객 포털 + /demo + PWA | 🟡 Task 4-2 진행 중 | Task 4-1 ✅ / 4-2 M1~M6 ✅ (M7~M8 대기) |
+| Phase 4 | 고객 포털 + /demo + PWA | 🟡 Task 4-2 진행 중 | Task 4-1 ✅ / 4-2 M1~M7 ✅ (M8 대기) |
 | Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
 
 ## Phase 0: 기반 설정 ✅

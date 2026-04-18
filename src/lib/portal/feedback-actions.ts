@@ -1,8 +1,14 @@
 "use server";
 
+import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
-import { portalFeedbacks } from "@/lib/db/schema";
+import {
+  portalFeedbacks,
+  projects,
+  userSettings,
+} from "@/lib/db/schema";
+import { emitN8nEvent } from "@/lib/n8n/client";
 import {
   FEEDBACK_MIN_SUBMIT_MS,
   portalFeedbackSchema,
@@ -138,14 +144,19 @@ export async function submitPortalFeedbackAction(
   const cleanMessage = stripFormulaTriggers(parsed.data.message);
 
   // 7. INSERT
+  let insertedId: string;
   try {
-    await db.insert(portalFeedbacks).values({
-      projectId: payload.projectId,
-      tokenId: payload.tokenId,
-      message: cleanMessage,
-      clientIp,
-      userAgent,
-    });
+    const [inserted] = await db
+      .insert(portalFeedbacks)
+      .values({
+        projectId: payload.projectId,
+        tokenId: payload.tokenId,
+        message: cleanMessage,
+        clientIp,
+        userAgent,
+      })
+      .returning({ id: portalFeedbacks.id });
+    insertedId = inserted.id;
   } catch (err) {
     // err.message는 DB constraint/파라미터 노출 위험 → name만 기록.
     const errName = err instanceof Error ? err.name : "unknown";
@@ -157,6 +168,62 @@ export async function submitPortalFeedbackAction(
     await normalizeTiming(t0);
     return { success: false, error: GENERIC_ERROR };
   }
+
+  // 8. n8n 이벤트 발송 (fire-and-forget) — Gmail/Slack 포워드는 n8n 워크플로 몫.
+  // 본 응답에 영향 없도록 await 하지 않음. 실패해도 DB INSERT는 이미 확정.
+  // 페이로드 정책: 토큰 원본/tokenId/clientIp/userAgent 제외. messagePreview 140자 제한.
+  //
+  // ⚠️ Vercel serverless: 응답 return 후 container freeze/종료로 IIFE 안의 emit이 조용히
+  // 누락될 수 있음(Next 15+ `after()` / Vercel `waitUntil` 권장). self-hosted Node에선 안전.
+  // 배포 환경 확정 후 Phase 5에서 `after()` 도입 검토.
+  void (async () => {
+    try {
+      const [proj] = await db
+        .select({
+          projectName: projects.name,
+          recipientEmail: userSettings.businessEmail,
+        })
+        .from(projects)
+        .leftJoin(userSettings, eq(userSettings.userId, projects.userId))
+        .where(eq(projects.id, payload.projectId))
+        .limit(1);
+
+      if (!proj?.recipientEmail) {
+        // 수신자 PM의 businessEmail 미설정 시 이메일 발송 불가 — 스킵.
+        console.warn({
+          event: "portal_feedback_emit_skipped_no_recipient",
+          projectId: payload.projectId,
+        });
+        return;
+      }
+
+      // projectName 헤더 injection 방어 — DB 오염/직접 편집으로 `\r\n`이 포함되면 Gmail
+      // Subject에 그대로 실려 Bcc 추가 등 SMTP 헤더 조작 가능. emit 직전 한 번 더 sanitize.
+      const safeProjectName = proj.projectName
+        .replace(/[\r\n\t\x00-\x1F\x7F]/g, " ")
+        .slice(0, 100);
+
+      await emitN8nEvent(
+        "portal_feedback_received",
+        "portal_feedback.received",
+        {
+          feedbackId: insertedId,
+          projectId: payload.projectId,
+          projectName: safeProjectName,
+          recipientEmail: proj.recipientEmail,
+          messagePreview: cleanMessage.slice(0, 140),
+          receivedAt: new Date().toISOString(),
+        },
+      );
+    } catch (err) {
+      const name = err instanceof Error ? err.name : "unknown";
+      console.error({
+        event: "portal_feedback_emit_failed",
+        feedbackId: insertedId,
+        name,
+      });
+    }
+  })();
 
   await normalizeTiming(t0);
   return { success: true };

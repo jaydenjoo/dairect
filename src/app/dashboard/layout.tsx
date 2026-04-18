@@ -5,6 +5,7 @@ import { Header } from "@/components/dashboard/header";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import { getTotalUnreadFeedbackForUser } from "./projects/[id]/feedback-actions";
 
 export const metadata: Metadata = {
   title: {
@@ -44,9 +45,13 @@ export default async function DashboardLayout({
     })
     .onConflictDoNothing({ target: users.id });
 
+  // 사이드바 "프로젝트" 메뉴 뱃지 — 사용자 전체 미확인 피드백 합계.
+  // layout 레벨에서 1회만 계산, 자식 페이지에 prop으로 전파.
+  const unreadFeedbackTotal = await getTotalUnreadFeedbackForUser();
+
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar />
+      <Sidebar unreadProjectCount={unreadFeedbackTotal} />
 
       {/* Main content area */}
       <div className="flex flex-1 flex-col md:ml-60">

@@ -113,10 +113,42 @@ export async function getProjectFeedbacks(
   };
 }
 
+// ─── 조회: 사용자 전체 미확인 카운트 (사이드바 뱃지용) ───
+//
+// 로그인 사용자가 소유한 모든 (non-deleted) 프로젝트의 미확인 피드백 합계.
+// dashboard layout에서 호출해 Sidebar 프로젝트 메뉴에 뱃지 바인딩.
+// 쿼리 실패가 dashboard 전체를 500으로 만들지 않도록 내부에서 catch → 0 fallback.
+export async function getTotalUnreadFeedbackForUser(): Promise<number> {
+  try {
+    const userId = await getUserId();
+    if (!userId) return 0;
+
+    const [row] = await db
+      .select({ cnt: count() })
+      .from(portalFeedbacks)
+      .innerJoin(projects, eq(projects.id, portalFeedbacks.projectId))
+      .where(
+        and(
+          eq(projects.userId, userId),
+          isNull(projects.deletedAt),
+          eq(portalFeedbacks.isRead, false),
+        ),
+      );
+
+    return row?.cnt ?? 0;
+  } catch (err) {
+    const errName = err instanceof Error ? err.name : "unknown";
+    console.error({
+      event: "dashboard_badge_query_failed",
+      errName,
+    });
+    return 0;
+  }
+}
+
 // ─── 조회: 미확인 카운트만 (탭 뱃지용 경량 쿼리) ───
 //
 // feedback 탭이 아닌 경로에서 "미확인 N" 뱃지만 표시하기 위한 경량 count-only 쿼리.
-// M7(사이드바 뱃지)에서도 재사용 예정.
 export async function getUnreadFeedbackCount(projectId: string): Promise<number> {
   const userId = await getUserId();
   if (!userId) return 0;
