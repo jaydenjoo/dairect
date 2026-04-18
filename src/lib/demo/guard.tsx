@@ -1,5 +1,5 @@
 /**
- * Dairect 데모 모드 가드 유틸 — Task 4-1 M2
+ * Dairect 데모 모드 가드 유틸 — Task 4-1 M2 (M4 리뷰 후속 패치)
  *
  * `/demo` 라우트에서 비로그인 방문자가 대시보드를 "체험"할 수 있도록, 모든 변경 액션을
  * 차단하고 Sonner 토스트로 안내한다.
@@ -18,11 +18,13 @@
 "use client";
 
 import { createContext, useCallback, useContext, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 // ─── Context ───
 
-const DemoContext = createContext<boolean>(false);
+// null = Provider 밖에서 호출됨 (개발 중 오용 감지용). 실제 값은 boolean.
+const DemoContext = createContext<boolean | null>(null);
 
 type ProviderProps = {
   children: ReactNode;
@@ -36,9 +38,19 @@ export function DemoContextProvider({ children, isDemo = true }: ProviderProps) 
 
 // ─── 기본 Hook ───
 
-/** 현재 서브트리가 데모 모드인지 조회. Provider 밖에서는 false 반환. */
+/**
+ * 현재 서브트리가 데모 모드인지 조회. Provider 밖에서는 false 반환.
+ * Dev 환경에선 Provider 누락을 console.warn으로 알림 — `/demo` 레이아웃에 감싸지 않은 채
+ * `DemoSafeButton`을 썼다면 데모 가드가 무력화된 상태이므로 빠른 감지가 중요.
+ */
 export function useIsDemo(): boolean {
-  return useContext(DemoContext);
+  const ctx = useContext(DemoContext);
+  if (ctx === null && process.env.NODE_ENV === "development") {
+    console.warn(
+      "[demo] useIsDemo/DemoSafeButton called outside DemoContextProvider. Returning false (실 환경으로 취급). /demo 경로 밖에서 호출 중인지 확인하세요.",
+    );
+  }
+  return ctx ?? false;
 }
 
 // ─── 가드 Hook ───
@@ -52,24 +64,26 @@ const DEMO_TOAST_MESSAGE = "데모 모드에서는 수정할 수 없습니다";
  * 반환값 true → 데모 모드 (토스트 이미 표시, 호출자는 즉시 반환해야 함)
  * 반환값 false → 실제 환경 (호출자는 로직 계속 진행)
  *
- * `intent` 파라미터는 토스트 설명문에 포함되어 "어떤 동작을 차단했는지" 안내 (선택).
- * 중복 토스트 방지를 위해 `toast()`에 고정 `id` 전달.
+ * 토스트에는 sonner `action` 버튼이 붙어 클릭 시 `/login`으로 이동 — 사용자가 한 번에
+ * 실 계정 흐름으로 넘어갈 수 있도록 유도.
  */
 export function useDemoGuard(): (intent?: string) => boolean {
   const isDemo = useIsDemo();
+  const router = useRouter();
   return useCallback(
     (intent?: string) => {
       if (!isDemo) return false;
       toast.info(DEMO_TOAST_MESSAGE, {
         id: DEMO_TOAST_ID,
         description: intent
-          ? `"${intent}" 동작은 실제 계정에서 사용할 수 있습니다. [로그인]으로 이동해보세요.`
-          : "실제 계정에서 사용할 수 있습니다. [로그인]으로 이동해보세요.",
+          ? `"${intent}" 동작은 실제 계정에서만 실행됩니다.`
+          : "실제 계정에서만 실행됩니다.",
+        action: { label: "로그인", onClick: () => router.push("/login") },
         duration: 3500,
       });
       return true;
     },
-    [isDemo],
+    [isDemo, router],
   );
 }
 
@@ -109,6 +123,7 @@ export function DemoSafeButton({
       aria-disabled={isDemo || undefined}
       onClick={(e) => {
         if (demoGuard(intent)) {
+          // form 안 submit 버튼일 경우 기본 submit 차단 (return만으론 form submit을 못 막음)
           e.preventDefault();
           return;
         }

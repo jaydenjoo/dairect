@@ -45,8 +45,9 @@ const dateString = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD 형식이어야 합니다");
 
-const stripInvisibleChars = (s: string): string =>
-  s.replace(/[\u202A-\u202E\u2066-\u2069\u200B-\u200D\uFEFF]/g, "");
+// guardMultiLine이 BiDi/제어문자는 **거부**하므로, 여기 transform은 통과 문자열에 남은
+// zero-width(\u200B-\u200D) + BOM(\uFEFF)만 제거 (defense-in-depth).
+const stripZeroWidth = (s: string): string => s.replace(/[\u200B-\u200D\uFEFF]/g, "");
 
 // ─── 수동 생성 폼 (프로젝트 선택 + type + 금액 직접 입력) ───
 
@@ -63,11 +64,11 @@ export const invoiceManualFormSchema = z.object({
   issuedDate: dateString,
   dueDate: dateString,
   // shared-text는 제어문자·HTML·BiDi·CSV 리딩 차단 (검증 단계).
-  // stripInvisibleChars는 guard 통과 후 zero-width 문자 제거 (transform 단계, defense-in-depth).
+  // stripZeroWidth는 guard 통과 후 zero-width/BOM 제거 (transform 단계, defense-in-depth).
   memo: guardMultiLine(z.string().max(1000), "메모")
     .optional()
     .default("")
-    .transform(stripInvisibleChars),
+    .transform(stripZeroWidth),
 });
 
 export type InvoiceManualFormData = z.infer<typeof invoiceManualFormSchema>;

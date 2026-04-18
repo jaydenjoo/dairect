@@ -11,16 +11,11 @@ import { MonthlyRevenueChart, ClientRevenueChart } from "./dashboard-charts";
 import { FolderKanban, FileText, FileSignature, Banknote, Calendar, Activity } from "lucide-react";
 import { getCurrentBriefing } from "@/lib/ai/briefing-actions";
 import { AiBriefingCard } from "@/components/dashboard/ai-briefing-card";
+import { formatKRW } from "@/lib/utils/format";
 
 export const metadata: Metadata = {
   title: "대시보드",
 };
-
-function formatKRW(amount: number): string {
-  if (amount === 0) return "₩0";
-  if (amount >= 100_000_000) return `₩${(amount / 100_000_000).toFixed(1)}억`;
-  return `₩${(amount / 10000).toLocaleString("ko-KR")}만`;
-}
 
 const kpiConfig = [
   { key: "activeProjects", label: "진행 중 프로젝트", icon: FolderKanban, format: (v: number) => `${v}건` },

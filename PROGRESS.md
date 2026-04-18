@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-18 (Task 3-5 Option B E2E 스모크 완료)
-> 현재 위치: Phase 3 Option B 완료 + 런타임 End-to-End 검증 완료 (W1 Slack + W4 Gmail 실수신 확인) — M3(W2 cron)/M4(W3 cron)는 백로그
+> 최종 업데이트: 2026-04-18 (Task 4-1 M4 완료 + 리뷰 수정 9건)
+> 현재 위치: Phase 4 Task 4-1 M4 완료 (`/demo` 홈 KPI + 차트 + 프로젝트 목록 + code/security 리뷰 후속 패치 9건 반영) — 다음은 M5(프로젝트 상세 + 견적 + 고객 데모 뷰)
 
 ## 전체 진행률
 
@@ -11,7 +11,7 @@
 | Phase 1 | 대시보드 핵심 | ✅ 완료 | 100% |
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | 🟢 Option B 완료 | 100% (5/5, cron 2건 백로그) |
-| Phase 4 | 고객 포털 + /demo + PWA | ⬜ 대기 | 0% |
+| Phase 4 | 고객 포털 + /demo + PWA | 🟡 Task 4-1 진행 중 | Task 4-1 M4/6 완료 |
 | Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
 
 ## Phase 0: 기반 설정 ✅
@@ -368,20 +368,34 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 - 고객 포털 **파일 업로드 기능 금지** (Phase 5에서도)
 - 고객 포털 다크 모드 (범위 외)
 
-## 현재 세션 (2026-04-18 Phase 3 백로그 2건 + Phase 4 Task 분해 + 4-1 M1~M3)
+## 현재 세션 (2026-04-18 Task 4-1 M4 + M1~M4 + B-1/B-2 code/security 리뷰 후속 패치 9건)
 
 - **완료**:
-  - **B-1** (Phase 3 백로그 해소): `PDFDownloadLink dynamic(ssr:false)` 패턴을 estimate/contract/invoice pdf-buttons 3곳에 적용. Task 3-3 weekly-report-card에서 확립된 패턴 확산 — `@react-pdf/renderer` web-only API를 SSR 번들에서 완전 제외
-  - **B-2** (Phase 3 백로그 해소): `shared-text` 방어 regex를 5파일 · 13필드에 확대. estimates/contracts/invoices/inquiry/leads. 기존 `SAFE_LINE = /^[^\r\n\t<>]+$/` → `guardSingleLine`/`guardMultiLine` 전환으로 BiDi/NEL(U+0085)/LS(U+2028)/PS(U+2029)/CSV 리딩까지 일관 방어
-  - **옵션 C** Phase 4 Task 분해 — Task 4-1 /demo (6M, 8h) / 4-2 /portal/[token] (8M, 12h) / 4-3 expenses 선택 (4M, 4h) / 4-4 PWA (4M, 4h). Milestone 22개. 권장 순서: 4-1 → 4-2 → 4-4 → 4-3
-  - **Task 4-1 M1**: `src/lib/demo/sample-data.ts` — 프로젝트 5(상태별) + 고객 3 + 견적 3 + 인보이스 12 + 마일스톤 16 + 활동로그 10 + 6개월 KPI. Drizzle `InferSelectModel`로 DB row 타입 호환
-  - **Task 4-1 M2**: `src/lib/demo/guard.tsx` — `DemoContextProvider` + `useIsDemo` + `useDemoGuard(intent)` + `DemoSafeButton` + `DemoSafeForm` wrapper. `data-demo` 속성 컨벤션
-  - **Task 4-1 M3**: Sidebar `basePath` prop 리팩토링 (`/dashboard` | `/demo`) + DemoBanner (로그인 CTA) + DemoHeader (샘플 사용자) + `/demo/layout.tsx` 신규 (`force-dynamic`) + `/demo/page.tsx` 재작성 (M4 placeholder)
-  - 커밋 + 푸시 (`c333ac4`): 16 files, +1047/−121
-- **검증**: tsc 무출력 / lint 0 errors / build 22 pages 성공 (`/demo` force-dynamic) / 브라우저 preview 데스크톱(사이드바 7 + 배너 + 헤더) · 모바일(탭바 5) 렌더 + 콘솔 에러 0
-- **교훈**: 1건 추가 (Next.js 16.2 Typed Routes dev cache stale + `.next` 백업 시 ESLint 오염)
-- **다음**: Task 4-1 M4 — 홈 KPI 카드 4개 + 6개월 매출 차트 + 프로젝트 목록 데모 뷰 (기존 dashboard 컴포넌트 재사용 + `getDemoData()` 주입)
-- **차단 요소**: 없음
+  - **Task 4-1 M4 구현** (신규 2 + 수정 1):
+    - `src/lib/demo/derived-data.ts` (신규) — `getDemoKpi`/`getDemoMonthlyRevenueForChart`/`getDemoClientRevenue`/`getDemoUpcomingDeadlines`/`getDemoRecentActivity` 5개 순수함수. `dashboard-actions.ts` 쿼리 규칙(activeProjects/monthEstimates/unpaidAmount 등)을 JS filter로 미러링
+    - `src/app/(public)/demo/page.tsx` (수정) — M3 placeholder → KPI 4 + AI 정적 안내 카드(로그인 CTA) + 월별/고객별 매출 차트 + 다가오는 마일스톤 + 최근 활동
+    - `src/app/(public)/demo/projects/page.tsx` (신규) — 5행 테이블 (상태 뱃지 + 기간 + 금액 + 진행률). Kanban·생성 다이얼로그 제외 (읽기 전용)
+    - 기존 차트 컴포넌트 `MonthlyRevenueChart`/`ClientRevenueChart` import만으로 재사용 (기존 dashboard 코드 수정 0)
+  - **code-reviewer + security-reviewer 병렬 리뷰, 9건 일괄 반영** (CRITICAL 0 + HIGH 5 + MEDIUM 4):
+    - [HIGH] DEMO_USER_ID DB CHECK 제약 — `users.id <> '00000000-...'` (schema.ts + 0011_absent_sandman.sql 자동 생성). 데모 샘플 UUID가 실 사용자 공간에 침입 방지
+    - [HIGH] `/demo` `force-dynamic` → `revalidate = 60` — DoW(반복 요청 지갑 털기) 완화 + "항상 최근 데이터" UX 유지 + 서버 invocation 대폭 감소
+    - [HIGH] `derived-data.ts` Timezone UTC 통일 — `getMonth/getDate` → `getUTCMonth/getUTCDate`. `sample-data.ts`(UTC)와 정합성 맞춤, KST 자정 엣지 제거
+    - [HIGH] `useDemoGuard` sonner `action: { label: "로그인" }` 버튼 — 기존 `[로그인]` 대괄호 문자열이 sonner에서 링크로 파싱 안 되는 문제 해결. `useRouter` 주입
+    - [HIGH] `useIsDemo` Provider 밖 dev 경고 — `createContext<boolean | null>(null)` sentinel 패턴으로 `/demo` 레이아웃 누락 즉시 감지 (production 노이즈 0)
+    - [MEDIUM] `buildMonthlyRevenue` 월말 엣지 방어 — `Date.UTC(year, month+offset, 1)` 고정. 3/31 기준 -1 offset이 3/3으로 튀는 JS setUTCMonth 버그 차단
+    - [MEDIUM] `inv()` `sentAt` — `dates.issued !== undefined` 명시, `?? 0` fallback으로 "오늘 발송" 오해 제거
+    - [MEDIUM] `formatKRW` 공용 유틸 통합 — `src/lib/utils/format.ts` (`formatKRW`/`formatKRWLong`/`formatKRWShort` 3종). 5곳 중복 제거 (dashboard + demo × 2 + dashboard-charts)
+    - [MEDIUM] `getDemoRecentActivity` 재정렬 제거 — `buildActivityLogs`가 이미 최신순이므로 sort 불필요. 주석/코드 일치
+    - [MEDIUM] `contracts.ts`/`invoices.ts` `stripInvisibleChars` → `stripZeroWidth` — `guardMultiLine`이 이미 BiDi/제어문자 거부하므로 transform은 zero-width(\u200B-\u200D)+BOM(\uFEFF)만. 중복 방어 의도 명확화
+    - [보너스] `DemoSafeButton.onClick` `e.preventDefault()` 주석 — "form 안 submit 버튼일 경우 기본 submit 차단" 의도 명시
+  - **리뷰에서 "이미 안전" 확인**: B-2 shared-text 교체의 엄격도 회귀 없음 (오히려 BiDi/NEL/U+2028/CSV-leading 추가 차단) · `inquiry.ts` 공개 폼 4종 세트(honeypot/3s timing/sanitizeHeader/stripFormulaTriggers) 전부 잔존 · PDFDownloadLink dynamic(ssr:false)은 인증 우회 영향 0 · 샘플 데이터에 실 고객 정보 없음
+- **신규 파일 3** (derived-data.ts, demo/projects/page.tsx, lib/utils/format.ts) / **수정 파일 9** (demo/page.tsx, demo/layout.tsx, demo/guard.tsx, demo/sample-data.ts, dashboard/page.tsx, dashboard/projects/page.tsx, dashboard/dashboard-charts.tsx, validation/contracts.ts, validation/invoices.ts, db/schema.ts) / **마이그레이션 1건** (0011)
+- **검증**: tsc 0 errors / lint 0 errors (기존 경고 1건 잔존) / build 25 pages 성공 (`/demo`·`/demo/projects` Static + 1m revalidate) / `pnpm drizzle-kit generate` 정상 / preview `/demo` KPI 2건·₩1,200만·0건·₩4,830만 + 콘솔 에러 0 / preview `/demo/projects` 5행 테이블 금액 4,200만원~800만원 + 진행률 정상
+- **디버깅**: turbopack `.sst` 캐시 누락 500 에러 → `.next`를 `/tmp/dairect-next-stale-*`로 이동 후 dev restart로 해소 (2026-04-18 learnings.md 교훈 재활용)
+- **교훈**: 2건 추가 (JS Date `setUTCMonth` 월말 엣지 방어 패턴 / Context `null` sentinel로 Provider 누락 감지)
+- **수동 실행 필요** (Jayden): `pnpm db:push` — 0011 CHECK 제약을 실 Supabase DB에 반영 (기존 데이터 영향 0, 안전)
+- **다음**: Task 4-1 M5 — 프로젝트 상세 + 견적 + 고객 데모 뷰 (읽기 전용, CRUD 버튼에 `DemoSafeButton` 래핑, 1.5h 예상)
+- **차단 요소**: 없음 (db:push는 code 커밋과 독립 진행 가능)
 
 ## 이전 세션 (2026-04-18 Task 3-5 E2E 스모크 + 런타임 검증)
 

@@ -18,13 +18,24 @@ import { sql } from "drizzle-orm";
 // 사용자 + 설정
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-export const users = pgTable("users", {
-  id: uuid().primaryKey().default(sql`gen_random_uuid()`),
-  email: text().unique().notNull(),
-  name: text(),
-  avatarUrl: text("avatar_url"),
-  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+    email: text().unique().notNull(),
+    name: text(),
+    avatarUrl: text("avatar_url"),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (table) => [
+    // Task 4-1 M4 보안 리뷰: 데모 샘플 UUID(`sample-data.ts` DEMO_USER_ID)가 실 사용자
+    // 공간에 침입 방지. `00000000-0000-0000-0000-000000000000`은 "데모 전용 예약".
+    check(
+      "users_not_demo_uuid",
+      sql`${table.id} <> '00000000-0000-0000-0000-000000000000'::uuid`,
+    ),
+  ],
+);
 
 export const userSettings = pgTable("user_settings", {
   userId: uuid("user_id")

@@ -1,5 +1,27 @@
 # Dairect — 교훈 기록
 
+## 2026-04-18 — JS Date `setUTCMonth` 월말 엣지: 상대 offset이 튀는 버그 방어 패턴
+
+- **증상**: `buildMonthlyRevenue`에서 `d.setUTCMonth(d.getUTCMonth() + offsetMonths)`로 "5개월 전 ~ 현재 월" 생성. 오늘이 3월 31일이고 offset이 -1이면 결과가 "3월 3일"로 튐. 결과: `monthKey`가 `"YYYY-03"` — 현재 월과 **중복**. 5/31, 7/31, 8/31, 10/31, 12/31 모두 재현.
+- **원인**: JS `Date` 객체는 "2월 31일" 같은 불가능한 날짜를 자동으로 "3월 3일"로 넘김(자동 overflow). setUTCMonth만 바꾸면 day 필드가 그대로 유지되기 때문에 해당 월의 일수를 초과하면 다음 달로 넘어간다.
+- **해결**: `setUTCMonth` 대신 `Date.UTC(year, month + offset, 1)`로 **day=1 고정해서 새 Date 생성**. 월말에 관계없이 정확히 N개월 전/후 1일로 계산.
+- **규칙**:
+  1. 현재 날짜 기준 **상대 월 offset 계산은 반드시 day=1 고정**. `new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + offset, 1))` 패턴 사용.
+  2. `setDate`/`setMonth`/`setFullYear`는 필드 단위 변경 시 overflow 자동 전환이 기본 동작 — 월·연 계산엔 부적합. "정확히 N개월 전"이 필요하면 새 Date 생성으로 명시.
+  3. 리뷰 관점: 월말 27일~31일 테스트가 빠지면 숨는다. `new Date("2026-03-31")` 같은 월말 기준 재현 테스트 필수.
+  4. `dashboard-actions.ts:90-94`(운영 코드)는 이미 `new Date(year, month - i, 1)` 패턴으로 안전. 샘플 데이터 쪽은 `setUTCMonth`라 엣지가 늦게 발견됨.
+
+## 2026-04-18 — React Context `null` sentinel 패턴: Provider 누락 감지
+
+- **상황**: `DemoContextProvider`가 `/demo/layout.tsx` 한 곳에만 감싸져 있어야 하는데, 실수로 누락되거나 `/dashboard` 쪽에 누출되면 `useIsDemo()`가 조용히 `false`를 반환 → 데모 가드 무력화. 반대 방향도 위험 (실 환경에서 데모 모드로 오인).
+- **잘못된 접근**: `createContext<boolean>(false)` — Provider 밖 호출과 "의도적으로 false"를 구분 못 함.
+- **해결**: `createContext<boolean | null>(null)` sentinel + `useIsDemo` 내부에서 `ctx === null && NODE_ENV === "development"`일 때 `console.warn` 출력 후 `ctx ?? false` 반환.
+- **규칙**:
+  1. 경계가 명확한 Context (예: 데모/실환경, 관리자/일반)는 기본값 타입을 **`T | null` sentinel**로 두고 hook에서 null 분기.
+  2. 경고는 **dev 전용**(`process.env.NODE_ENV === "development"`)으로 제한 — 프로덕션 콘솔 노이즈 방지.
+  3. hook의 **반환 타입은 원래 boolean**(ctx ?? false)으로 유지 — 호출측 null 처리 부담 없음. sentinel은 내부 탐지 용도.
+  4. 더 강한 대안: Provider에 required prop을 둬서 호출 강제 + hook 내부에서 throw. 하지만 서버 컴포넌트 혼재 시 throw는 렌더 전체를 깨뜨리므로 dev warn 정도가 안전.
+
 ## 2026-04-18 — Next.js 16.2 Typed Routes dev cache stale + `.next` 백업 시 ESLint 오염
 
 - **증상 1**: 새 `app/(public)/demo/layout.tsx` 추가 후 `pnpm tsc --noEmit` 실행 시 `.next/dev/types/validator.ts(25,44): error TS2344: Type '"/demo"' is not assignable to type 'LayoutRoutes'` 2건. Dev server가 돌고 페이지가 정상 렌더되는데도 tsc 실패.

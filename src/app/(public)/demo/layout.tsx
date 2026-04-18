@@ -4,9 +4,10 @@ import { DemoHeader } from "@/components/demo/header";
 import { DemoBanner } from "@/components/demo/banner";
 import { DemoContextProvider } from "@/lib/demo/guard";
 
-// `getDemoData()`가 `new Date()` 기준 상대 날짜 계산 — 빌드 시점 고정값이 되지 않도록
-// force-dynamic. "항상 최근 데이터"처럼 보이게 매 request마다 재계산.
-export const dynamic = "force-dynamic";
+// `getDemoData()`가 `new Date()` 기준 상대 날짜 계산 — 빌드 시점 고정값이 되지 않도록 ISR.
+// 60초 단위 재생성으로 "항상 최근 데이터" UX 유지 + 반복 요청(DoW) 완화.
+// Task 4-1 M4 보안 리뷰: force-dynamic 대비 서버 invocation 대폭 감소.
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: {

@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD CONSTRAINT "users_not_demo_uuid" CHECK ("users"."id" <> '00000000-0000-0000-0000-000000000000'::uuid);

@@ -12,6 +12,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { formatKRWShort } from "@/lib/utils/format";
 
 interface MonthlyData {
   month: string;
@@ -28,12 +29,6 @@ const PIE_COLORS = ["#4F46E5", "#7C3AED", "#2563EB", "#059669", "#D97706"];
 function formatMonthLabel(month: string): string {
   const [, m] = month.split("-");
   return `${Number(m)}월`;
-}
-
-function formatKRWShort(value: number): string {
-  if (value === 0) return "0";
-  if (value >= 100_000_000) return `${(value / 100_000_000).toFixed(1)}억`;
-  return `${(value / 10000).toLocaleString("ko-KR")}만`;
 }
 
 export function MonthlyRevenueChart({ data }: { data: MonthlyData[] }) {

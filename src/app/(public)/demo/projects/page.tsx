@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Suspense } from "react";
 import { Badge } from "@/components/ui/badge";
-import { getProjects, getClientsForSelect } from "./actions";
-import { ProjectCreateDialog } from "./project-create-dialog";
-import { ViewToggle } from "./view-toggle";
-import { KanbanView } from "./kanban-view";
+import { getDemoData } from "@/lib/demo/sample-data";
 import { projectStatusLabels, projectStatusSchema, type ProjectStatus } from "@/lib/validation/projects";
 import { formatKRWLong } from "@/lib/utils/format";
 import { FolderKanban } from "lucide-react";
@@ -28,18 +23,37 @@ const statusColors: Record<string, string> = {
   failed: "bg-red-50 text-red-600",
 };
 
-interface PageProps {
-  searchParams: Promise<{ view?: string }>;
-}
+/**
+ * /demo/projects — 대시보드 프로젝트 목록(`/dashboard/projects`)의 데모 버전.
+ *
+ * 데모는 읽기 전용 — 생성 다이얼로그/Kanban 토글 제외. 테이블 뷰만 렌더.
+ * 프로젝트 행 클릭 시 상세 페이지는 M5에서 구현 예정 (현재는 비활성화 행).
+ */
+export default function DemoProjectsPage() {
+  const sample = getDemoData();
 
-export default async function ProjectsPage({ searchParams }: PageProps) {
-  const { view } = await searchParams;
-  const isKanban = view === "kanban";
+  const clientNameById = new Map(sample.clients.map((c) => [c.id, c.companyName]));
 
-  const [projectList, clientOptions] = await Promise.all([
-    getProjects(),
-    getClientsForSelect(),
-  ]);
+  // 프로젝트별 마일스톤 완료/전체 집계 (단일 패스)
+  const milestoneStatsByProjectId = new Map<string, { completed: number; total: number }>();
+  for (const m of sample.milestones) {
+    const stats = milestoneStatsByProjectId.get(m.projectId) ?? { completed: 0, total: 0 };
+    stats.total += 1;
+    if (m.isCompleted) stats.completed += 1;
+    milestoneStatsByProjectId.set(m.projectId, stats);
+  }
+
+  const projectList = sample.projects
+    .filter((p) => !p.deletedAt)
+    .map((p) => {
+      const stats = milestoneStatsByProjectId.get(p.id) ?? { completed: 0, total: 0 };
+      return {
+        ...p,
+        clientName: p.clientId ? clientNameById.get(p.clientId) ?? null : null,
+        milestoneCompleted: stats.completed,
+        milestoneTotal: stats.total,
+      };
+    });
 
   return (
     <div className="py-10">
@@ -51,12 +65,6 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
           <p className="mt-1 text-sm text-muted-foreground">
             {projectList.length}개 프로젝트
           </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Suspense fallback={<div className="h-9 w-[156px] rounded-lg bg-muted" />}>
-            <ViewToggle />
-          </Suspense>
-          <ProjectCreateDialog clientOptions={clientOptions} />
         </div>
       </div>
 
@@ -71,10 +79,6 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
               첫 프로젝트를 생성해보세요
             </p>
           </div>
-        </div>
-      ) : isKanban ? (
-        <div className="mt-6">
-          <KanbanView projects={projectList} />
         </div>
       ) : (
         <div className="mt-6 overflow-hidden rounded-xl bg-card shadow-ambient">
@@ -111,17 +115,11 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
                     : 0;
 
                 return (
-                  <tr
-                    key={project.id}
-                    className="transition-colors hover:bg-muted/30"
-                  >
+                  <tr key={project.id}>
                     <td className="px-6 py-4">
-                      <Link
-                        href={`/dashboard/projects/${project.id}`}
-                        className="font-medium text-foreground hover:text-primary"
-                      >
+                      <span className="font-medium text-foreground">
                         {project.name}
-                      </Link>
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-muted-foreground">
                       {project.clientName ?? "—"}

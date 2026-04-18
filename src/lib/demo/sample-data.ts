@@ -491,7 +491,11 @@ function inv(
     totalAmount,
     issuedDate: dates.issued !== undefined ? dateFromNow(dates.issued, base) : null,
     dueDate: dates.due !== undefined ? dateFromNow(dates.due, base) : null,
-    sentAt: status === "sent" || status === "paid" ? timestampFromNow(dates.issued ?? 0, base) : null,
+    // sent/paid라도 issued 날짜 없으면 sentAt null 유지 (0 fallback 시 "오늘 발송" 오해 방지)
+    sentAt:
+      (status === "sent" || status === "paid") && dates.issued !== undefined
+        ? timestampFromNow(dates.issued, base)
+        : null,
     paidDate: dates.paid !== undefined ? dateFromNow(dates.paid, base) : null,
     paidAmount: status === "paid" ? totalAmount : null,
     taxInvoiceIssued: status === "paid",
@@ -551,8 +555,11 @@ function buildMonthlyRevenue(base: Date): MonthlyRevenue[] {
     { offsetMonths: 0, revenue: 35_200_000, count: 5 },
   ];
   return pattern.map((p) => {
-    const d = new Date(base);
-    d.setUTCMonth(d.getUTCMonth() + p.offsetMonths);
+    // day=1 고정. base가 3/31이고 offset=-1이면 JS `setUTCMonth`는 "2월 31일" → 3/3으로 튀어
+    // 월이 중복될 수 있음. 명시적으로 1일로 새 Date를 생성해 월말 엣지를 차단.
+    const d = new Date(
+      Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + p.offsetMonths, 1),
+    );
     return {
       month: monthKey(d),
       revenue: p.revenue,
