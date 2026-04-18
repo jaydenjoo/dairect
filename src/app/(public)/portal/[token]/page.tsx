@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { PortalEstimates } from "@/components/portal/portal-estimates";
+import { PortalFeedbackForm } from "@/components/portal/portal-feedback-form";
 import { PortalHeader } from "@/components/portal/portal-header";
 import { PortalInvoices } from "@/components/portal/portal-invoices";
 import { PortalMilestones } from "@/components/portal/portal-milestones";
@@ -64,6 +65,7 @@ export default async function PortalTokenPage({
       <PortalMilestones milestones={bundle.milestones} progress={progress} />
       <PortalEstimates estimates={bundle.estimates} />
       <PortalInvoices invoices={bundle.invoices} />
+      <PortalFeedbackForm token={token} />
     </>
   );
 }

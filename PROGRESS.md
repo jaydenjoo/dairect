@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-18 (Task 4-2 M4 완료 — `/portal/[token]` 고객 뷰 페이지 + 리뷰 수정 12건 반영)
-> 현재 위치: Phase 4 Task 4-2 M4 완료 (`/portal/[token]` 읽기 전용 뷰 · queries/formatters + 컴포넌트 5개 + layout/loading/error/invalid + PortalUrlScrub · code/security 병렬 리뷰 HIGH 7 + MEDIUM 5건 반영 · Referrer-Policy + middleware matcher 분리) — 다음은 Task 4-2 M5 (포털 피드백 제출 폼)
+> 최종 업데이트: 2026-04-18 (Task 4-2 M5 완료 — 포털 피드백 제출 폼 + 리뷰 수정 10건 반영)
+> 현재 위치: Phase 4 Task 4-2 M5 완료 (validation/portal.ts + feedback-actions.ts + PortalFeedbackForm + page 마운트 · honeypot + timing guard + Zod .strict() + sanitizeHeader(BiDi) + stripFormulaTriggers(라인별) + normalizeTiming(400-600ms 랜덤 지연) · code/security 병렬 리뷰 HIGH 4+MEDIUM 4+LOW 2 반영) — 다음은 Task 4-2 M6 (PM 대시보드 피드백 조회)
 
 ## 전체 진행률
 
@@ -11,7 +11,7 @@
 | Phase 1 | 대시보드 핵심 | ✅ 완료 | 100% |
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | 🟢 Option B 완료 | 100% (5/5, cron 2건 백로그) |
-| Phase 4 | 고객 포털 + /demo + PWA | 🟡 Task 4-2 진행 중 | Task 4-1 ✅ / 4-2 M1~M4 ✅ (M5~M8 대기) |
+| Phase 4 | 고객 포털 + /demo + PWA | 🟡 Task 4-2 진행 중 | Task 4-1 ✅ / 4-2 M1~M5 ✅ (M6~M8 대기) |
 | Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
 
 ## Phase 0: 기반 설정 ✅
