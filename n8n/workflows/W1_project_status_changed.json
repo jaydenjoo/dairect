@@ -1,0 +1,152 @@
+{
+  "name": "Dairect — W1 project.status_changed → Slack",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "dairect": {
+      "version": "2",
+      "requires_env": ["DAIRECT_WEBHOOK_SECRET", "DAIRECT_SLACK_CHANNEL_ID"],
+      "n8n_nodes_base_version": "2.16.x",
+      "hmac_canonical": "${timestamp}.${nonce}.${rawBody}",
+      "notes": "rawBody:true + nonce dedupe (staticData.seen, ±5min). Respond 200 before Slack Post."
+    }
+  },
+  "tags": [{ "name": "dairect" }],
+  "staticData": null,
+  "pinData": {},
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dairect/project-status-changed",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true,
+          "ignoreBots": false,
+          "binaryPropertyName": "data"
+        }
+      },
+      "id": "a1111111-1111-4111-8111-111111111111",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "dairect-w1-project-status-changed"
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// HMAC-SHA256(secret, `${timestamp}.${nonce}.${rawBody}`) + ±5min window + nonce dedupe.\n// rawBody:true 덕분에 item.binary.data.data (base64)가 원본 바이트. JSON 재직렬화 round-trip 문제 없음.\nconst crypto = require('crypto');\n\nconst MAX_SKEW_MS = 5 * 60 * 1000;\nconst GRACE_MS = 60 * 1000;\nconst NONCE_TTL_MS = MAX_SKEW_MS + GRACE_MS;\n\nconst item = $input.first();\nconst headers = (item.json && item.json.headers) || {};\nconst bin = item.binary && item.binary.data;\nconst rawBase64 = bin && bin.data;\n\nfunction fail(reason) {\n  return [{ json: { verified: false, reason } }];\n}\n\nif (!rawBase64) return fail('raw_body_missing');\nlet raw;\ntry {\n  raw = Buffer.from(rawBase64, 'base64').toString('utf8');\n} catch (e) {\n  return fail('raw_body_decode_failed');\n}\n\nlet body;\ntry {\n  body = JSON.parse(raw);\n} catch (e) {\n  return fail('body_not_json');\n}\n\nconst ts = String(headers['x-dairect-timestamp'] || '');\nconst nonce = String(headers['x-dairect-nonce'] || '');\nconst sigHeader = String(headers['x-dairect-signature'] || '');\nconst secret = $env.DAIRECT_WEBHOOK_SECRET || '';\n\nif (!secret) return fail('secret_not_configured');\nif (!/^[0-9]+$/.test(ts)) return fail('timestamp_missing_or_invalid');\nif (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(nonce)) return fail('nonce_format');\n\nconst tsNum = Number(ts);\nif (!Number.isFinite(tsNum)) return fail('timestamp_not_finite');\nconst now = Date.now();\nif (Math.abs(now - tsNum) > MAX_SKEW_MS) return fail('timestamp_out_of_window');\n\nif (!sigHeader.startsWith('sha256=')) return fail('signature_format');\nconst providedHex = sigHeader.slice('sha256='.length);\nif (!/^[0-9a-f]{64}$/i.test(providedHex)) return fail('signature_hex_invalid');\n\nconst expected = crypto\n  .createHmac('sha256', secret)\n  .update(`${ts}.${nonce}.${raw}`)\n  .digest('hex');\n\nlet ok = false;\ntry {\n  const a = Buffer.from(providedHex, 'hex');\n  const b = Buffer.from(expected, 'hex');\n  ok = a.length === b.length && crypto.timingSafeEqual(a, b);\n} catch (e) {\n  ok = false;\n}\nif (!ok) return fail('signature_mismatch');\n\n// H6: nonce dedupe (±5min + grace). 검증 통과 후에만 seen에 저장 — 무효 nonce로 저장소 flood 방지.\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.seen || typeof staticData.seen !== 'object') staticData.seen = {};\nfor (const k of Object.keys(staticData.seen)) {\n  if (now - staticData.seen[k] > NONCE_TTL_MS) delete staticData.seen[k];\n}\nif (staticData.seen[nonce]) return fail('replay_detected');\nstaticData.seen[nonce] = now;\n\nreturn [{ json: { verified: true, body } }];\n"
+      },
+      "id": "a2222222-2222-4222-8222-222222222222",
+      "name": "Verify HMAC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "verify-ok",
+              "leftValue": "={{ $json.verified }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a3333333-3333-4333-8333-333333333333",
+      "name": "Verified?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "ok",
+        "options": { "responseCode": 200 }
+      },
+      "id": "a4444444-4444-4444-8444-444444444444",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "={{ $env.DAIRECT_SLACK_CHANNEL_ID }}",
+          "mode": "id"
+        },
+        "text": "=:arrows_counterclockwise: *프로젝트 상태 변경*\n• *프로젝트*: {{ $json.body.data.project_name }}\n• *고객사*: {{ $json.body.data.client_name || '미지정' }}\n• *변경*: `{{ $json.body.data.from_status }}` → `{{ $json.body.data.to_status }}`\n• 발생: {{ $json.body.emitted_at }}",
+        "otherOptions": {
+          "mrkdwn": true,
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "a5555555-5555-4555-8555-555555555555",
+      "name": "Slack Post",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1120, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
+          "name": "Slack API"
+        }
+      },
+      "continueOnFail": true,
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=unauthorized: {{ $json.reason }}",
+        "options": { "responseCode": 401 }
+      },
+      "id": "a6666666-6666-4666-8666-666666666666",
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [900, 520]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Verify HMAC", "type": "main", "index": 0 }]]
+    },
+    "Verify HMAC": {
+      "main": [[{ "node": "Verified?", "type": "main", "index": 0 }]]
+    },
+    "Verified?": {
+      "main": [
+        [{ "node": "Respond 200", "type": "main", "index": 0 }],
+        [{ "node": "Respond 401", "type": "main", "index": 0 }]
+      ]
+    },
+    "Respond 200": {
+      "main": [[{ "node": "Slack Post", "type": "main", "index": 0 }]]
+    }
+  }
+}
