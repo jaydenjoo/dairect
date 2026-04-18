@@ -458,3 +458,26 @@
   4. 보안 secret 누락은 silent warn이 아니라 **프로덕션에선 fetch 자체를 차단**. `X-Signature: unsigned` 같은 의도 없는 헤더로 평문 PII가 outbound 되는 리스크는 운영 사고 1회로 고객 신뢰 붕괴.
   5. 로그는 **err 객체 전체 덤프 금지**, `err.message`만 구조화(`{event, workflow, err_name, message}`) — Sentry scrubber 도달 전 1차 방어선. err.stack이 DB 쿼리 파라미터(PII) 포함하는 경로 있음.
   6. 재시도는 **at-most-once 원칙** — 외부 사이드 이펙트(Slack 메시지·Gmail·결제 api)에 대한 자동 재시도는 중복 발송의 원인. 서버 측 `maxRetries:0`, n8n 측 `retryOnFail:false`, fetch 측 AbortController 유일 체크. 중복 방지가 가용성보다 우선인 도메인에서 특히 엄수.
+
+## 2026-04-18 — n8n Webhook URL 복사 시 경로 중복 실수
+
+- **증상**: Task 3-5 첫 스모크에서 `updateProjectStatusAction` 성공하나 n8n이 404 반환. 30분 디버깅 후 발견.
+- **원인**: `.env.local`의 `N8N_WEBHOOK_URL_PROJECT_STATUS_CHANGED` 값이 `https://<host>/webhook/dairect/project-status-changed/webhook/dairect/project-status-changed`로 **경로가 2번 반복**되어 있었음. n8n UI에서 Production URL 복사 시 이미 full URL(`https://<host>/webhook/dairect/project-status-changed`)인 것을 인지 못 하고 접미사만 추가로 붙여넣은 것으로 추정.
+- **해결**: URL을 정상 형태로 수정 → Next.js 16.2 Turbopack이 `.env.local` 변경 자동 감지(`Reload env: .env.local` 로그) + Fast Refresh full reload 수행 → 재트리거 시 200 성공.
+- **규칙**:
+  1. **외부 webhook URL은 항상 `curl -I <URL>` 또는 `nc -zv host port`로 사전 health check**하고 `.env.local`에 넣을 것. 오타로 경로 추가 첨부가 가장 흔한 실수 패턴.
+  2. 404 디버깅 순서: (a) Dairect 측 fetch 성공 여부 → (b) URL 형태(host + 경로 + 쿼리 분리) → (c) n8n Active 상태 → (d) 경로 일치 여부. 이번 건 (b)에서 바로 보였음.
+  3. Next.js 16.2 Turbopack은 dev 서버 실행 중에 `.env.local` 변경을 감지해 **자동 재로드**한다(`Reload env:` 로그). 단, 모듈 레벨 캐시(`urlCache` Map 등)는 HMR full reload가 필요하면 재로드됨. 이번엔 Fast Refresh full reload가 실행돼 캐시도 리셋됐음.
+  4. 에러 분류 원칙: server action 내 fetch가 200 외 응답 시 `console.error({event:"n8n_emit_non_2xx", status, workflow})` 구조화 로그 유지 — status 코드만 있어도 404/401/500 구별 가능, 1분 내 URL 문제 vs 인증 문제 판별.
+
+## 2026-04-18 — n8n Gmail Send: OAuth 계정 ≠ 수신 계정 (셀프 발송 함정)
+
+- **증상**: Task 3-5 W4 스모크에서 n8n Executions는 `Gmail Send` 노드 성공(messageId 반환) 출력됨. 그러나 Jayden의 Gmail 받은편지함에 메일 안 보임. 15분 디버깅.
+- **원인**: n8n Gmail OAuth2 credential로 연결한 구글 계정이 **수신 주소와 동일한 계정**. Gmail은 "본인 → 본인"으로 보낸 메일을 **보낸편지함에만 저장**하고 받은편지함에는 표시하지 않음(Gmail 자체 표준 동작). 게다가 첫 테스트에서 수신 주소를 `junee7203@gmail.com`로 오타 입력해 스모크 2회 반복 혼선.
+- **해결**: `clients.email`을 오타 없이 정확한 주소(`june7203@gmail.com`)로 수정하여 재발사 → 수신 확인. 최종적으로 Task 3-5 E2E 성공 확정.
+- **규칙**:
+  1. n8n Gmail Send 스모크 시 **수신 주소와 OAuth 계정을 반드시 분리**. OAuth 계정이 본인 Gmail이면 테스트 수신은 **별도 이메일(Naver/회사/다른 Gmail)** 사용.
+  2. "발송 성공으로 표시되나 받은편지함에 없음" 진단 순서: (a) **보낸편지함 확인** (본인→본인 케이스 판별) → (b) 스팸함·프로모션 탭 → (c) `subject:Dairect` 전역 검색 → (d) n8n 노드 출력의 `labelIds` 배열 확인 (`["SENT"]`만 있으면 셀프 발송 확정).
+  3. 스모크 이메일 주소 오타 방지 — 반드시 **Jayden이 실제 받는 이메일** 명시 후 복사/붙여넣기. 손타이핑 금지(테스트 중단 2번째 원인).
+  4. 프로젝트 완료 시 고객에게 실제 전달되는 메일은 고객 주소(다른 도메인)로 가므로 프로덕션에서는 이 함정이 없음 — 개발 스모크 시에만 주의.
+  5. n8n Gmail 노드 `appendAttribution: false` 설정 유지 — Gmail Send 하단에 "Sent with n8n" 서명이 붙지 않도록(고객 발송 메일에 n8n 로고 노출 방지).

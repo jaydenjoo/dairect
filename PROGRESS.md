@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-18 (Task 3-5 Option B 완료)
-> 현재 위치: Phase 3 Option B 완료 (Task 3-1~3-5 구현+리뷰+일괄수정, 5/5 중 옵션 B 범위 100%) — M3(W2 cron)/M4(W3 cron)는 백로그
+> 최종 업데이트: 2026-04-18 (Task 3-5 Option B E2E 스모크 완료)
+> 현재 위치: Phase 3 Option B 완료 + 런타임 End-to-End 검증 완료 (W1 Slack + W4 Gmail 실수신 확인) — M3(W2 cron)/M4(W3 cron)는 백로그
 
 ## 전체 진행률
 
@@ -301,7 +301,21 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 - 구조화 로깅
 - `budget_range`/`schedule`/`status` 컬럼 CHECK 제약 일괄 추가
 
-## 현재 세션 (2026-04-18 Task 3-5 Option B)
+## 현재 세션 (2026-04-18 Task 3-5 E2E 스모크 + 런타임 검증)
+
+- **완료**:
+  - elest.io 셀프호스트 n8n에 W1/W4 워크플로우 임포트 + Slack App OAuth(Bot Token) + Gmail OAuth2 자격증명 연결 완료
+  - W1 실제 발사·수신 검증 — Dairect 대시보드에서 `쇼핑몰 개발` 프로젝트 상태 `review → in_progress` 변경 → Slack 채널에 한국어 템플릿 메시지 수신 (고객사명 "테스트 고객사" 포함, 2026-04-18T04:18:31.350Z emitted_at)
+  - W4 실제 발사·수신 검증 — 프로젝트 상태 `review → completed` 변경 → Gmail (`june7203@gmail.com`) 수신 확인 (첫 시도 `junee7203` 오타 → 재테스트 후 정상)
+  - **리뷰 수정 11건(HIGH 6 + MEDIUM 5) 전체 런타임 검증** — HMAC+nonce+rawBody / SSRF 방어 / 트랜잭션+FOR UPDATE / fire-and-forget / Respond 200 선행 / HTML escape 준비 / unsigned production 차단 / at-most-once
+  - 디버깅: `.env.local`의 `N8N_WEBHOOK_URL_*` 값에 경로 중복(`.../project-status-changed/webhook/dairect/project-status-changed`) → 404 반환 → URL 정리 후 Next.js `Reload env: .env.local` 자동 감지로 해결
+  - 디버깅: Playwright 테스트 계정(`playwright@dairect.test`) 비번 분실 → Supabase pgcrypto `crypt('..', gen_salt('bf', 10))`로 직접 재설정 → 로그인 성공
+  - 디버깅: shadcn/ui base-ui Select 옵션 click이 programmatic dispatchEvent로 발화 안 되는 문제 — `pointerover → pointermove → pointerdown → mousedown → focus → pointerup → mouseup → click` 전체 시퀀스로 해결
+  - DB 원복: `clients.email` (junee7203→june7203→test-lead@example.com) + `projects.status` (completed→in_progress) — 상태 원복은 이벤트 재발사 회피를 위해 DB 직접 UPDATE
+- **다음**: Task 3-5 코드 변경 커밋 (`client.ts` + `actions.ts` + `n8n/*` 5개 파일, Jayden 확인 후) → Phase 4 착수
+- **차단 요소**: 없음
+
+## 이전 세션 (2026-04-18 Task 3-5 Option B 구현 + 리뷰)
 
 - **완료**:
   - Task 3-5 Option B 구현 완료 (M1 + M2 + M5 + 워크플로우 JSON 2종 + 배포 가이드)
@@ -397,6 +411,8 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 ✅ Claude Playwright 자동 스모크 (Task 3-2) — 미수금 1 + 수금예정 1 + 마일스톤 1 → 긴급 2 + 높음 1 focusItems 3개 + 344자 요약, DB `generation_type=ai` (증거: task-3-2-weekly-briefing-smoke.png)
 ✅ Claude Playwright 회귀 스모크 (Task 3-2 쿨다운) — DB ai_generated_at 리셋 후 즉시 재클릭 시 ai_generated_at/daily_count 모두 불변 (AI/DB write 생략)
 ✅ Claude Playwright 자동 스모크 (Task 3-3) — 프로젝트 상세 → [생성하기] → AI 응답 → completedThisWeek 1 + plannedNextWeek 1 + 요약 216자 + DB generation_type=ai + PDF 다운로드 버튼 노출 (증거: task-3-3-weekly-report-smoke.png)
+✅ Claude Playwright E2E 스모크 (Task 3-5 W1) — `쇼핑몰 개발` 상태 `review → in_progress` → Dairect Server Action 200 + n8n executions 1건(Verify HMAC verified=true + Slack Post 2xx) + Slack 채널에 한국어 템플릿 메시지 실수신 (2026-04-18T04:18:31.350Z)
+✅ Claude Playwright E2E 스모크 (Task 3-5 W4) — 상태 `review → completed` → W1+W4 동시 발사 + Gmail 실수신(`[Dairect] 쇼핑몰 개발 프로젝트가 완료되었습니다`) — 리뷰 수정 11건(HMAC rawBody/nonce/SSRF/transaction/fire-and-forget 등) 전체 런타임 검증
 ```
 
 ## Claude 테스트 인프라 (2026-04-17 후반 3회차 연속)
