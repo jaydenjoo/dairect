@@ -1,5 +1,17 @@
 # Dairect — 교훈 기록
 
+## 2026-04-18 — URL path의 민감 토큰은 `history.replaceState`로 즉시 주소창에서 제거
+
+- **상황**: Task 4-2 M4 `/portal/[token]`은 비로그인 고객이 UUID 토큰으로 접근하는 공개 라우트. security-reviewer가 "토큰이 주소창·브라우저 히스토리·탭 제목·화면 공유/스크린샷·브라우저 동기화를 통해 유출될 수 있음"으로 HIGH 지적.
+- **문제 분석**: Server Component에서 토큰 검증·렌더가 끝난 **직후**에는 URL path에 토큰이 남아 있을 이유가 없음. 고객이 페이지를 보는 순간부터 history에는 `/portal/<UUID>`가 박히고, 주소창 노출이 시작됨. SaaS 표준(lookup-id + POST exchange)으로 전환하려면 스키마/발급 플로우까지 바꿔야 해서 M4 스코프 초과.
+- **해결**: 클라이언트 컴포넌트 `PortalUrlScrub`(mount 시 1회 `history.replaceState(null, "", "/portal/active")`)를 페이지 최상단에 삽입. 서버는 이미 유효 토큰 검증 + 렌더 완료 상태라 URL을 바꿔도 영향 없음. 새로고침하면 `/portal/active`로 접근 → invalid 안내로 자연스럽게 유도되므로 재방문 시 원본 링크를 다시 붙여넣게 됨(원본은 별도 채널로 전달된 전제).
+- **규칙**:
+  1. **"URL path에 실리는 민감 토큰"은 공개 라우트의 안티패턴**. 못 뺄 때 단기 완화책으로 `history.replaceState` 스크럽이 필수. 설치형(설정 화면/일회성 진입) 도메인 전반에 적용 가능.
+  2. 스크럽은 **클라이언트 컴포넌트**에서만 가능 — Server Component는 history API 접근 불가. `"use client"` 최소 범위로 분리(`<PortalUrlScrub />` 같은 null 반환 컴포넌트).
+  3. **Referrer-Policy `no-referrer`** 와 세트로 적용. 스크럽 전 짧은 순간에도 외부 자원 요청이 있으면 Referer로 토큰 누출 가능(layout `metadata.referrer = "no-referrer"`).
+  4. 더불어 **middleware matcher에서 공개 토큰 라우트를 제외** — 불필요한 auth 쿠키 동행을 끊어 공격 표면 분리. `matcher: ["/((?!...|portal|...).*)"]`.
+  5. 장기(Phase 5 SaaS): URL path → **fragment(`#token=`) 또는 lookup-id + POST exchange**로 구조적 차단 이관. 이 패턴은 "지금 당장 토큰 노출 줄이기" 트레이드오프 완화책이지 정답이 아님.
+
 ## 2026-04-18 — `drizzle-kit push`는 마이그레이션 SQL 파일을 실행하지 않는다
 
 - **상황**: Task 4-2 M1에서 `0012_steep_scrambler.sql`에 drizzle-kit generate로 자동 생성된 테이블 DDL 뒤에 `CREATE INDEX ... WHERE revoked_at IS NULL` (partial non-unique index) + `ENABLE ROW LEVEL SECURITY` + `CREATE POLICY ... FOR ALL TO anon USING (false)`를 수동 추가. `pnpm db:push` 실행 → "Changes applied" 성공 메시지. 이후 UI 런타임 스모크까지 정상 동작.
