@@ -1,5 +1,39 @@
 # Dairect — 교훈 기록
 
+## 2026-04-18 — `drizzle-kit push`는 마이그레이션 SQL 파일을 실행하지 않는다
+
+- **상황**: Task 4-2 M1에서 `0012_steep_scrambler.sql`에 drizzle-kit generate로 자동 생성된 테이블 DDL 뒤에 `CREATE INDEX ... WHERE revoked_at IS NULL` (partial non-unique index) + `ENABLE ROW LEVEL SECURITY` + `CREATE POLICY ... FOR ALL TO anon USING (false)`를 수동 추가. `pnpm db:push` 실행 → "Changes applied" 성공 메시지. 이후 UI 런타임 스모크까지 정상 동작.
+- **발견 경로**: 스모크 후 `SELECT rowsecurity FROM pg_tables, pg_policies` 조회 → **rls_enabled=false, policy_count=0**. 테이블은 생성됐으나 RLS/POLICY/추가 CREATE INDEX 모두 **DB에 반영 안 됨**. 0009 briefings부터 같은 패턴이었으나 "Drizzle superuser는 RLS 우회"라 앱 레이어 영향 0으로 4회 연속 미발견.
+- **원인**: `drizzle-kit push` 동작 모델 — schema.ts의 Drizzle 객체(pgTable/index/fk/check/unique)와 현재 DB 스키마를 비교해 **필요한 DDL만 자동 생성·실행**. `.sql` 마이그레이션 파일 자체는 보지 않음. `ENABLE RLS`·`CREATE POLICY`·`uniqueIndex().where()` 같은 Drizzle 모델 밖 변경은 push 무시. `drizzle-kit migrate` 명령이 SQL 파일 실행 전담.
+- **해결**: 
+  1. 즉시: Supabase MCP `apply_migration`으로 RLS + partial unique index 수동 적용 (이번 세션에서 실행 완료).
+  2. 구조적: drizzle-kit이 지원하는 스키마 객체(예: `uniqueIndex`)로 최대한 표현 → push가 반영. 0013은 schema.ts의 `uniqueIndex` 추가로 push 경로에 진입 가능했으나, 이번엔 apply_migration으로 통일.
+  3. RLS/POLICY처럼 Drizzle 미지원 항목은 **반드시 별도 `apply_migration` 호출 또는 Supabase Studio 수동 실행** 필요.
+- **규칙**:
+  1. `db:push` "Changes applied" 메시지는 **테이블·컬럼·FK·unique·check·일부 index만 보장**. RLS/POLICY/partial index/trigger/function/custom SQL은 실행 여부 별도 확인.
+  2. RLS SQL이 포함된 마이그레이션 반영 시 체크리스트: push 후 `SELECT rowsecurity, (SELECT COUNT(*) FROM pg_policies WHERE tablename='X')`로 정책 수 검증.
+  3. 장기 대안: `drizzle-kit migrate` 기반 워크플로우 전환 검토. 모든 SQL 파일이 순차 실행되므로 RLS/POLICY가 누락 없이 반영됨. 단 down migration 직접 작성 필요.
+  4. 기록 가치: 지금까지 RLS가 "Drizzle superuser라 우회"로 숨어 있었지만, Phase 5 SaaS 전환 시 anon client 도입하면 정책 누락이 즉시 데이터 노출로 연결. **전환 직전에 0002~0013 모든 RLS 상태 재검증 필수**.
+
+## 2026-04-18 — React 19 `react-hooks/set-state-in-effect` 신규 rule은 브라우저 외부 API 동기화에 부적합
+
+- **상황**: Task 4-2 M3 `PortalLinkCard`에서 SSR/CSR hydration 안전을 위해 `const [origin, setOrigin] = useState<string | null>(null)` + `useEffect(() => setOrigin(window.location.origin), [])` 패턴 사용. pnpm lint 실행 → **ESLint error** "Calling setState synchronously within an effect can trigger cascading renders" (`react-hooks/set-state-in-effect`).
+- **문제 분석**: React 공식 권장 "You Might Not Need an Effect" 원칙에서 파생된 rule. 일반 원칙은 타당하지만, **브라우저 외부 API(window, document, navigator, IntersectionObserver)**와 React state 동기화는 effect의 **정당한 용례**. SSR 환경에서는 window 접근 불가 → mount 후 1회 setState 필요. 대안(`useSyncExternalStore`)은 이 단순 케이스에 과한 복잡도.
+- **해결**:
+  ```tsx
+  useEffect(() => {
+    const resolved = ...window.location.origin...;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOrigin(resolved);
+  }, []);
+  ```
+  `eslint-disable-next-line` + 주석으로 **예외 정당성 명시**.
+- **규칙**:
+  1. React 19 ESLint rule이 너무 공격적일 때 무작정 `useSyncExternalStore`로 리팩토링 금지. 실제 패턴이 "외부 시스템 동기화"인지 판단.
+  2. 정당한 예외는 disable 주석 + **이유 comment**. 예: "SSR window 미접근 → mount 1회 setState 필요. 외부 API와 React 동기화는 effect의 공식 용례."
+  3. 판단 기준: (a) SSR/CSR 환경 분기가 필요한가? (b) 외부 API(window/document/storage/timer/observer)를 구독하는가? (c) 다른 React 상태에서 파생 가능한가(YES면 useMemo, NO면 effect 정당).
+  4. 유사 rule이 늘어날 경우: 프로젝트 ESLint config에 `"react-hooks/set-state-in-effect": "warn"` 완화 검토. 현재는 단일 파일 예외로 충분.
+
 ## 2026-04-18 — 데모/미러 구현 집계 로직은 원본 "의미(semantics)"를 맞춰야 한다
 
 - **상황**: `/demo/clients` 총 매출 컬럼을 원본 `getClients()` 쿼리와 다른 의미로 구현. 원본은 `SUM(projects.contractAmount)` ("계약 체결된 예상 매출 총합")인데, 데모는 `SUM(invoice.paidAmount WHERE status='paid')` ("실제 입금된 금액"). 테크스타트 고객의 표시값이 원본 7,700만 vs 데모 3,710만 — 배 넘는 차이.

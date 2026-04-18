@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-18 (Task 4-1 완료 — M5 + M6 리뷰 수정 5건 반영)
-> 현재 위치: Phase 4 Task 4-1 전체 완료 (`/demo` 대시보드 데모 10 경로 · M5 옵션 A 전체 재사용 · code/security 리뷰 PR 블록 사유 0건 확인) — 다음은 Task 4-2(고객 포털 `/portal/[token]`)
+> 최종 업데이트: 2026-04-18 (Task 4-2 M1~M3 완료 — 고객 포털 토큰 발급 기반 + 리뷰 수정 5건 반영)
+> 현재 위치: Phase 4 Task 4-2 M1~M3 완료 (portalTokens/portalFeedbacks 스키마 + 0012/0013 마이그레이션 + 토큰 발급/취소 Server Action + validatePortalToken 헬퍼 + PortalLinkCard UI · code/security 병렬 리뷰 5건 반영 · Rate limit 런타임 검증) — 다음은 Task 4-2 M4 (`/portal/[token]` 고객 뷰 페이지)
 
 ## 전체 진행률
 
@@ -11,7 +11,7 @@
 | Phase 1 | 대시보드 핵심 | ✅ 완료 | 100% |
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | 🟢 Option B 완료 | 100% (5/5, cron 2건 백로그) |
-| Phase 4 | 고객 포털 + /demo + PWA | 🟡 Task 4-1 완료 | Task 4-1 ✅ / 4-2 대기 |
+| Phase 4 | 고객 포털 + /demo + PWA | 🟡 Task 4-2 진행 중 | Task 4-1 ✅ / 4-2 M1~M3 ✅ (M4~M8 대기) |
 | Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
 
 ## Phase 0: 기반 설정 ✅
@@ -368,7 +368,49 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 - 고객 포털 **파일 업로드 기능 금지** (Phase 5에서도)
 - 고객 포털 다크 모드 (범위 외)
 
-## 현재 세션 (2026-04-18 Task 4-1 M5 + M6 — 옵션 A 전체 재사용 + 리뷰 5건)
+## 현재 세션 (2026-04-18 Task 4-2 M1~M3 — 고객 포털 토큰 발급 기반 + 리뷰 5건 반영)
+
+- **완료**:
+  - **Task 4-2 M1 스키마 + 마이그레이션** (신규 2 테이블):
+    - `portal_tokens` (id / project_id CASCADE / token TEXT UNIQUE / issued_by / issued_at / expires_at / last_accessed_at / revoked_at / created_at) — 토큰 + 생명주기 + 감사
+    - `portal_feedbacks` (id / project_id CASCADE / token_id CASCADE / message / client_ip / user_agent / created_at) — M5 피드백 폼 대비
+    - `0012_steep_scrambler.sql` 마이그레이션 + RLS 방어선(`ENABLE RLS` + `deny_anon` 정책) + 부분 인덱스 + 롤백 주석. 0009 briefings 패턴 복제
+  - **Task 4-2 M2 Server Action 3종** (`src/app/dashboard/projects/[id]/portal-actions.ts` 신규):
+    - `getActivePortalToken(projectId)` — 소유권 확인 + `revoked_at IS NULL` 필터 + 가장 최근 1건 반환
+    - `issuePortalTokenAction(projectId)` — 트랜잭션 + `projects.for("update")` 락 + 기존 활성 soft revoke(returning으로 revokedIds 수집) + `crypto.randomUUID()` (UUID v4, 122bit) + 만료 +1년 + activity_logs 감사
+    - `revokePortalTokenAction(projectId)` — 활성 토큰 일괄 revoke + rowsAffected 체크 + activity_logs
+  - **Task 4-2 M3 검증 헬퍼 + UI** (신규 2):
+    - `src/lib/portal/token.ts` — `validatePortalToken(token)` (Zod uuid + revoked/expired/projectDeleted 필터 + `last_accessed_at` fire-and-forget IIFE + 본 렌더 격리)
+    - `src/components/dashboard/portal-link-card.tsx` — 3상태(미발급/활성/만료임박 30일) + 복사 toast + 재발급 confirm + 링크 취소 · SSR/CSR hydration 안전 origin 세팅
+    - `src/app/dashboard/projects/[id]/page.tsx` (수정) — Promise.all 확장(+`getActivePortalToken`) + overview 탭 공개 프로필 ↓ AI 보고서 ↑ 카드 삽입
+  - **code-reviewer + security-reviewer 병렬 리뷰** → 블록 사유 0건 (CRITICAL 0), HIGH 4 + MEDIUM 1 일괄 반영:
+    - [H/code] **Hydration URL 불일치** (portal-link-card.tsx) — `useState<string\|null>(null)` + `useEffect`로 origin 세팅 → SSR/CSR 1차 렌더 일치. React 19 신규 `react-hooks/set-state-in-effect` rule은 `eslint-disable-next-line` + 정당성 주석으로 예외 처리(브라우저 외부 API 동기화)
+    - [H/security] **발급 Rate Limit** (portal-actions.ts) — `issuedBy + issuedAt > now()-1min` count ≥ 5면 거부 ("짧은 시간 내 발급 요청이 너무 많습니다"). 트랜잭션 외부 선검사로 락 점유 최소화. userId 기준 → 한 사용자가 여러 프로젝트 폭주해도 방어
+    - [H/security] **activity_logs metadata 확장** (portal-actions.ts) — issue: `{expiresAt, reissue, revokedTokenIds}` / revoke: `{revokedCount, revokedTokenIds}`. 토큰 원본 값은 절대 metadata 미기록(로그 열람자 URL 재구성 방어). 재발급 시 "어느 토큰이 어느 토큰을 교체했는지" 역추적 가능
+    - [H/code] **DB 레벨 "활성 토큰 1건" 불변식** (schema.ts + `0013_watery_adam_warlock.sql`) — `uniqueIndex("portal_tokens_one_active_per_project_idx").on(projectId).where(revokedAt IS NULL)` → cron/외부 경로 추가 시에도 race를 DB가 거부
+    - [M/security] **`NEXT_PUBLIC_APP_URL` fallback** (portal-link-card.tsx) — env 우선 + `window.location.origin` fallback + 끝 슬래시 정규화. 개발/프리뷰 환경 origin이 고객에게 전달되는 경로 방어. `.env.example`은 권한 차단으로 Jayden 수동 생성 필요
+  - 🔐 **Supabase MCP `apply_migration`으로 RLS 정책 + 0013 unique partial index 직접 적용** (drizzle-kit push가 SQL 파일 미실행 특성 발견)
+- **신규 파일 5** (`db/schema.ts` 수정 포함 시 6) / **마이그레이션 2건** (0012 + 0013) / **수정 파일 2** (page.tsx + schema.ts)
+- **검증**:
+  - tsc 0 errors / lint 0 errors / build 성공
+  - 수동 스모크: 발급 → 재발급(UUID 교체 확인) → 취소(미발급 상태 복귀) 전 사이클 PASS
+  - Rate limit 회귀 스모크: dummy 4 revoked + UI 5번째 발급 PASS + 6번째 "짧은 시간 내..." 거부 메시지 확인
+  - activity_logs 메타 DB 확인: `{reissue: false, expiresAt: "2027-04-18...", revokedTokenIds: []}` 정상 기록
+  - RLS 확인: `portal_tokens`/`portal_feedbacks` `rowsecurity=true` + `*_deny_anon→anon` 정책 ✅
+- **Jayden 수동 필요 (CRITICAL)**:
+  - **없음** — 이번 세션은 스키마/마이그레이션/RLS 모두 Claude가 Supabase MCP로 직접 적용 완료
+  - (선택) `.env.example` 생성 — `NEXT_PUBLIC_APP_URL=https://dairect.kr` 등. Claude 권한 차단으로 수동.
+- **다음**: Task 4-2 M4 (`/portal/[token]` 고객 뷰 페이지 — `validatePortalToken` 활용, 진행률/마일스톤/인보이스 금액·상태 읽기 전용 렌더, 2h 예상)
+- **차단 요소**: 없음
+- **교훈 2건 추가**: drizzle-kit push가 SQL 마이그레이션 파일 비실행 / React 19 `set-state-in-effect` lint는 브라우저 외부 API 동기화 시 정당한 예외
+- **백로그 이관** (M5~M8 또는 별도 Task):
+  - `window.confirm` → shadcn Dialog 일괄 교체
+  - 전역 `X-Frame-Options` / CSP `frame-ancestors` middleware
+  - `last_accessed_at` 사이드채널(IP/UA 핑거프린트)
+  - 365일 TTL + 무활동 자동 revoke cron (Phase 5 SaaS 연계)
+  - `portal_feedbacks_project_idx` non-unique 인덱스 (M5 피드백 쿼리 EXPLAIN 보며 추가)
+
+## 이전 세션 (2026-04-18 Task 4-1 M5 + M6 — 옵션 A 전체 재사용 + 리뷰 5건)
 
 - **완료**:
   - **Task 4-1 M5 구현** (신규 14 파일, 수정 0 파일 — 옵션 A "원본 수정 0건" 원칙):

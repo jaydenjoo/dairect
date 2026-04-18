@@ -10,6 +10,7 @@ import {
   jsonb,
   decimal,
   unique,
+  uniqueIndex,
   check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -463,3 +464,63 @@ export const weeklyReports = pgTable(
     ),
   ],
 );
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 고객 포털 (Task 4-2) — 토큰 발급 + 피드백 수집
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 비로그인 고객이 `/portal/[token]`으로 본인 프로젝트 진행 상황(진행률·마일스톤·인보이스)을
+// 열람하고 피드백 제출. 토큰은 crypto.randomUUID()로 발급, 만료 1년, 재발급 시 기존 revoke.
+// RLS 방어선은 마이그레이션에서 ENABLE + anon DENY (briefings와 동일 패턴).
+
+export const portalTokens = pgTable(
+  "portal_tokens",
+  {
+    id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    token: text().notNull().unique(),
+    issuedBy: uuid("issued_by")
+      .notNull()
+      .references(() => users.id),
+    issuedAt: timestamp("issued_at", { withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    // 만료: 발급 시점 + 1년. 앱 레이어에서 계산해 명시 저장 (DB default 회피 → 갱신 정책 변경 유연성).
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    // 고객 첫 방문 추적 (감사 로그). fire-and-forget UPDATE로 갱신.
+    lastAccessedAt: timestamp("last_accessed_at", { withTimezone: true }),
+    // 재발급/수동 취소 시 기록. NULL = 활성 토큰, NOT NULL = 무효. DELETE 대신 soft revoke로 감사 경로 보존.
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+  },
+  (table) => [
+    // "프로젝트당 활성 토큰 1건" DB 레벨 불변식.
+    // 앱 레이어 트랜잭션 락이 이미 있지만, 향후 cron/외부 경로 추가 시 race를 DB가 거부.
+    uniqueIndex("portal_tokens_one_active_per_project_idx")
+      .on(table.projectId)
+      .where(sql`${table.revokedAt} IS NULL`),
+  ],
+);
+
+export const portalFeedbacks = pgTable("portal_feedbacks", {
+  id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  // 어느 토큰으로 제출됐는지 감사 (토큰 재발급 이력 추적). 토큰 삭제(하드)는 없으므로 SET NULL 불필요.
+  tokenId: uuid("token_id")
+    .notNull()
+    .references(() => portalTokens.id, { onDelete: "cascade" }),
+  // 피드백 본문: `guardMultiLine` + honeypot 방어 후 저장.
+  message: text().notNull(),
+  // 감사용 — sanitizeHeader로 제어문자/길이 제한 후 저장.
+  clientIp: text("client_ip"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .default(sql`now()`)
+    .notNull(),
+});

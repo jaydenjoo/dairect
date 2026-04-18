@@ -8,6 +8,8 @@ import { getMilestones } from "./milestone-actions";
 import { ProjectStatusSelect } from "../project-status-select";
 import { MilestoneList } from "./milestone-list";
 import { PublicProfileForm } from "./public-profile-form";
+import { PortalLinkCard } from "@/components/dashboard/portal-link-card";
+import { getActivePortalToken } from "./portal-actions";
 import { WeeklyReportCard } from "@/components/dashboard/weekly-report-card";
 import { getCurrentWeeklyReport } from "@/lib/ai/report-actions";
 import { getUserCompanyInfo } from "../../estimates/actions";
@@ -55,11 +57,12 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
   const validTabs = tabs.filter((t) => !t.disabled).map((t) => t.key);
   const activeTab = validTabs.includes(tab ?? "") ? tab! : "overview";
 
-  const [project, milestoneList, weeklyReport, company] = await Promise.all([
+  const [project, milestoneList, weeklyReport, company, portalToken] = await Promise.all([
     getProject(id),
     getMilestones(id),
     getCurrentWeeklyReport(id),
     getUserCompanyInfo(),
+    getActivePortalToken(id),
   ]);
 
   if (!project) notFound();
@@ -218,6 +221,9 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
                   }}
                 />
               </div>
+
+              {/* 고객 포털 링크 */}
+              <PortalLinkCard projectId={id} initial={portalToken} />
 
               {/* AI 주간 보고서 */}
               <WeeklyReportCard

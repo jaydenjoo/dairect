@@ -85,6 +85,20 @@
       "when": 1776498963174,
       "tag": "0011_absent_sandman",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1776501591495,
+      "tag": "0012_steep_scrambler",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1776506507567,
+      "tag": "0013_watery_adam_warlock",
+      "breakpoints": true
     }
   ]
 }

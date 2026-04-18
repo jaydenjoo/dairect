@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "portal_tokens_one_active_per_project_idx" ON "portal_tokens" USING btree ("project_id") WHERE "portal_tokens"."revoked_at" IS NULL;
