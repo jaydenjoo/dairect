@@ -503,6 +503,7 @@ function inv(
     taxInvoiceIssued: status === "paid",
     memo: null,
     pdfUrl: null,
+    lastOverdueNotifiedAt: null,
     createdAt: timestampFromNow(dates.issued ?? 0, base),
     updatedAt: timestampFromNow(dates.paid ?? dates.issued ?? 0, base),
   };

@@ -315,6 +315,8 @@ export const invoices = pgTable(
     taxInvoiceIssued: boolean("tax_invoice_issued").default(false),
     memo: text(),
     pdfUrl: text("pdf_url"),
+    // W2 cron 연체 알림: 마지막 발송 시각. NULL이면 아직 미발송, dueDate 갱신 시 NULL로 재설정.
+    lastOverdueNotifiedAt: timestamp("last_overdue_notified_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
     updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
   },

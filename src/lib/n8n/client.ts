@@ -21,12 +21,14 @@ export const N8N_TIMESTAMP_SKEW_MS = 5 * 60 * 1000;
 export type N8nWorkflow =
   | "project_status_changed"
   | "project_completed"
-  | "portal_feedback_received";
+  | "portal_feedback_received"
+  | "invoice_overdue";
 
 const ENV_KEY_BY_WORKFLOW: Record<N8nWorkflow, string> = {
   project_status_changed: "N8N_WEBHOOK_URL_PROJECT_STATUS_CHANGED",
   project_completed: "N8N_WEBHOOK_URL_PROJECT_COMPLETED",
   portal_feedback_received: "N8N_WEBHOOK_URL_PORTAL_FEEDBACK_RECEIVED",
+  invoice_overdue: "N8N_WEBHOOK_URL_INVOICE_OVERDUE",
 };
 
 // 사설/링크로컬/루프백 호스트 — 프로덕션에서만 차단.

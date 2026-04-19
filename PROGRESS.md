@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-19 (운영 안정화 — dairect.kr 도메인 이전 + Google OAuth 정정 + region 정렬 검증 Seoul-Seoul + SW handlerDidError plugin → 콘솔 에러 0 + Page Load 637ms)
-> 현재 위치: Phase 4 완료, production 운영 안정화 완료. dairect.kr 정식 운영 중. 다음은 n8n W5 또는 loading.tsx 또는 DB 쿼리 최적화 또는 Phase 5 SaaS 전환
+> 최종 업데이트: 2026-04-19 (Phase 3 cron W2 invoice.overdue 완료 + W5 JSON 커밋 + stripCtrl/pmEmail 통일 + Vercel Cron 인프라 도입)
+> 현재 위치: Phase 4 완료, Phase 3 cron 잔여 W3만 남음. 다음은 W3 weekly_summary 또는 loading.tsx 또는 DB 쿼리 최적화 또는 Phase 5 SaaS 전환
 
 ## 전체 진행률
 
@@ -10,7 +10,7 @@
 | Phase 0 | 기반 설정 | ✅ 완료 | 100% |
 | Phase 1 | 대시보드 핵심 | ✅ 완료 | 100% |
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
-| Phase 3 | AI + 자동화 + 리드 CRM | 🟢 Option B 완료 | 100% (5/5, cron 2건 백로그) |
+| Phase 3 | AI + 자동화 + 리드 CRM | 🟢 Option B + W2 cron 완료 | 100% (5/5, cron 1건 W3 백로그) |
 | Phase 4 | 고객 포털 + /demo + PWA | ✅ 완료 | 100% (Task 4-1 ✅ / 4-2 M1~M8 ✅) |
 | Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
 
@@ -264,8 +264,9 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 6 + MEDIUM 5 일괄 수정
 
 ### 다음 Task로 이관된 이슈 (Task 3-5 Option B 스코프 아웃)
 
-- **W2** `invoice.overdue` 일 1회 크론 — cron/Vercel Cron/Upstash 인프라 도입 후 Task 3-5 재개
-- **W3** weekly reports 금요일 크론 — 동일
+- ~~**W2** `invoice.overdue` 일 1회 크론~~ — ✅ 완료 (2026-04-19): Vercel Cron + `/api/cron/invoice-overdue` + W2 JSON + PM/고객 2메일 발송. HIGH race 방어(UPDATE WHERE 강화) + sanitizeHeader typeof 가드 + maxDuration 300 반영.
+  - **Known limitation (Phase 5 재검토)**: emit 성공 후 `db.update` 실패 시 `last_overdue_notified_at`이 NULL로 남아 다음 cron에서 동일 invoice 재emit → 고객 메일 중복 가능. DB 장애 시나리오라 실질 발생 확률 낮음. transaction(BEGIN → emit → UPDATE → COMMIT) 또는 outbox 패턴 도입 검토.
+- **W3** weekly reports 금요일 크론 — cron 인프라 도입됨(`vercel.json` + `CRON_SECRET` + `emitN8nEvent` 패턴), W3 JSON + `/api/cron/weekly-summary` route 추가만 남음
 - **W4 고객 만족도 설문** — 완료 메일에 설문 링크 별도 Task
 - **관찰성 개선**: `activity_logs`에 `webhook_emit` 종류 기록 (silent failure 가시화)
 - **대시보드 발송 이력 UI**: 고객사별 메일/알림 발송 로그 조회

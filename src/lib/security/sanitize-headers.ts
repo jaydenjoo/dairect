@@ -26,10 +26,14 @@ export const MAX_IP = 64;
  * 빈 문자열/null은 null 반환 (DB nullable 컬럼 호환).
  */
 export function sanitizeHeader(
-  raw: string | null | undefined,
+  raw: unknown,
   max: number,
 ): string | null {
-  if (!raw) return null;
+  if (raw == null) return null;
+  // Defense-in-depth: DB `jsonb` unknown 캐스팅(예: parseBank(userSettings.bankInfo))
+  // 경로에서 예상 외 타입(number/object/array) 유입 방어. TypeScript 상 unreachable
+  // 처럼 보이지만 런타임에선 null/undefined 외에도 실제 발생 가능.
+  if (typeof raw !== "string") return null;
   const cleaned = raw.replace(
     /[\x00-\x1F\x7F\u0085\u202A-\u202E\u2028\u2029\u2066-\u2069]/g,
     "",

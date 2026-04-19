@@ -1,0 +1,168 @@
+{
+  "name": "Dairect — W2 invoice.overdue → Gmail (PM + Client)",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "dairect": {
+      "version": "1",
+      "requires_env": ["DAIRECT_WEBHOOK_SECRET"],
+      "n8n_nodes_base_version": "2.16.x",
+      "hmac_canonical": "${timestamp}.${nonce}.${rawBody}",
+      "notes": "W4/W5 기반. Compose Email이 2 items 반환(PM + Client) → Gmail Send가 순차 발송. pmEmail/clientEmail 중 존재하는 것만 발송. saveDataErrorExecution:'none' — 실패 실행에도 pmEmail/clientEmail/금액 PII 저장 금지. W5와 동일 stripCtrl(space-replace) 통일."
+    }
+  },
+  "tags": [{ "name": "dairect" }],
+  "staticData": null,
+  "pinData": {},
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dairect/invoice-overdue",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true,
+          "ignoreBots": false,
+          "binaryPropertyName": "data"
+        }
+      },
+      "id": "d1111111-1111-4111-8111-111111111111",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "dairect-w2-invoice-overdue"
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// W1/W4/W5와 동일한 HMAC + nonce dedupe 로직. 수정 시 4곳 동기화 필요.\nconst crypto = require('crypto');\n\nconst MAX_SKEW_MS = 5 * 60 * 1000;\nconst GRACE_MS = 60 * 1000;\nconst NONCE_TTL_MS = MAX_SKEW_MS + GRACE_MS;\n\nconst item = $input.first();\nconst headers = (item.json && item.json.headers) || {};\nconst bin = item.binary && item.binary.data;\nconst rawBase64 = bin && bin.data;\n\nfunction fail(reason) {\n  return [{ json: { verified: false, reason } }];\n}\n\nif (!rawBase64) return fail('raw_body_missing');\nlet raw;\ntry {\n  raw = Buffer.from(rawBase64, 'base64').toString('utf8');\n} catch (e) {\n  return fail('raw_body_decode_failed');\n}\n\nlet body;\ntry {\n  body = JSON.parse(raw);\n} catch (e) {\n  return fail('body_not_json');\n}\n\nconst ts = String(headers['x-dairect-timestamp'] || '');\nconst nonce = String(headers['x-dairect-nonce'] || '');\nconst sigHeader = String(headers['x-dairect-signature'] || '');\nconst secret = $env.DAIRECT_WEBHOOK_SECRET || '';\n\nif (!secret) return fail('secret_not_configured');\nif (!/^[0-9]+$/.test(ts)) return fail('timestamp_missing_or_invalid');\nif (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(nonce)) return fail('nonce_format');\n\nconst tsNum = Number(ts);\nif (!Number.isFinite(tsNum)) return fail('timestamp_not_finite');\nconst now = Date.now();\nif (Math.abs(now - tsNum) > MAX_SKEW_MS) return fail('timestamp_out_of_window');\n\nif (!sigHeader.startsWith('sha256=')) return fail('signature_format');\nconst providedHex = sigHeader.slice('sha256='.length);\nif (!/^[0-9a-f]{64}$/i.test(providedHex)) return fail('signature_hex_invalid');\n\nconst expected = crypto.createHmac('sha256', secret).update(`${ts}.${nonce}.${raw}`).digest('hex');\nlet ok = false;\ntry {\n  const a = Buffer.from(providedHex, 'hex');\n  const b = Buffer.from(expected, 'hex');\n  ok = a.length === b.length && crypto.timingSafeEqual(a, b);\n} catch (e) {\n  ok = false;\n}\nif (!ok) return fail('signature_mismatch');\n\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.seen || typeof staticData.seen !== 'object') staticData.seen = {};\nfor (const k of Object.keys(staticData.seen)) {\n  if (now - staticData.seen[k] > NONCE_TTL_MS) delete staticData.seen[k];\n}\nif (staticData.seen[nonce]) return fail('replay_detected');\nstaticData.seen[nonce] = now;\n\nreturn [{ json: { verified: true, body } }];\n"
+      },
+      "id": "d2222222-2222-4222-8222-222222222222",
+      "name": "Verify HMAC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "verify-ok",
+              "leftValue": "={{ $json.verified }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            },
+            {
+              "id": "has-recipient",
+              "leftValue": "={{ ($json.body.data.pmEmail || '') + ($json.body.data.clientEmail || '') }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d3333333-3333-4333-8333-333333333333",
+      "name": "Verified & Has Recipient?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "ok",
+        "options": { "responseCode": 200 }
+      },
+      "id": "d4444444-4444-4444-8444-444444444444",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// W2 Compose Email — 연체 청구서 알림 (PM + Client).\n// PII: pmEmail/clientEmail(SMTP To), invoiceNumber/projectName/amount(HTML/Subject).\n// 방어: stripCtrl + escHtml + encodeURIComponent. W4/W5와 stripCtrl 로직 통일 (space replace).\nfunction escHtml(s) {\n  return String(s == null ? '' : s).replace(/[&<>\"']/g, (ch) => (\n    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[ch]\n  ));\n}\nfunction stripCtrl(s) {\n  return String(s == null ? '' : s).replace(/[\\u0000-\\u001F\\u007F]/g, ' ');\n}\n\nconst d = ($json && $json.body && $json.body.data) || {};\nconst pmEmail = stripCtrl(d.pmEmail || '');\nconst clientEmail = stripCtrl(d.clientEmail || '');\nconst invoiceId = stripCtrl(d.invoiceId || '');\nconst invoiceNumber = stripCtrl(d.invoiceNumber || '');\nconst projectName = stripCtrl(d.projectName || '프로젝트');\nconst clientCompanyName = stripCtrl(d.clientCompanyName || '');\nconst totalAmount = Number(d.totalAmount || 0);\nconst dueDate = stripCtrl(d.dueDate || '');\nconst daysOverdue = Number(d.daysOverdue || 0);\nconst bankName = stripCtrl(d.bankName || '');\nconst accountNumber = stripCtrl(d.accountNumber || '');\n\nconst baseRaw = $env.DAIRECT_DASHBOARD_BASE_URL || 'https://dairect.kr';\nconst baseUrl = baseRaw.endsWith('/') ? baseRaw.slice(0, -1) : baseRaw;\nconst dashboardUrl = `${baseUrl}/dashboard/invoices/${encodeURIComponent(invoiceId)}`;\nconst amountFmt = totalAmount.toLocaleString('ko-KR');\n\nconst items = [];\n\n// PM용 — 연체 확인 + 고객 연락 안내\nif (pmEmail) {\n  const pmSubject = stripCtrl(`[${projectName}] 청구서 ${invoiceNumber} 결제 기한 경과 (D+${daysOverdue})`);\n  const pmHtml = `<!doctype html><html><body style=\"font-family:-apple-system,Pretendard,sans-serif;line-height:1.6;color:#111827;max-width:560px;margin:0 auto;padding:24px;\">` +\n    `<h1 style=\"font-size:20px;margin:0 0 16px;\">결제 기한이 지난 청구서가 있어요</h1>` +\n    `<p style=\"color:#4B5563;\">고객 <strong>${escHtml(clientCompanyName)}</strong>에게 발행한 청구서가 결제 기한을 넘겼습니다. 확인 후 고객에게 연락해보세요.</p>` +\n    `<div style=\"background:#F9F9F7;padding:16px;border-radius:8px;margin:16px 0;\">` +\n    `<p style=\"margin:4px 0;\"><strong>프로젝트:</strong> ${escHtml(projectName)}</p>` +\n    `<p style=\"margin:4px 0;\"><strong>청구서:</strong> ${escHtml(invoiceNumber)}</p>` +\n    `<p style=\"margin:4px 0;\"><strong>금액:</strong> ${escHtml(amountFmt)}원</p>` +\n    `<p style=\"margin:4px 0;\"><strong>기한:</strong> ${escHtml(dueDate)} (${escHtml(String(daysOverdue))}일 경과)</p>` +\n    `</div>` +\n    `<p style=\"margin:24px 0;\"><a href=\"${escHtml(dashboardUrl)}\" style=\"display:inline-block;background:#4F46E5;color:#ffffff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:500;\">청구서 보기 →</a></p>` +\n    `<p style=\"margin-top:32px;color:#6B7280;font-size:13px;\">— Dairect</p>` +\n    `</body></html>`;\n  items.push({ json: { to: pmEmail, subject: pmSubject, html: pmHtml } });\n}\n\n// 고객용 — 정중한 결제 안내\nif (clientEmail) {\n  const clientSubject = stripCtrl(`[${projectName}] 결제 안내`);\n  const bankLine = bankName && accountNumber\n    ? `<p style=\"margin:4px 0;\"><strong>입금 계좌:</strong> ${escHtml(bankName)} ${escHtml(accountNumber)}</p>`\n    : `<p style=\"margin:4px 0;color:#DC2626;\">입금 계좌 정보는 담당자에게 문의 부탁드립니다.</p>`;\n  const greetName = clientCompanyName || '고객';\n  const clientHtml = `<!doctype html><html><body style=\"font-family:-apple-system,Pretendard,sans-serif;line-height:1.6;color:#111827;max-width:560px;margin:0 auto;padding:24px;\">` +\n    `<h1 style=\"font-size:20px;margin:0 0 16px;\">결제 안내드립니다</h1>` +\n    `<p>${escHtml(greetName)}님,</p>` +\n    `<p style=\"color:#4B5563;\"><strong>${escHtml(projectName)}</strong> 프로젝트 관련 청구서 <strong>${escHtml(invoiceNumber)}</strong> 결제 기한이 지났습니다. 확인 후 입금 부탁드립니다.</p>` +\n    `<div style=\"background:#F9F9F7;padding:16px;border-radius:8px;margin:16px 0;\">` +\n    `<p style=\"margin:4px 0;\"><strong>청구 금액:</strong> ${escHtml(amountFmt)}원</p>` +\n    `<p style=\"margin:4px 0;\"><strong>결제 기한:</strong> ${escHtml(dueDate)}</p>` +\n    bankLine +\n    `</div>` +\n    `<p style=\"color:#4B5563;\">이미 입금하셨다면 본 메일은 무시하셔도 됩니다. 문의는 회신 메일로 부탁드립니다.</p>` +\n    `<p style=\"margin-top:32px;color:#6B7280;font-size:13px;\">— Dairect</p>` +\n    `</body></html>`;\n  items.push({ json: { to: clientEmail, subject: clientSubject, html: clientHtml } });\n}\n\nreturn items;\n"
+      },
+      "id": "d5555555-5555-4555-8555-555555555555",
+      "name": "Compose Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "d6666666-6666-4666-8666-666666666666",
+      "name": "Gmail Send",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1340, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail OAuth2"
+        }
+      },
+      "continueOnFail": true,
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=skipped_or_unauthorized: {{ $json.reason || 'no_recipient' }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "d7777777-7777-4777-8777-777777777777",
+      "name": "Respond Skipped",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [900, 520]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Verify HMAC", "type": "main", "index": 0 }]]
+    },
+    "Verify HMAC": {
+      "main": [[{ "node": "Verified & Has Recipient?", "type": "main", "index": 0 }]]
+    },
+    "Verified & Has Recipient?": {
+      "main": [
+        [{ "node": "Respond 200", "type": "main", "index": 0 }],
+        [{ "node": "Respond Skipped", "type": "main", "index": 0 }]
+      ]
+    },
+    "Respond 200": {
+      "main": [[{ "node": "Compose Email", "type": "main", "index": 0 }]]
+    },
+    "Compose Email": {
+      "main": [[{ "node": "Gmail Send", "type": "main", "index": 0 }]]
+    }
+  }
+}
