@@ -13,6 +13,10 @@ const withSerwist = withSerwistInit({
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@react-pdf/renderer"],
+  // dev/build 번들러 비대칭(dev=Turbopack, build=webpack) silence.
+  // 빈 turbopack config로 dev 시 Turbopack을 명시 — withSerwistInit의 webpack config는
+  // build(`next build --webpack`)에서만 사용됨을 Next.js에 알림.
+  turbopack: {},
   images: {
     remotePatterns: [
       {

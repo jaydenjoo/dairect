@@ -12,9 +12,10 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "pwa:icons": "tsx scripts/generate-pwa-icons.mts",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:debug": "PWDEBUG=1 playwright test"
+    "dev:e2e": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54422/postgres N8N_WEBHOOK_URL= NEXT_PUBLIC_APP_URL=http://localhost:3701 next dev --port 3701",
+    "test:e2e": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54422/postgres playwright test",
+    "test:e2e:ui": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54422/postgres playwright test --ui",
+    "test:e2e:debug": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54422/postgres PWDEBUG=1 playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",

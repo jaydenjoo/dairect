@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-19 (Task 4-2 M8 완료 — PWA 설치 유도 + /offline fallback + Serwist SW 민감 경로 격리 + 리뷰 HIGH 4건 반영)
-> 현재 위치: Phase 4 Task 4-2 **M8 완료 → Task 4-2 전체 완료** (PwaInstallPrompt 신규 + /offline 페이지 + sw.ts fallbacks 옵션 + page.tsx 배너 장착 + next.config.ts precache exclude · code/security 병렬 리뷰 HIGH 4건 수정: sw.ts 민감 경로 제외 matcher, clientsClaim true, handleInstall accepted 분기, next.config precache exclude) — 다음은 리팩토링 Task(security/ 공통화) 또는 Vercel 배포 준비 또는 Phase 5
+> 최종 업데이트: 2026-04-19 (Task 4-2 M8 B — Supabase local CLI 격리 + 보안 리뷰 CRITICAL 1+HIGH 4 해소 + 7/7 재통과 17.1s)
+> 현재 위치: Phase 4 Task 4-2 **M8 + B-2 → B 격리 모두 완료 → Task 4-2 전체 완료** (M8 본체 + B-2 7 시나리오 → 보안 리뷰가 production seed 자체를 단일 실패점으로 진단 → **B 옵션(Supabase local CLI 격리)으로 본질 해결**: 별도 포트 3701 + globalSetup/Teardown hook + reuseExistingServer false + trace/video off + n8n emit no-op + production DB throw 안전장치) — 다음은 리팩토링 Task(security/ 공통화) 또는 Vercel 배포 준비 또는 Phase 5
 
 ## 전체 진행률
 
@@ -368,7 +368,101 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 - 고객 포털 **파일 업로드 기능 금지** (Phase 5에서도)
 - 고객 포털 다크 모드 (범위 외)
 
-## 현재 세션 (2026-04-19 Task 4-2 M8 — PWA 설치 유도 + /offline fallback + 리뷰 HIGH 4건 반영)
+## 현재 세션 (2026-04-19 Task 4-2 M8 B — Supabase local CLI 격리 + 리뷰 CRITICAL 1+HIGH 4 해소)
+
+- **배경**: B-2 (production Supabase에 e2e_* prefix 시드) 직후 code/security 병렬 리뷰가 **보안 CRITICAL 1 + HIGH 4 = 병합 차단** 판정. 핵심 진단: "공개 git에 평문 토큰 + production seed → 122-bit UUID 보안이 0-bit 전락 + cleanup 미보장 + reuseExistingServer + trace secret dump 모두 connected". 단기 패치(A) vs 본질 해결(B)에서 **B 채택**.
+
+- **신규/수정 파일** (8개):
+  - `supabase/config.toml` (신규, `supabase init` 산출) — project_id "dairect" + 모든 포트에 +100 offset (54421~54429, teamzero 등 다른 supabase 프로젝트와 충돌 회피)
+  - `e2e/fixtures/global-setup.ts` (신규) — DATABASE_URL 검증 + **production DB(127.0.0.1/localhost 미포함) 즉시 throw** (시드 우발 방지)
+  - `e2e/fixtures/global-teardown.ts` (신규) — spec afterAll 미호출 시나리오(crash/Ctrl+C/`--grep`/OOM)에서 cleanup 보장 + 멱등 + cleanup 실패 시 exit 0 (다음 실행 seed 단계에서 재정리)
+  - `e2e/fixtures/seed-portal.ts` (수정) — 안전망 강화: 1차 ID 직접 + 2차 `portalTokens.issuedBy=E2E_USER_ID` 일괄 + 3차 e2e_* prefix sweep
+  - `playwright.config.ts` (수정) — `globalSetup`/`globalTeardown` hook + `reuseExistingServer:false` + 별도 포트 3701 + `trace:"off"`+`video:"off"` (secret dump 차단) + `screenshot:"only-on-failure"`만 유지
+  - `package.json` (수정) — `dev:e2e`/`test:e2e`/`test:e2e:ui`/`test:e2e:debug` 모두 inline env로 local DATABASE_URL 주입 + N8N_WEBHOOK_URL 빈값 (e2e 시 production n8n emit no-op) + NEXT_PUBLIC_APP_URL=http://localhost:3701
+  - `.gitignore` (수정) — `/supabase/.branches/`, `/supabase/.temp/`, `/supabase/seed.sql` 추가
+  - `scripts/e2e-cleanup-prod.mts` (신규, 일회성) — production Supabase에 잔존하는 B-2 시드 row를 안전하게 일괄 정리. 본 세션에서 한 번 실행 완료(잔류 0 확인)
+
+- **검증**:
+  - `supabase start` (Docker 컨테이너 13개) → 포트 충돌(54322 점유) → config.toml 포트 +100 offset → 재시도 성공
+  - `pnpm db:push` (DATABASE_URL inline) → local DB에 schema 15 마이그레이션 적용
+  - `tsx scripts/e2e-cleanup-prod.mts` → production 잔존 row 0 확인
+  - tsc 0 errors / lint 0 errors (기존 1 warning만)
+  - **Playwright 7/7 재통과 (17.1s)** + `✓ globalTeardown — e2e seed cleanup 완료` 출력 확인
+  - dev 서버 격리: webServer가 `pnpm dev:e2e` 실행 → port 3701 + DATABASE_URL=local 주입 + N8N_WEBHOOK_URL 빈값으로 emit no-op
+
+- **보안 리뷰 차단 사유 해소 매핑**:
+  - 🔴 CRITICAL "평문 토큰 + production seed" → **production seed 사용 자체 폐기** (local DB로 격리). 토큰 hex가 git에 박혀있어도 production에 활성 row 없음 → 추측 공격 미스. PROGRESS/learnings 마스킹은 의미 손실 vs 추가 안전 trade-off에서 보존 선택.
+  - 🟡 HIGH "globalSetup/Teardown hook 미연결" → playwright.config에 hook 등록 + globalTeardown에서 cleanupPortalFixtures 호출
+  - 🟡 HIGH "trace ZIP secret dump" → trace/video off, screenshot만 유지(only-on-failure)
+  - 🟡 HIGH "reuseExistingServer + ngrok 외부 노출" → reuseExistingServer:false + 별도 포트 3701
+  - 🟡 HIGH "users_not_e2e_uuid check 부재" → local 격리로 production users 테이블 영향 0, check 추가는 향후 schema 정리에서 검토
+
+- **트러블슈팅 흔적**:
+  1. `supabase start` 포트 54322 충돌(teamzero 점유) → config.toml port +100 offset
+  2. `.env.e2e` Write가 정책상 차단 → inline env로 전환(package.json scripts에 박음)
+  3. `Bash heredoc`도 차단 → 같은 inline 패턴 유지 + globalSetup의 dotenv 의존 제거
+  4. globalTeardown의 dynamic import → static import로 전환(`cleanupPortalFixtures is not a function` 해소)
+
+- **다음 세션 선택지** (우선순위 순):
+  - **리팩토링 Task** — `sanitizeHeader` / `stripFormulaTriggers` / `HoneypotField` / timing guard를 `src/lib/security/`로 공통화 (공개 폼 4종 세트 재사용 확대)
+  - **Vercel 배포 준비** — `after()`/waitUntil 도입 + env 변수 세팅 + n8n W5 워크플로 실제 구축(Jayden)
+  - **Phase 5 SaaS 전환 준비** — 회원가입 UI, multi-tenant, anon client + RLS 전면 재검증
+  - **E2E 확장** (선택) — 대시보드 피드백 읽음 처리 + 사이드바 뱃지 시나리오 추가
+
+- **차단 요소**: 없음. 보안 리뷰 모든 CRITICAL/HIGH 해소.
+
+- **푸시 대기**: M8 본체 커밋 + B-2 + B 격리 신규 파일 모두 미푸시 — Jayden 승인 후 일괄 푸시
+
+- **Jayden 수동 필요 (1회)**: 향후 e2e 실행 전마다 `supabase start` 1회 (Docker 컨테이너 시작, 30초~1분). `supabase stop`으로 종료 가능.
+
+- **교훈 1건 추가** (learnings.md): Supabase local CLI 격리 패턴 + 다중 supabase 프로젝트 포트 충돌 회피(+100 offset) + .env.* Write 차단 환경에서 inline env 전환
+
+---
+
+## 이전 세션 (2026-04-19 Task 4-2 M8 B-2 — Playwright Portal-only E2E 7/7 통과)
+
+- **배경**: M8 본체(PwaInstallPrompt + /offline + sw.ts fallbacks + 리뷰 HIGH 4건)는 직전 세션에 완성되어 커밋 `6ffb9a0`까지 도달. 그러나 M8 원래 정의의 **"E2E 스모크"** 부분은 untracked 폴더(e2e/, playwright.config.ts)에 부분 스테이지되어 있던 상태. **B-2 (Playwright Portal-only) 옵션 — PM 측은 DB 직접 시드로 인증 우회 + 비로그인 고객 시각만 자동화**로 7 시나리오 완성.
+
+- **신규/수정 파일** (7개):
+  - `playwright.config.ts` (신규) — fullyParallel:false + workers:1(DB 시드 race 방지) + webServer pnpm dev + dotenv `.env.local` 명시 로드 + retain-on-failure trace/video/screenshot
+  - `e2e/fixtures/seed-portal.ts` (신규) — Drizzle 직접 시드: PM user / userSettings / client / project(in_progress) / 마일스톤 3종(완료/진행/대기) / 인보이스 paid / 토큰 3종(active/expired/revoked). UUID는 v4 strict(13번째=4, variant=8). cleanup은 FK 역순 + e2e_* prefix 안전망
+  - `e2e/portal/portal-flow.spec.ts` (신규, 7 시나리오):
+    - #1 happy path (프로젝트/클라/PM/마일스톤/인보이스/폼 렌더)
+    - #2 PortalUrlScrub URL 마스킹 (`/portal/active`로 교체)
+    - #3 robots noindex/nofollow/nocache + referrer no-referrer
+    - #4 정상 제출 (3.5초 대기 → DB row 1)
+    - #5 honeypot 차단 (success 위장 + DB row 0)
+    - #6 timing 차단 (`addInitScript`로 `Date.now`를 +60s 미래 강제 → server elapsed 음수 → drop 결정론적 검증 + DB row 0)
+    - #7 만료/revoked → /portal/invalid redirect
+  - `next.config.ts` (수정) — `turbopack: {}` 추가 (dev=Turbopack/build=webpack 비대칭 silence, withSerwistInit webpack config 충돌 해결)
+  - `package.json` (수정) — `test:e2e`/`test:e2e:ui`/`test:e2e:debug` scripts + @playwright/test 1.59.1 devDep
+  - `.gitignore` (수정) — `playwright-report/` `test-results/` `playwright/.cache/` 추가
+
+- **검증**:
+  - tsc 0 errors / lint 0 errors (기존 1 warning만)
+  - **Playwright 7/7 통과 (17.7s)**: #1 1.1s · #2 702ms · #3 357ms · #4 4.8s · #5 4.8s · #6 1.5s · #7 569ms
+  - DB 시드 → afterEach 피드백 row delete(시나리오 격리) → afterAll FK 역순 cleanup 정상 동작
+
+- **디버깅 흔적 (실행 → 수정 사이클 3회)**:
+  1. dev 서버 실패 — `next.config.ts` webpack(Serwist) + Turbopack 충돌 → `turbopack: {}` 명시 silence
+  2. `DATABASE_URL is not set` — `dotenv/config` 기본은 `.env`만 → `loadEnv({ path: ".env.local" })` 명시
+  3. 7개 중 5개 실패 (활성 토큰이 invalid로 redirect) — 시드 UUID `11111111-1111-1111-1111-...`가 RFC 4122 v4 spec 위반(13번째 char=1, variant=1) → Zod `.uuid()` strict 거부 → `11111111-1111-4111-8111-...` (13번째=4, variant=8) replace_all 일괄 교체
+
+- **다음 세션 선택지** (우선순위 순):
+  - **리팩토링 Task** — `sanitizeHeader` / `stripFormulaTriggers` / `HoneypotField` / timing guard를 `src/lib/security/`로 공통화 (공개 폼 4종 세트 재사용 확대)
+  - **Vercel 배포 준비** — `after()`/waitUntil 도입 검토 + env 변수 세팅 + n8n W5 워크플로 실제 구축(Jayden)
+  - **Phase 5 SaaS 전환 준비** — 회원가입 UI, multi-tenant, anon client + RLS 전면 재검증
+  - **E2E 확장** (선택) — 대시보드 피드백 읽음 처리 + 사이드바 뱃지 시나리오 추가 (PM 측 인증 헬퍼 필요 → Phase 5 SaaS 전환과 함께)
+
+- **차단 요소**: 없음
+
+- **푸시 대기**: M8 본체 커밋(`6ffb9a0`) + B-2 E2E 신규 파일들 모두 미푸시 — Jayden 승인 후 일괄 푸시
+
+- **교훈 1건 추가** (learnings.md): Zod uuid()는 RFC 4122 v4 strict 검증 — UUID 형식 hex 문자열도 version/variant bits 위반 시 거부. 테스트 픽스처는 v4 spec(13번째=4, 17번째=8/9/a/b) 준수 필수
+
+---
+
+## 이전 세션 (2026-04-19 Task 4-2 M8 — PWA 설치 유도 + /offline fallback + 리뷰 HIGH 4건 반영)
 
 - **배경**: 이전 세션에서 Jayden이 PWA 기반(manifest + icons + sw.ts + serwist.tsx + next.config serwist 래핑 + layout.tsx metadata + scripts/generate-pwa-icons.mts)을 미리 스테이지해 둔 상태로 M8 진입. **기반은 보존, 설치 유도 UI + offline fallback을 얹어 Task 4-2 완결**.
 - **완료** (신규 파일 2 + 수정 파일 3):

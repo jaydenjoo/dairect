@@ -1,5 +1,43 @@
 # Dairect — 교훈 기록
 
+## 2026-04-19 — E2E 시드는 production DB에 직접 박지 말고 Supabase local CLI로 격리. 다중 supabase 프로젝트는 포트 +100 offset로 회피
+
+- **상황**: Task 4-2 M8 B-2(Playwright Portal-only E2E)에서 빠른 시작을 위해 production Supabase에 `e2e_*` prefix 시드 + cleanup 안전망 전략 채택. 7/7 통과 후 code/security 병렬 리뷰가 **CRITICAL 1 + HIGH 4 = 병합 차단** 판정. 핵심: **공개 git에 평문 박힌 e2e 토큰 hex + production seed → 122-bit UUID 보안이 0-bit 전락**. 누구나 `git log -p`/PR description grep으로 토큰 확보 + production /portal 접근 가능. cleanup 미보장(SIGINT/`--grep`/OOM 등)이면 1년 활성 토큰 잔류.
+- **문제 분석**: 단기 패치(토큰 환경변수화 + git history purge + globalTeardown 등)는 **production 사용 자체가 단일 실패점**이라 누적 부채. trace ZIP secret dump, reuseExistingServer 외부 노출 등 부수 위험도 동시 존재. 본질 해결 = production seed 사용 자체 폐기 → Supabase local CLI 격리.
+- **해결**:
+  1. `supabase init` + `supabase start` (Docker 컨테이너 13개 — db/auth/rest/storage/realtime/studio 등). 첫 실행은 1~2분, 이후 캐시되어 빠름.
+  2. **포트 충돌 우회**: 다른 supabase 프로젝트(예: teamzero)가 기본 포트 54321~54329를 점유 중이면 `supabase start`가 "Bind for 0.0.0.0:54322 failed: port is already allocated"로 실패. 해결: `supabase/config.toml`의 모든 `port = 5432X`를 `5442X`로 +100 offset 일괄 치환(`sed -E 's/^port = 5432([0-9])$/port = 5442\1/'`). 다른 프로젝트 영향 없음 + dairect만 격리 포트 사용.
+  3. local DB에 schema 적용: `DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54422/postgres pnpm db:push` (drizzle-kit이 schema.ts 기반 SQL 자동 생성). RLS 정책은 별도 마이그레이션 파일이지만 e2e는 db client(postgres user)가 RLS 우회하므로 영향 없음.
+  4. **`.env.*` Write 정책상 차단** → 모든 e2e 환경변수를 `package.json` scripts에 inline 박음(`DATABASE_URL=... N8N_WEBHOOK_URL= NEXT_PUBLIC_APP_URL=http://localhost:3701 next dev --port 3701`). DRY 손실은 5줄 정도라 수용. dotenv 파일 의존 제거가 오히려 단순화.
+  5. **playwright.config 보안 강화**:
+     - `globalSetup`: DATABASE_URL이 127.0.0.1/localhost 미포함이면 즉시 throw → production 우발 사용 차단(시드 박힘 사고 영구 방지)
+     - `globalTeardown`: spec afterAll 미호출 시나리오(crash/Ctrl+C/`--grep`/OOM) 모든 곳에서 cleanup 보장
+     - `reuseExistingServer:false` + 별도 포트 3701 → ngrok tunnel 활성 상태에서 외부 노출 차단
+     - `trace:"off"` + `video:"off"` → secret dump 위험 0 (PNG screenshot만 only-on-failure 유지 — secret 노출 위험 낮음)
+     - `N8N_WEBHOOK_URL=` 빈값 → e2e 시드된 portal에서 피드백 제출이 production n8n으로 emit되지 않음
+- **규칙**:
+  1. **"production DB에 e2e 시드 + cleanup 안전망"은 1인 환경에서도 단일 실패점 누적**. 시드 데이터/토큰의 공개 git 노출, cleanup 미실행 시나리오, secret dump, 외부 tunnel 노출 등 위험이 모두 connected. 분리 환경(Docker local DB) 설치 비용 30분이 영구 부채 회피보다 효율적.
+  2. **다중 supabase 프로젝트 환경**: `supabase start`는 기본 포트 54321~54329 사용. 다른 프로젝트가 동시 실행 중이면 충돌. config.toml port +100 offset 패턴(54421~54429)으로 회피. `supabase status --project-id <name>` 로 다른 프로젝트 상태 점검.
+  3. **playwright globalSetup의 DATABASE_URL guard는 환경 격리의 마지막 방어선**. localhost/127.0.0.1 미포함 즉시 throw → production seed 우발 사고 영구 차단. 단순 `console.warn`은 무시될 수 있음, 반드시 throw로 strict.
+  4. **playwright trace/video는 production-grade에서 항상 secret 누출 위험**. `addInitScript`로 globals patch한 결과나 `process.env` console.log 한 줄, 라이브러리의 unhandled rejection stack 등이 모두 trace ZIP에 포함. 외부 공유(슬랙/이슈/PR 첨부) 시 위험. 격리 환경(local DB only)에서는 trace 안전, production-touching 시 무조건 off.
+  5. **`.env.*` 파일 Write가 정책상 차단되는 환경에서는 inline env로 전환**. package.json scripts에 환경변수 박는 패턴은 DRY 위반이지만, 시크릿이 아닌 local DB URL 같은 환경 식별자는 그대로 노출해도 안전. 시크릿(`API_KEY`, `SECRET`)은 절대 inline 금지.
+  6. **e2e 시드 cleanup은 multi-layer**: (1) 고정 ID 직접 삭제 → (2) `userId`/`issuedBy` 일괄 삭제(1차 부분 실패 시) → (3) prefix 안전망(다른 환경의 잔존 row 흡수). 한 layer만 의존하면 부분 실패 시 토큰/PII 잔존.
+
+## 2026-04-19 — Zod `.uuid()`는 RFC 4122 v4 strict 검증 — UUID 형식 hex 문자열도 version/variant bits 위반 시 거부 (테스트 픽스처 함정)
+
+- **상황**: Task 4-2 M8 B-2 Playwright E2E 픽스처 작성 시 cleanup 정확성/디버깅 가독성을 위해 토큰 ID를 고정 UUID `11111111-1111-1111-1111-e2e0000a0001` 형식으로 시드. PostgreSQL `uuid` 컬럼은 8-4-4-4-12 형식만 검증해서 INSERT는 성공. 그러나 7개 시나리오 중 활성 토큰 사용 5건이 모두 `/portal/invalid`로 redirect — 활성/만료/revoked 시나리오가 모두 실패한 것처럼 보였음.
+- **문제 분석**: `src/lib/portal/token.ts`의 `tokenSchema = z.string().uuid()`는 Zod 4.x에서 RFC 4122 v4 strict 검증을 수행. 즉 단순 형식(8-4-4-4-12 hex)만이 아니라:
+  - 13번째 char(3rd group의 1st char) = `4` (UUID version)
+  - 17번째 char(4th group의 1st char) = `8`/`9`/`a`/`b` (UUID variant 10xx)
+  를 모두 만족해야 통과. 우리 시드 `11111111-1111-1111-1111-...`는 13번째=`1`(UUID v1로 인식)이고 17번째=`1`(variant 위반)이라 Zod 거부 → `validatePortalToken` null 반환 → 활성 토큰조차 invalid 처리.
+- **해결**: 픽스처 UUID 패턴을 `11111111-1111-4111-8111-...` (13번째=`4`, 17번째=`8`)로 일괄 교체. PostgreSQL은 두 형식 모두 받아주지만, **앱 레이어 Zod 검증**을 통과해야 의도된 분기(active/expired/revoked) 검증 가능.
+- **규칙**:
+  1. **PostgreSQL `uuid` 컬럼이 통과시킨다고 앱 레이어가 통과시키는 것은 아님**. DB는 8-4-4-4-12 형식만 검증, Zod/유효성 라이브러리는 RFC 4122 strict version/variant까지 검증. 두 레이어의 검증 강도가 다르다는 점이 테스트 픽스처에서 가장 잘 드러남.
+  2. **테스트 픽스처 UUID는 "고정값 + 식별 가능 + spec 준수"의 균형**. cleanup 정확성을 위해 prefix를 식별 가능하게(예: `11111111-1111-4111-8111-e2e000000001`) 유지하되, version/variant char만 정확히 박아넣기. 5번째 그룹(12 char)에 충분한 자유도가 있어 cleanup 식별 가능.
+  3. **E2E 디버깅 시 "모든 활성 시나리오가 invalid로 빠질 때" 가장 먼저 의심할 곳은 토큰/검증 레이어 — 시드 데이터 자체의 형식**. 페이지 로직/redirect/middleware보다 우선 점검. 실패 영상에서 `navigated to /portal/invalid` 한 줄이 결정적 단서.
+  4. **Zod 4.x의 `.uuid()` 거동을 확정해서 fixture에 반영**. 향후 Zod 5.x에서 `.uuid()`가 더 strict해지거나 (`uuidv4()` 같은 별도 함수로 분기) 변경될 수 있음 — 의존 시점의 거동을 testfixture 주석에 기록하면 회귀 시 빠른 추적 가능.
+  5. **고정 UUID는 "재현 가능성 vs 충돌 위험"의 트레이드오프**. production Supabase에 e2e_* row를 시드하는 B-2 전략에서는 고정 UUID가 cleanup 명확성에 도움이 되지만, 다른 시나리오(예: 동일 환경에서 동시에 다른 e2e 실행)에서는 충돌. 향후 Supabase local CLI 격리 환경 도입 시 `crypto.randomUUID()` 진짜 랜덤으로 전환 검토.
+
 ## 2026-04-19 — Service Worker fallback matcher는 `request.mode === "navigate"`만으로 부족하다. 민감 경로를 접두사로 명시 제외해야 한다
 
 - **상황**: Task 4-2 M8에서 Serwist `fallbacks.entries`로 `/offline` 페이지를 등록. 첫 구현은 `matcher({ request }) => request.mode === "navigate"` 단순 조건. 랜딩·공개 콘텐츠 페이지에서 오프라인 안내 UX를 제공하는 것이 목표였음.

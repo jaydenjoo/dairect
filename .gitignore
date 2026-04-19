@@ -51,6 +51,11 @@ public/swe-worker-*.js.map
 /test-results/
 /playwright/.cache/
 
+# Supabase local CLI (e2e 격리)
+/supabase/.branches/
+/supabase/.temp/
+/supabase/seed.sql
+
 # Claude Code — subagent memory/worktrees (local-only)
 .claude/agent-memory/
 .claude/worktrees/
