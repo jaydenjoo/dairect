@@ -14,6 +14,7 @@ import {
   submitInquiryAction,
   type InquirySubmission,
 } from "@/app/(public)/about/actions";
+import { HoneypotField } from "@/components/security/honeypot-field";
 
 const budgetOptions: { id: BudgetId; label: string }[] = [
   { id: "under_100", label: "100만원 미만" },
@@ -109,17 +110,8 @@ export function ContactForm({ initialPackage }: Props) {
       onSubmit={handleSubmit}
       className="relative mx-auto max-w-2xl rounded-[28px] surface-card shadow-ambient-lg"
     >
-      {/* Honeypot — 봇 방어 (시각적/스크린리더 비노출) */}
-      <input
-        type="text"
-        name="website"
-        tabIndex={-1}
-        autoComplete="off"
-        aria-hidden="true"
-        value={website}
-        onChange={(e) => setWebsite(e.target.value)}
-        className="pointer-events-none absolute -left-[9999px] h-0 w-0 opacity-0"
-      />
+      {/* Honeypot — src/components/security/honeypot-field.tsx 공용 컴포넌트 */}
+      <HoneypotField value={website} onChange={setWebsite} />
 
       <div className="flex flex-col gap-7 px-6 py-10 md:px-10 md:py-12">
         {/* 선택된 패키지 뱃지 — 취소 가능 */}

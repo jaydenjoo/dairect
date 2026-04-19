@@ -9,23 +9,14 @@ import {
   type InquiryFormData,
   budgetLabel,
 } from "@/lib/validation/inquiry";
+import {
+  extractClientIp,
+  extractUserAgent,
+} from "@/lib/security/sanitize-headers";
+import { stripFormulaTriggers } from "@/lib/security/csv-protection";
+import { isValidElapsed } from "@/lib/security/timing-oracle";
 
 export type InquiryActionResult = { success: boolean; error?: string };
-
-const MAX_UA = 500;
-const MAX_IP = 64;
-const MIN_SUBMIT_MS = 3000;
-
-function sanitizeHeader(raw: string | null | undefined, max: number): string | null {
-  if (!raw) return null;
-  const cleaned = raw.replace(/[\x00-\x1F\x7F]/g, "");
-  const trimmed = cleaned.slice(0, max);
-  return trimmed || null;
-}
-
-function stripFormulaTriggers(s: string): string {
-  return s.replace(/^[=+\-@\t\r]+/, "");
-}
 
 export type InquirySubmission = InquiryFormData & {
   website?: string;
@@ -39,9 +30,11 @@ export async function submitInquiryAction(
     return { success: true };
   }
 
+  // timing guard — startedAt이 없으면 통과(기존 동작 보존), 있으면 isValidElapsed로 강화 검증.
+  // isValidElapsed는 finite + 3초 하한 + 30분 상한 sanity 통합 (NaN/음수/0 우회 차단).
   if (
     typeof payload.startedAt === "number" &&
-    Date.now() - payload.startedAt < MIN_SUBMIT_MS
+    !isValidElapsed(Date.now() - payload.startedAt)
   ) {
     return { success: true };
   }
@@ -65,10 +58,8 @@ export async function submitInquiryAction(
 
   try {
     const h = await headers();
-    const xff = h.get("x-forwarded-for");
-    const ipFromXff = xff?.split(",").at(-1)?.trim();
-    const ipAddress = sanitizeHeader(ipFromXff ?? h.get("x-real-ip"), MAX_IP);
-    const userAgent = sanitizeHeader(h.get("user-agent"), MAX_UA);
+    const ipAddress = extractClientIp(h);
+    const userAgent = extractUserAgent(h);
 
     const cleanName = stripFormulaTriggers(v.name);
     const cleanContact = stripFormulaTriggers(v.contact);

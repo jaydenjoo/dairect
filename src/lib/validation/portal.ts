@@ -10,7 +10,9 @@ import { guardMultiLine } from "./shared-text";
 // (path param 기반 접근이라 토큰 유출 경로가 URL/history/Referer로 한정됨).
 
 export const FEEDBACK_MESSAGE_MAX = 2000;
-export const FEEDBACK_MIN_SUBMIT_MS = 3000;
+
+// FEEDBACK_MIN_SUBMIT_MS는 src/lib/security/timing-oracle.ts로 이전됨 (공개 폼 4종 baseline 통합).
+// 사용처는 거기서 import: `import { FEEDBACK_MIN_SUBMIT_MS } from "@/lib/security/timing-oracle"`
 
 export const portalFeedbackSchema = z
   .object({

@@ -7,6 +7,7 @@ import {
   type PortalFeedbackActionResult,
 } from "@/lib/portal/feedback-actions";
 import { FEEDBACK_MESSAGE_MAX } from "@/lib/validation/portal";
+import { HoneypotField } from "@/components/security/honeypot-field";
 
 interface Props {
   token: string;
@@ -110,20 +111,9 @@ export function PortalFeedbackForm({ token }: Props) {
             className="surface-card rounded-2xl p-5 shadow-ambient md:p-6"
             noValidate
           >
-            {/* honeypot — 봇 전용 미끼. 사람 눈(시각)·키보드(tabIndex=-1)·SR(aria-hidden)·
-                패스워드 매니저/autoComplete(off) 모두 우회하도록 전부 적용. off-screen
-                positioning은 sr-only보다 견고 — sr-only는 SR 접근 가능 상태라 일부 봇이
-                여전히 "채워야 할 필드"로 인식. baseline: components/about/contact-form.tsx */}
-            <input
-              type="text"
-              name="website"
-              aria-hidden="true"
-              tabIndex={-1}
-              autoComplete="off"
-              value={honeypot}
-              onChange={(e) => setHoneypot(e.target.value)}
-              className="pointer-events-none absolute -left-[9999px] h-0 w-0 opacity-0"
-            />
+            {/* honeypot — src/components/security/honeypot-field.tsx 공용 컴포넌트.
+                방어 매트릭스(시각/키보드/SR/autofill/pointer)는 거기 정의. */}
+            <HoneypotField value={honeypot} onChange={setHoneypot} />
 
             <label
               htmlFor="portal-feedback-message"
