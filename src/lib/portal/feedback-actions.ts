@@ -133,17 +133,17 @@ export async function submitPortalFeedbackAction(
       const [proj] = await db
         .select({
           projectName: projects.name,
-          recipientEmail: userSettings.businessEmail,
+          pmEmail: userSettings.businessEmail,
         })
         .from(projects)
         .leftJoin(userSettings, eq(userSettings.userId, projects.userId))
         .where(eq(projects.id, payload.projectId))
         .limit(1);
 
-      if (!proj?.recipientEmail) {
+      if (!proj?.pmEmail) {
         // 수신자 PM의 businessEmail 미설정 시 이메일 발송 불가 — 스킵.
         console.warn({
-          event: "portal_feedback_emit_skipped_no_recipient",
+          event: "portal_feedback_emit_skipped_no_pm_email",
           projectId: payload.projectId,
         });
         return;
@@ -162,7 +162,7 @@ export async function submitPortalFeedbackAction(
           feedbackId: insertedId,
           projectId: payload.projectId,
           projectName: safeProjectName,
-          recipientEmail: proj.recipientEmail,
+          pmEmail: proj.pmEmail,
           messagePreview: cleanMessage.slice(0, 140),
           receivedAt: new Date().toISOString(),
         },
