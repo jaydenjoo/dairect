@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-19 (Task 4-2 M8 B — Supabase local CLI 격리 + 보안 리뷰 CRITICAL 1+HIGH 4 해소 + 7/7 재통과 17.1s)
-> 현재 위치: Phase 4 Task 4-2 **M8 + B-2 → B 격리 모두 완료 → Task 4-2 전체 완료** (M8 본체 + B-2 7 시나리오 → 보안 리뷰가 production seed 자체를 단일 실패점으로 진단 → **B 옵션(Supabase local CLI 격리)으로 본질 해결**: 별도 포트 3701 + globalSetup/Teardown hook + reuseExistingServer false + trace/video off + n8n emit no-op + production DB throw 안전장치) — 다음은 리팩토링 Task(security/ 공통화) 또는 Vercel 배포 준비 또는 Phase 5
+> 최종 업데이트: 2026-04-19 (운영 안정화 — dairect.kr 도메인 이전 + Google OAuth 정정 + region 정렬 검증 Seoul-Seoul + SW handlerDidError plugin → 콘솔 에러 0 + Page Load 637ms)
+> 현재 위치: Phase 4 완료, production 운영 안정화 완료. dairect.kr 정식 운영 중. 다음은 n8n W5 또는 loading.tsx 또는 DB 쿼리 최적화 또는 Phase 5 SaaS 전환
 
 ## 전체 진행률
 
@@ -368,7 +368,47 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 - 고객 포털 **파일 업로드 기능 금지** (Phase 5에서도)
 - 고객 포털 다크 모드 (범위 외)
 
-## 현재 세션 (2026-04-19 Task 4-2 M8 B — Supabase local CLI 격리 + 리뷰 CRITICAL 1+HIGH 4 해소)
+## 현재 세션 (2026-04-19 운영 안정화 — 도메인 dairect.kr 이전 + Google OAuth 정정 + region 검증 + SW NetworkOnly throw 차단)
+
+- **배경**: production smoke 9/9 통과(커밋 e4dcd29) 후 dairect.kr 도메인을 다른 Vercel 프로젝트에서 현재 dairect-b4xf로 이전. 로그인 콜백이 `/?code=...`로 깨짐(원인=Supabase Redirect URLs allowlist 미등록). 정정 후 페이지 전환 체감 느림 호소 → region 검증(완벽) → DevTools 콘솔에서 SW `no-response` 에러 매 navigation 발견 → 진짜 병목 확정.
+
+- **수동 작업 (Jayden, 검증 완료)**:
+  - Vercel 도메인 이전: 기존 프로젝트에서 dairect.kr 제거 → dairect-b4xf에 추가 + Production Domain 설정 + www→apex 308 redirect
+  - `NEXT_PUBLIC_APP_URL=https://dairect.kr` 갱신 + Redeploy
+  - Supabase Auth URL Configuration 정정: Site URL `https://dairect.kr` + Redirect URLs allowlist에 `/auth/callback` 4종 등록 (apex/www/localhost:3700/3701)
+  - Google Cloud Console OAuth: Authorized JS origins에 dairect.kr/www 추가
+  - region 정렬 검증: Supabase Northeast Asia (Seoul) `ap-northeast-2` t4g.micro / Vercel Function Region `icn1` Seoul ✅ 완벽 정렬
+
+- **수정 파일 (1개)**:
+  - `src/app/sw.ts` — `safeNetworkOnly()` factory 추가, 4개 매처(`/portal`, `/api`, `/auth`, `/dashboard`) 핸들러 교체. NetworkOnly에 `handlerDidError` plugin 동봉으로 silent 504 반환 → no-response throw 차단 → 단일 요청 + 콘솔 에러 0. 보안 의도(defaultCache catch-all NetworkFirst 3종 차단) 0% 변경.
+
+- **검증**:
+  - tsc 0 errors / lint 0 errors (기존 1 warning만)
+  - `pnpm build --webpack` 통과 + postbuild SW artifact 검증 OK
+  - Vercel 자동 배포 + 새 SW 활성화 확인
+  - production DevTools 측정: 콘솔 `no-response` 0건 / dashboard 단일 요청 / Page Load 637ms / DOMContentLoaded 525ms (체감 빠름 확인)
+  - 보안 회귀 0: Cache Storage `pages`/`pages-rsc`/`others`에 dashboard·portal URL 미저장 (defaultCache 차단 유지)
+
+- **부수 발견 (백로그)**:
+  - Pretendard subset 폰트 3종 preload warning — `<link rel="preload" as="font">`로 미리 받았지만 몇 초 내 사용 안 됨. 성능 임팩트 미미, 콘솔 청결 + 우선순위 미세 조정 차원에서 정리 가능 (15분).
+
+- **다음 세션 선택지** (우선순위 순):
+  - **n8n W5 워크플로 실제 구축** — `n8n/workflows/W5_portal_feedback_received.json` 생성(W4 복제 후 4개 노드 변경 미리 박음) + Vercel env `N8N_WEBHOOK_URL_PORTAL_FEEDBACK_RECEIVED` + Gmail Credentials 연결 + 활성화. Compose Email Code 노드 jsCode는 dashboardUrl `https://dairect.kr/dashboard/projects/{id}?tab=feedback` 박음
+  - **`loading.tsx` 추가** — 대시보드 라우트별 skeleton (체감 +30%, 라우트당 10줄)
+  - **DB 쿼리 최적화** — 페이지별 `Promise.all` 병렬화 + `select` 컬럼 명시 (실제 TTFB 100~300ms 절감 가능)
+  - **모바일 PWA 실기 검증** — iOS/Android 설치 + 오프라인 동작 + sw.js 스코프
+  - **Phase 5 SaaS 전환 준비** — 다중 테넌트 격리 설계
+  - **Pretendard preload warning 정리** (소규모)
+
+- **차단 요소**: 없음.
+
+- **커밋/푸시**: `39dbae1` fix(sw): NetworkOnly에 handlerDidError plugin 추가 — 인증 영역 throw 차단 — push 완료 (e4dcd29..39dbae1)
+
+- **교훈 1건 추가** (learnings.md): PWA SW 인증 영역 NetworkOnly는 `handlerDidError` plugin과 세트로 — 단독은 abort/redirect 시 throw → 이중 요청 + 콘솔 spam. defaultCache catch-all 검증 후 매처 제거 vs plugin 보강 결정.
+
+---
+
+## 이전 세션 (2026-04-19 Task 4-2 M8 B — Supabase local CLI 격리 + 리뷰 CRITICAL 1+HIGH 4 해소)
 
 - **배경**: B-2 (production Supabase에 e2e_* prefix 시드) 직후 code/security 병렬 리뷰가 **보안 CRITICAL 1 + HIGH 4 = 병합 차단** 판정. 핵심 진단: "공개 git에 평문 토큰 + production seed → 122-bit UUID 보안이 0-bit 전락 + cleanup 미보장 + reuseExistingServer + trace secret dump 모두 connected". 단기 패치(A) vs 본질 해결(B)에서 **B 채택**.
 
