@@ -25,6 +25,13 @@ import {
   seedPortalFixtures,
 } from "../fixtures/seed-portal";
 
+// PRODUCTION 모드(E2E_BASE_URL 설정)에서는 시드 데이터가 라이브 DB에 없으므로 모든 시나리오 skip.
+// production smoke는 e2e/smoke/production-smoke.spec.ts에서 read-only로 별도 진행.
+test.skip(
+  !!process.env.E2E_BASE_URL,
+  "E2E_BASE_URL 설정됨 — portal-flow는 LOCAL 시드 의존이라 production에서 skip",
+);
+
 test.describe("Portal E2E (Task 4-2 M8) — 비로그인 고객 시나리오", () => {
   test.beforeAll(async () => {
     await seedPortalFixtures();
