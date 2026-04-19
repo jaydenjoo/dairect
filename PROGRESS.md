@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-19 (Phase 3 cron W2 invoice.overdue 완료 + W5 JSON 커밋 + stripCtrl/pmEmail 통일 + Vercel Cron 인프라 도입)
-> 현재 위치: Phase 4 완료, Phase 3 cron 잔여 W3만 남음. 다음은 W3 weekly_summary 또는 loading.tsx 또는 DB 쿼리 최적화 또는 Phase 5 SaaS 전환
+> 최종 업데이트: 2026-04-19 (Phase 3 cron 전체 종결 — W2 invoice.overdue + W3 weekly_summary + W5 portal_feedback JSON 완료, Vercel Cron 인프라 도입)
+> 현재 위치: Phase 3 + Phase 4 완료, **Phase 3 cron 전체 종결**. 다음은 loading.tsx 또는 DB 쿼리 최적화 또는 Phase 5 SaaS 전환
 
 ## 전체 진행률
 
@@ -10,7 +10,7 @@
 | Phase 0 | 기반 설정 | ✅ 완료 | 100% |
 | Phase 1 | 대시보드 핵심 | ✅ 완료 | 100% |
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
-| Phase 3 | AI + 자동화 + 리드 CRM | 🟢 Option B + W2 cron 완료 | 100% (5/5, cron 1건 W3 백로그) |
+| Phase 3 | AI + 자동화 + 리드 CRM | ✅ 완료 (W2/W3 cron 포함) | 100% (5/5 + cron 전체 완료) |
 | Phase 4 | 고객 포털 + /demo + PWA | ✅ 완료 | 100% (Task 4-1 ✅ / 4-2 M1~M8 ✅) |
 | Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
 
@@ -266,7 +266,7 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 6 + MEDIUM 5 일괄 수정
 
 - ~~**W2** `invoice.overdue` 일 1회 크론~~ — ✅ 완료 (2026-04-19): Vercel Cron + `/api/cron/invoice-overdue` + W2 JSON + PM/고객 2메일 발송. HIGH race 방어(UPDATE WHERE 강화) + sanitizeHeader typeof 가드 + maxDuration 300 반영.
   - **Known limitation (Phase 5 재검토)**: emit 성공 후 `db.update` 실패 시 `last_overdue_notified_at`이 NULL로 남아 다음 cron에서 동일 invoice 재emit → 고객 메일 중복 가능. DB 장애 시나리오라 실질 발생 확률 낮음. transaction(BEGIN → emit → UPDATE → COMMIT) 또는 outbox 패턴 도입 검토.
-- **W3** weekly reports 금요일 크론 — cron 인프라 도입됨(`vercel.json` + `CRON_SECRET` + `emitN8nEvent` 패턴), W3 JSON + `/api/cron/weekly-summary` route 추가만 남음
+- ~~**W3** weekly reports 금요일 크론~~ — ✅ 완료 (2026-04-19): Vercel Cron + `/api/cron/weekly-summary` + W3 JSON + 8개 stat 집계 (Promise.all 병렬). 매주 금요일 KST 18:00 발송. `userSettings.lastWeeklySummarySentAt` 멱등성 키.
 - **W4 고객 만족도 설문** — 완료 메일에 설문 링크 별도 Task
 - **관찰성 개선**: `activity_logs`에 `webhook_emit` 종류 기록 (silent failure 가시화)
 - **대시보드 발송 이력 UI**: 고객사별 메일/알림 발송 로그 조회

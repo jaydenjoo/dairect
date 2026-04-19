@@ -22,13 +22,15 @@ export type N8nWorkflow =
   | "project_status_changed"
   | "project_completed"
   | "portal_feedback_received"
-  | "invoice_overdue";
+  | "invoice_overdue"
+  | "weekly_summary";
 
 const ENV_KEY_BY_WORKFLOW: Record<N8nWorkflow, string> = {
   project_status_changed: "N8N_WEBHOOK_URL_PROJECT_STATUS_CHANGED",
   project_completed: "N8N_WEBHOOK_URL_PROJECT_COMPLETED",
   portal_feedback_received: "N8N_WEBHOOK_URL_PORTAL_FEEDBACK_RECEIVED",
   invoice_overdue: "N8N_WEBHOOK_URL_INVOICE_OVERDUE",
+  weekly_summary: "N8N_WEBHOOK_URL_WEEKLY_SUMMARY",
 };
 
 // 사설/링크로컬/루프백 호스트 — 프로덕션에서만 차단.

@@ -74,6 +74,9 @@ export const userSettings = pgTable("user_settings", {
     .default(sql`now()`)
     .notNull(),
 
+  // W3 cron weekly_summary 발송 시점 기록. 6일 내 재발송 방지 멱등성 키.
+  lastWeeklySummarySentAt: timestamp("last_weekly_summary_sent_at", { withTimezone: true }),
+
   updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
 });
 
