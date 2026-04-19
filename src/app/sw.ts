@@ -8,30 +8,49 @@ declare const self: ServiceWorkerGlobalScope &
     __SW_MANIFEST: (PrecacheEntry | string)[] | undefined;
   };
 
-// 인증/민감 라우트는 전부 NetworkOnly — SW 캐시에 응답 절대 저장 금지.
-// matcher의 method 기본값은 "GET". POST/PUT/DELETE는 SW 자체 우회되므로 추가 매처 불필요.
+// 인증/민감 라우트는 NetworkOnly + handlerDidError plugin 조합.
+//
+// 매처 등록을 유지하는 이유 = @serwist/next/worker defaultCache의 catch-all
+// NetworkFirst 3종 (RSC payload / HTML page / "others") 차단. 매처를 빼면
+// dashboard·portal 응답이 SW 캐시에 저장돼 cross-tenant 누출 위험.
+//
+// handlerDidError plugin 추가 이유 = NetworkOnly는 abort/redirect로 응답을
+// 못 받으면 "no-response" throw → 브라우저가 native fetch로 재시도 → 이중
+// 요청 + 콘솔 에러 spam + 매 navigation 추가 latency. silent 504 Response
+// 반환으로 throw 차단 → 단일 요청으로 끝남 (보안 의도 0% 변경 없음).
+//
+// matcher의 method 기본값은 "GET". POST/PUT/DELETE는 SW 자체 우회.
 // destination 조건 없이 매칭 (HTML document + RSC payload + prefetch 모두 포함).
-// Phase 4 portal 보안 + dashboard cross-tenant 노출 방지 일관 유지.
+const safeNetworkOnly = () =>
+  new NetworkOnly({
+    plugins: [
+      {
+        handlerDidError: async () =>
+          new Response(null, { status: 504, statusText: "SW passthrough" }),
+      },
+    ],
+  });
+
 const customRuntimeCaching: RuntimeCaching[] = [
   {
     matcher: ({ url, sameOrigin }) =>
       sameOrigin && url.pathname.startsWith("/portal/"),
-    handler: new NetworkOnly(),
+    handler: safeNetworkOnly(),
   },
   {
     matcher: ({ url, sameOrigin }) =>
       sameOrigin && url.pathname.startsWith("/api/"),
-    handler: new NetworkOnly(),
+    handler: safeNetworkOnly(),
   },
   {
     matcher: ({ url, sameOrigin }) =>
       sameOrigin && url.pathname.startsWith("/auth/"),
-    handler: new NetworkOnly(),
+    handler: safeNetworkOnly(),
   },
   {
     matcher: ({ url, sameOrigin }) =>
       sameOrigin && url.pathname.startsWith("/dashboard"),
-    handler: new NetworkOnly(),
+    handler: safeNetworkOnly(),
   },
   ...defaultCache,
 ];

@@ -1,5 +1,24 @@
 # Dairect — 교훈 기록
 
+## 2026-04-19 — PWA Service Worker 인증 영역 NetworkOnly는 `handlerDidError` plugin과 세트로 등록 — 단독은 abort/redirect 시 `no-response` throw로 이중 요청 + 매 navigation 콘솔 spam
+
+- **증상**: dairect.kr 도메인 정식 연결 후 production 대시보드 페이지 전환이 체감 느림. Vercel(`icn1`) ↔ Supabase(`ap-northeast-2`) region 정렬 완벽 확인 — 정렬 미스매치는 원인 X. DevTools 콘솔에 매 navigation마다 `The FetchEvent for "..." resulted in a network error response: the promise was rejected` + `Uncaught (in promise) no-response :: sw.js:1:32492` 발생.
+- **원인**: `src/app/sw.ts`에서 인증 영역 4종(`/portal`, `/api`, `/auth`, `/dashboard`)을 NetworkOnly 매처로 등록. 응답을 못 받으면(redirect, abort, 인증 만료) NetworkOnly가 `no-response` throw → 브라우저가 native fetch로 재시도 → 이중 요청 + 콘솔 spam + 매 navigation에 +50~200ms 추가 latency.
+- **잘못된 첫 가설**: "매처 자체를 제거하면 SW가 가로채지 않으니 깔끔". 검증 결과 위험. `@serwist/next/worker` defaultCache는 production에서 **catch-all NetworkFirst 3종**(RSC payload `pages-rsc`, HTML `pages`, `others`)을 포함. 매처를 제거하면 dashboard·portal 응답이 SW 캐시에 저장됨 → cross-tenant 누출. defaultCache 코드 확인 필수.
+- **해결**: NetworkOnly 매처는 유지(defaultCache catch-all 차단 = 보안 핵심) + `handlerDidError` plugin 추가로 silent 504 Response 반환 → throw 차단 → 단일 요청 완료 + 콘솔 에러 사라짐. 보안 의도 0% 변경.
+  ```typescript
+  const safeNetworkOnly = () => new NetworkOnly({
+    plugins: [{
+      handlerDidError: async () =>
+        new Response(null, { status: 504, statusText: "SW passthrough" }),
+    }],
+  });
+  ```
+- **규칙**:
+  1. PWA SW에서 인증 영역 NetworkOnly 핸들러는 **반드시 `handlerDidError` plugin과 세트로 등록**. 단독 NetworkOnly는 운영 환경에서 인증 만료/redirect/abort 케이스에 `no-response` throw → 매 요청 부작용.
+  2. defaultCache(`@serwist/next/worker` 등 라이브러리 기본 캐시 set)는 catch-all NetworkFirst를 포함하는 경우가 많음. 인증 영역을 캐시 X로 두고 싶으면 매처 제거가 아니라 **명시적 NetworkOnly + 안전 plugin** 조합. defaultCache 정의(`node_modules/.../worker.ts`) 한 번 직접 확인 후 결정.
+  3. 성능 "느림" 호소 받으면 region/쿼리 의심 전에 **DevTools 콘솔 에러부터 확인**. SW/HTTP 레이어 에러 잔존이 더 큰 신호일 수 있음.
+
 ## 2026-04-19 — E2E 시드는 production DB에 직접 박지 말고 Supabase local CLI로 격리. 다중 supabase 프로젝트는 포트 +100 offset로 회피
 
 - **상황**: Task 4-2 M8 B-2(Playwright Portal-only E2E)에서 빠른 시작을 위해 production Supabase에 `e2e_*` prefix 시드 + cleanup 안전망 전략 채택. 7/7 통과 후 code/security 병렬 리뷰가 **CRITICAL 1 + HIGH 4 = 병합 차단** 판정. 핵심: **공개 git에 평문 박힌 e2e 토큰 hex + production seed → 122-bit UUID 보안이 0-bit 전락**. 누구나 `git log -p`/PR description grep으로 토큰 확보 + production /portal 접근 가능. cleanup 미보장(SIGINT/`--grep`/OOM 등)이면 1년 활성 토큰 잔류.
