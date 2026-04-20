@@ -145,8 +145,6 @@ export type InvoiceListItem = {
   totalAmount: number;
   issuedDate: string | null;
   dueDate: string | null;
-  paidDate: string | null;
-  createdAt: Date | null;
   projectName: string | null;
   clientName: string | null;
   isOverdue: boolean;
@@ -167,8 +165,6 @@ export async function getInvoices(): Promise<InvoiceListItem[]> {
       totalAmount: invoices.totalAmount,
       issuedDate: invoices.issuedDate,
       dueDate: invoices.dueDate,
-      paidDate: invoices.paidDate,
-      createdAt: invoices.createdAt,
       projectName: projects.name,
       clientName: clients.companyName,
     })
