@@ -3,6 +3,8 @@
 import { db } from "@/lib/db";
 import { clients, clientNotes, projects } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
+import { workspaceScope } from "@/lib/db/workspace-scope";
 import { clientFormSchema, clientNoteSchema, type ClientFormData, type ClientNoteData } from "@/lib/validation/clients";
 import { eq, and, desc, isNull, sql, asc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -26,6 +28,10 @@ export async function getClients() {
   const userId = await getUserId();
   if (!userId) return [];
 
+  // Task 5-1-6 예시 migrate: workspace 스코프 주입 (read 경로 → null은 빈 배열).
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return [];
+
   return db
     .select({
       id: clients.id,
@@ -44,7 +50,12 @@ export async function getClients() {
       projects,
       and(eq(projects.clientId, clients.id), isNull(projects.deletedAt)),
     )
-    .where(eq(clients.userId, userId))
+    .where(
+      and(
+        eq(clients.userId, userId),
+        workspaceScope(clients.workspaceId, workspaceId),
+      ),
+    )
     .groupBy(clients.id)
     .orderBy(desc(clients.createdAt));
 }
@@ -122,6 +133,12 @@ export async function createClientAction(data: ClientFormData): Promise<ActionRe
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  // Task 5-1-6 예시 migrate: workspace 스코프 주입 (write 경로 → null은 ActionResult 에러).
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) {
+    return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+  }
+
   const parsed = clientFormSchema.safeParse(data);
   if (!parsed.success) return { success: false, error: "입력값이 올바르지 않습니다" };
 
@@ -132,6 +149,7 @@ export async function createClientAction(data: ClientFormData): Promise<ActionRe
       .insert(clients)
       .values({
         userId,
+        workspaceId,
         companyName: v.companyName,
         contactName: v.contactName || null,
         email: v.email || null,
