@@ -17,9 +17,9 @@ export default function LeadsLoading() {
 
       <div className="mt-6 overflow-hidden rounded-xl bg-card shadow-ambient">
         <div className="h-12 animate-pulse bg-muted/40" />
-        <div className="divide-y divide-border/20">
+        <div className="flex flex-col gap-1 p-1">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-16 animate-pulse bg-card" />
+            <div key={i} className="h-16 animate-pulse rounded-md bg-muted/30" />
           ))}
         </div>
       </div>
