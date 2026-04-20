@@ -243,7 +243,7 @@ Admin 계정 부여 방식:
 | 5-2-0 | **회원가입 UI + 이메일 verification** (현재 `/login`은 signInWithPassword만 — Phase 5 예약분. 회원가입 본류 + email OTP/confirmation 플로우 신규 구축) |
 | 5-2-1 | `/onboarding` 플로우 (workspace 생성 → 기본 설정) |
 | 5-2-2 | Workspace 설정 페이지 (이름/로고/사업자 정보) |
-| 5-2-3 | Workspace picker (헤더 dropdown) |
+| 5-2-3 | Workspace picker (헤더 dropdown + 모바일 bottom sheet) + `users.last_workspace_id uuid` 컬럼 추가 (섹션 10 결정 반영) |
 | 5-2-4 | 초대 토큰 생성 + 이메일 발송 (Resend 우선, 미도입 시 n8n 재사용) |
 | 5-2-5 | `/invite/[token]` 페이지 (수락 플로우) |
 | 5-2-6 | 역할 기반 권한 middleware / Server Action guard |
@@ -258,7 +258,7 @@ Admin 계정 부여 방식:
 | 5-3-3 | Checkout Session 생성 (Subscription mode) |
 | 5-3-4 | Webhook handler (`/api/webhooks/stripe`) |
 | 5-3-5 | 구독 상태 동기화 (DB ← Webhook) |
-| 5-3-6 | 플랜 한도 enforcement (INSERT 전 count 체크) |
+| 5-3-6 | 플랜 한도 enforcement (INSERT 트랜잭션 내 실시간 COUNT + race 방어 — 섹션 10 결정 반영) |
 | 5-3-7 | 한도 초과 UI (Upgrade CTA) |
 | 5-3-8 | 플랜 변경 / 취소 UI |
 | 5-3-9 | Customer Portal (Stripe 호스팅 + embed) |
@@ -416,15 +416,15 @@ Week 11:   Phase 5.5 QA + 정식 런칭 준비
 Phase 5 착수 직전에 확정:
 
 - [x] **`workspace_settings` 구조 결정 (2026-04-20)** — **A1 독립 테이블 확정**. `workspace_settings` 1:1 with `workspaces` (사업자 정보 7 + 견적서 기본값 5 + 결제분할/기능 프리셋 jsonb 2 = 14 필드). 타입 안전 + PDF 생성 시 쿼리 성능 + 도메인 분리 근거. Stripe 관련(stripe_customer_id/subscription_status)은 `workspaces` 본체에 직접 추가.
-- [ ] Workspace picker UX 디테일 (dropdown vs 사이드바 separate panel)
+- [x] **Workspace picker UX 결정 (2026-04-20)** — **A 헤더 dropdown 확정**. Slack/Linear/Notion 업계 표준, 공간 절약, PM 타겟 동시 소속 workspace ≤3 가정. 5+ 도달 시 dropdown 상단에 검색 input 추가하는 점진 개선 경로. Task 5-2-3 구현 시 모바일은 bottom sheet로 폴백.
 - [x] **역할별 권한 매트릭스 최종 (2026-04-20)** — **C2 프로젝트 범위 write 확정**. Member는 자기 생성 projects + 해당 프로젝트 하위 엔티티(milestones/estimates/estimate_items/contracts/invoices/activity_logs) write 가능. client_notes는 자기 작성만 write. 다른 멤버 데이터는 read only. 베타 2~3명 피드백으로 완화/강화 가능.
 - [x] **초대 만료 TTL (2026-04-20)** — **7일 확정**. Linear/Notion/Figma 업계 표준. 연장 옵션(14일) 별도 구현. 🟡 보안 등급상 탈취 토큰 수명 제한 우선.
-- [ ] 사용량 측정 주기 (실시간 count vs 일일 집계 + cache)
-- [ ] Admin 계정 부여 방식 (env var `ADMIN_EMAILS=...` vs DB flag)
+- [x] **사용량 측정 주기 결정 (2026-04-20)** — **A 실시간 count 확정** (Phase 5.5 플랜 한도 enforcement용). INSERT 전 `SELECT COUNT(*) FROM {table} WHERE workspace_id = ?` 1-row scan. 플랜 한도가 소규모 수치(예: 10 프로젝트)라 latency 영향 무시 가능. race 방어: INSERT와 같은 트랜잭션 내 COUNT → `IF n >= limit THEN RAISE EXCEPTION`. Phase 5.6+ 스케일 도달 시 증분 카운터(INSERT/DELETE trigger) 전환 검토.
+- [x] **Admin 계정 부여 방식 결정 (2026-04-20)** — **A env `ADMIN_EMAILS=jayden@...` 확정**. 초기 운영자 1명(Jayden), 재배포 = 결재선 역할로 오히려 보안 안전. DB flag 방식은 `is_admin` 컬럼 조작 방어 + RLS 복잡도 추가 발생. Task 5-5-1 middleware에서 `ADMIN_EMAILS.split(',').map(trim.toLowerCase).includes(user.email.toLowerCase())` 단순 체크. 운영자 증가 시 옵션 B/C로 점진 전환 가능.
 - [ ] Plan 한도 정확한 수치 (베타 피드백 반영)
 - [ ] 토스페이먼츠 통합 시점 (한국 사용자 비중 기준)
 - [ ] Workspace 로고 업로드 (Supabase Storage 활용)
-- [ ] Multi-workspace 소속 시 기본 선택 로직 (마지막 접속 workspace?)
+- [x] **Multi-workspace 기본 선택 결정 (2026-04-20)** — **A 마지막 접속 workspace 확정**. `users.last_workspace_id uuid nullable REFERENCES workspaces(id) ON DELETE SET NULL` 1 컬럼 추가 (Epic 5-2 Task 5-2-3 마이그레이션에 포함). 로그인 직후 `/dashboard` 리다이렉트 시 이 값 우선. NULL 폴백: 소속 workspace 중 `workspace_members.joinedAt` MIN. workspace 전환 시마다 UPDATE 1건 (쓰기 비용 미미, 캐싱 없이 매번 최신).
 
 ---
 
