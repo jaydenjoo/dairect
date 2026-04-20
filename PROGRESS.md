@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-19 (Phase 3 cron 전체 종결 — W2 invoice.overdue + W3 weekly_summary + W5 portal_feedback JSON 완료, Vercel Cron 인프라 도입)
-> 현재 위치: Phase 3 + Phase 4 완료, **Phase 3 cron 전체 종결**. 다음은 loading.tsx 또는 DB 쿼리 최적화 또는 Phase 5 SaaS 전환
+> 최종 업데이트: 2026-04-20 (Phase 5 PRD v4.0 초안 작성 — Phase 3 cron 종결 직후 Phase 5 SaaS 킥오프)
+> 현재 위치: Phase 3 + Phase 4 완료, Phase 3 cron 전체 종결, **Phase 5 PRD 초안 완료**. 다음은 Phase 5.0 Epic 5-1 Data Model 착수 / loading.tsx / DB 쿼리 최적화 중 택1
 
 ## 전체 진행률
 
@@ -406,6 +406,66 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 - **커밋/푸시**: `39dbae1` fix(sw): NetworkOnly에 handlerDidError plugin 추가 — 인증 영역 throw 차단 — push 완료 (e4dcd29..39dbae1)
 
 - **교훈 1건 추가** (learnings.md): PWA SW 인증 영역 NetworkOnly는 `handlerDidError` plugin과 세트로 — 단독은 abort/redirect 시 throw → 이중 요청 + 콘솔 spam. defaultCache catch-all 검증 후 매처 제거 vs plugin 보강 결정.
+
+---
+
+## 이번 세션 (2026-04-19~20 Phase 3 cron 전체 종결 + Phase 5 PRD v4.0 킥오프)
+
+### 완료 내역 (커밋 3개 + PRD 초안 1건)
+
+1. **W5 `portal_feedback.received` 워크플로 JSON 생성 + pmEmail 리네임** (`f9e8cab`)
+   - `n8n/workflows/W5_portal_feedback_received.json` 신규 (W4 복제 + 4개 노드 수정 + `saveDataErrorExecution="none"` PII 방어)
+   - `recipientEmail` → `pmEmail` 3곳 리네임 (feedback-actions.ts + W5 JSON + README)
+   - Dashboard URL `${DAIRECT_DASHBOARD_BASE_URL || 'https://dairect.kr'}` env fallback + trailing slash strip
+   - stripCtrl 통일 (W4 `''` strip → `' '` space replace — 단어 분리 유지)
+   - README W5 섹션 간결화 (수동 복제 가이드 → JSON 임포트 절차)
+
+2. **W2 `invoice.overdue` Vercel Cron 구현** (`75b8fe4`)
+   - **Vercel Cron 인프라 도입**: `vercel.json` (`0 0 * * *` UTC = KST 09:00) + `CRON_SECRET`
+   - `/api/cron/invoice-overdue` 신규: `crypto.timingSafeEqual` 인증 + 연체 invoice 순차 emit + 상태 전이
+   - `invoices.last_overdue_notified_at` 컬럼 + migration 0015
+   - W2 n8n JSON: Compose Email **2 items 반환 (PM + 고객)**
+   - security-reviewer HIGH 1건 반영: UPDATE WHERE에 `status='sent' + isNull(notifiedAt)` 재포함 + `.returning()` → paid 덮어쓰기 race 차단
+   - non-blocking MEDIUM 2건 반영: sanitizeHeader typeof 가드 (`unknown` 확장), maxDuration 60→300
+
+3. **W3 `weekly.summary` Vercel Cron 구현** (`6a0f502`)
+   - `/api/cron/weekly-summary` 신규: 매주 금요일 KST 18:00, user별 8개 stat `Promise.all` 병렬 집계
+   - `userSettings.last_weekly_summary_sent_at` 컬럼 + migration 0016
+   - W3 n8n JSON: 8개 stat 카드 HTML + PM 단일 발송
+   - 빈 주(모든 count=0) skip + race 방어 UPDATE WHERE 재포함
+   - security-reviewer MEDIUM 2건 선제 반영:
+     - `paidAmountTotal` string 보존 + `paidAmountFormatted` 서버 pre-format → BigInt-safe (MAX_SAFE_INTEGER 9,007조 회피)
+     - Deadline gate 250s → 미처리 user 다음 cron 자동 재개
+
+4. **Phase 5 PRD v4.0 초안 작성** (이번 save 포함)
+   - `docs/PRD-phase5.md` 신규 (12 섹션 / 5 Epic / 35 Task / 약 400줄)
+   - **2단계 전환**: Phase 5.0 (Multi-tenant 기반, 🟡) → 지인 베타 → Phase 5.5 (Billing, 🔴)
+   - **만들지 않을 것 14개** 명시 (다국어/모바일앱/실시간협업/공개API/SSO/audit UI 등)
+   - 리스크 7개 + 마이그레이션 전략 (Feature flag `MULTITENANT_ENABLED` 점진 릴리스)
+   - 타임라인 11주 (Phase 5.0 6주 + 베타 2주 + Phase 5.5 3주)
+
+### 핵심 설계 판단
+
+- **Phase 3 cron 인프라가 Phase 5 준비가 됨**: W2/W3에서 선제 반영한 BigInt-safe 금액 + deadline gate + user별 루프 구조 덕에 Phase 5-4(기존 기능 multi-tenant 확장) 부담 최소
+- **security-reviewer 2회 활용 성공**: W2(HIGH 1건 병합 차단 + MEDIUM 2건 반영) + W3(MEDIUM 2건 선제 반영) — 리뷰가 실제 병합 차단 사유 탐지 + Phase 5 대비 패턴 확정
+- **README 정책 vs 진행 문서 불일치 발견 패턴**: W5 작업 시작 시 PROGRESS "cron 2건 백로그"와 README "수동 복제 가이드"가 불일치 → 작업 시작 전 정책 명확화 필수 (learnings 기록)
+
+### 다음 세션 할 일
+
+- **Jayden PRD v4.0 리뷰** → 수정 반영 → `docs/PRD.md`에 v4.0 링크 추가
+- **배포 체크리스트 실행** (Jayden 수동):
+  - Supabase migration 2건 apply (0015 `invoices.last_overdue_notified_at` + 0016 `userSettings.last_weekly_summary_sent_at`)
+  - Vercel env 3개 추가 (`CRON_SECRET` + `N8N_WEBHOOK_URL_INVOICE_OVERDUE` + `N8N_WEBHOOK_URL_WEEKLY_SUMMARY`)
+  - n8n 3개 워크플로 import (W5 / W2 / W3) + Gmail OAuth2 연결 + Active 토글
+- **선택지**: Phase 5.0 Epic 5-1 Data Model 착수 / loading.tsx 8개 / DB 쿼리 최적화
+
+### 차단 요소
+없음. Jayden 후속 작업 의존 (n8n import + Supabase migration + Vercel env) 있으나 다음 개발 흐름 차단 안 함.
+
+### 교훈 기록 (learnings.md 2026-04-20)
+1. SELECT → 외부 emit → UPDATE race 방어 (UPDATE WHERE 재포함 + `.returning()`)
+2. PG numeric sum → BigInt-safe 포맷 (multi-tenant 대비 선제 적용)
+3. README 정책 vs 진행 문서 불일치 작업 시작 전 점검
 
 ---
 

@@ -1,5 +1,62 @@
 # Dairect — 교훈 기록
 
+## 2026-04-20 — SELECT → 외부 emit → UPDATE 패턴의 race: UPDATE WHERE 재포함 + `.returning()`로 DB 레벨 차단
+
+- **상황**: Task A-2 W2 invoice.overdue cron에서 연체 invoice 조회 후 n8n emit(3초) 후 상태 `'sent' → 'overdue'` 전이. security-reviewer가 SELECT와 UPDATE 사이 window에서 사용자가 대시보드로 `paid` 변경 시 cron이 `paid`를 `overdue`로 덮어쓰면서 "연체 안내" 이메일까지 발송하는 🔴 HIGH race를 지적. 🟡 프로젝트의 재무 무결성 위반.
+- **원인**: WHERE에 `eq(invoices.id, row.invoiceId)`만 있어 SELECT 시점의 정합성이 UPDATE 시점까지 유지되지 않음. `db.update`는 기본으로 affected row count를 return하지 않아 성공 여부도 불명확.
+- **해결**: UPDATE WHERE에 SELECT gate 조건 재포함 + `.returning()`으로 affected row 확인.
+  ```typescript
+  const updated = await db
+    .update(invoices)
+    .set({ status: "overdue", lastOverdueNotifiedAt: new Date(), updatedAt: new Date() })
+    .where(and(
+      eq(invoices.id, row.invoiceId),
+      eq(invoices.status, "sent"),        // gate 재포함
+      isNull(invoices.lastOverdueNotifiedAt),
+    ))
+    .returning({ id: invoices.id });
+  if (updated.length === 0) {
+    // race 감지 — emit은 이미 발송, 상태 회귀는 차단됨
+    console.warn({ event: "cron_..._race_detected", ... });
+  }
+  ```
+- **규칙**:
+  1. "SELECT → 외부 서비스 호출(HTTP/emit) → 상태 변경 UPDATE" 패턴에서 UPDATE WHERE는 반드시 SELECT 조건과 동일한 gate 조건을 재포함. 단순 PK 매칭만으로는 race 차단 불가.
+  2. Drizzle `.update()`에 `.returning({...})` 추가해서 affected row 수 확인. 0 row면 race 또는 이미 처리됨 → 구조화 로그 남기고 계속.
+  3. at-most-once 보장이 강제 필요한 경우 transaction(BEGIN → 외부 호출 안 함 → UPDATE gate 확인 → COMMIT → 외부 호출) 또는 outbox 패턴 고려. MVP는 emit-first + UPDATE-gate로 수용 가능.
+  4. security-reviewer 같은 독립 리뷰 agent는 이런 race를 놓치지 않고 잡아준다 — 신규 cron/상태 전이 작성 시 반드시 병렬 리뷰.
+
+## 2026-04-20 — PG `numeric` sum은 string 반환 — BigInt 기반 포맷으로 Number 정밀도 한계 회피
+
+- **상황**: Task A-2 W3 weekly_summary cron에서 `sum(invoices.totalAmount)` 집계. Drizzle `sum()` return type `string | null`. 일반 사용에선 `Number()` 변환이 문제없지만 security-reviewer가 multi-tenant 확장 시 `MAX_SAFE_INTEGER` (9.007×10^15 = 약 9,007조) 근접 시 정밀도 손실 가능성을 MEDIUM으로 지적.
+- **원인**: PostgreSQL `numeric`/`bigint` 타입은 JS `Number` 정밀도(53비트)를 초과하는 값 표현 가능. Drizzle이 string으로 return하는 이유가 여기 있음. 단일 user 레벨에선 MAX_SAFE_INTEGER 도달 불가능하지만, multi-tenant 누적 통계에선 플랫폼 레벨에서 초과 가능.
+- **해결**: 서버에서 raw string 보존 + pre-formatted 필드 동반 emit. 클라이언트(n8n/frontend)는 formatted 값 직접 사용 → Number 변환 경로 자체 제거.
+  ```typescript
+  function formatKrwFromString(raw: string): string {
+    try { return BigInt(raw).toLocaleString("ko-KR"); }
+    catch { const n = Number(raw); return Number.isFinite(n) ? n.toLocaleString("ko-KR") : "0"; }
+  }
+  const paidAmountTotal = paidTotalRaw == null ? "0" : String(paidTotalRaw);  // raw string 보존
+  const paidAmountFormatted = formatKrwFromString(paidAmountTotal);           // "5,000,000"
+  return { ..., paidAmountTotal, paidAmountFormatted, ... };
+  ```
+- **규칙**:
+  1. DB `numeric`/`bigint` aggregate(sum/avg 등)를 외부 시스템(n8n/프론트/이메일 등)으로 전달할 때 (1) raw는 string으로 보존 (2) 표시용 포맷은 서버에서 BigInt로 수행해 별도 필드로 emit (3) 클라이언트 Number 변환 경로 제거.
+  2. `BigInt.toLocaleString()`은 Node.js 18+ 지원. Next.js 15 런타임은 이미 18+이라 안전.
+  3. BigInt 실패(소수점 등 드문 경우) 대비 Number fallback + `Number.isFinite` 가드 포함한 helper로 wrapping.
+  4. multi-tenant SaaS 전환을 앞둔 single-user 단계에서도 BigInt-safe 패턴 선제 적용 — Phase 5 대비 비용이 작업 시점 1~2시간인 반면 도래 후 마이그레이션은 datawide refactor + downtime.
+
+## 2026-04-20 — README/문서에 박힌 "수동 복제 가이드 정책"이 "이미 완료된 작업"을 의미할 수 있음 — 작업 시작 전 정책 상태 점검
+
+- **상황**: Task A-1 "W5 portal_feedback_received 워크플로 JSON 생성" 계획 수립 중, `n8n/README.md`에 이미 `"JSON 파일은 저장소에 포함하지 않음 + W4 수동 복제 가이드"` 정책이 박혀 있어 A-1은 사실상 이미 "완료된 작업"의 성격. PROGRESS.md 테이블의 `"cron 2건 백로그"` 라인만 보면 W5도 미완료처럼 보이나, README에는 W5 전체 수동 복제 가이드(Compose Email jsCode 포함)가 이미 완성 상태.
+- **원인**: 진행 상황 문서(PROGRESS.md)와 구현 관련 문서(README/주석)의 정책 상태가 분리되어 있어 "의도적 미구현 + 가이드로 대체" 케이스를 놓칠 수 있음. 작업 계획 수립 시 PROGRESS만 보면 같은 일을 두 번 하게 될 위험.
+- **해결**: 실제 작업 시작 전 Jayden에게 정책 불일치 보고 + 어떤 쪽을 Single Source로 쓸지 결정 요청. 이 케이스에서 Jayden은 "정책 변경: JSON 커밋 진행" 선택 → README의 수동 복제 가이드 섹션을 JSON 임포트 절차로 간결화 + JSON 파일 신규 생성.
+- **규칙**:
+  1. Phase 백로그 또는 신규 Task 선택 시 (1) PROGRESS.md 백로그 라인 (2) 관련 모듈의 README/docs/주석 내 "의도적 미구현" 명시 (3) 관련 코드의 "TODO/이관됨" 주석 세 가지를 모두 확인.
+  2. 불일치 발견 시 작업 돌입 전에 Jayden에게 "정책 현황 + 어느 쪽을 Single Source로 쓸지" 물어보고 결정 선행. 방향 확인 후 구현 시작해야 재작업 회피.
+  3. 이 패턴은 "이미 구현됐지만 문서만 오래된" 역방향 케이스보다, "문서는 완성 상태지만 실제로 파일/코드가 없는" 케이스에서 더 자주 발생. 특히 대규모 README에 코드 스니펫까지 포함된 경우 검증 필수.
+  4. 방향 정정 시 Jayden이 옵션을 선택해야 하므로, (a) 현상황 판정 (b) 선택지 2~3개 제시 (c) 각 선택지의 범위/영향 명시 → Jayden이 1번에 결정 가능한 형태로 제시.
+
 ## 2026-04-19 — PWA Service Worker 인증 영역 NetworkOnly는 `handlerDidError` plugin과 세트로 등록 — 단독은 abort/redirect 시 `no-response` throw로 이중 요청 + 매 navigation 콘솔 spam
 
 - **증상**: dairect.kr 도메인 정식 연결 후 production 대시보드 페이지 전환이 체감 느림. Vercel(`icn1`) ↔ Supabase(`ap-northeast-2`) region 정렬 완벽 확인 — 정렬 미스매치는 원인 X. DevTools 콘솔에 매 navigation마다 `The FetchEvent for "..." resulted in a network error response: the promise was rejected` + `Uncaught (in promise) no-response :: sw.js:1:32492` 발생.
