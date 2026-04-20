@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-20 후반 후속 (Phase 5 Epic 5-1 3/8 — Task 5-1-3 backfill SQL 정의 + PRD 섹션 10 결정 4건 + No-Line Rule 정비)
-> 현재 위치: **Phase 5 Epic 5-1 진행 중 (3/8 Task 정의 완료 — 스키마·마이그레이션 파일만, Jayden DB push 대기)**. 다음은 Jayden DB push (0017→0018→0019→0020 순차) → Task 5-1-4 NOT NULL 전환 / 또는 DB 무관 Task 5-1-5(RLS)/5-1-6(withWorkspace helper) 병행 설계
+> 최종 업데이트: 2026-04-20 후반 4차 (Phase 5 Epic 5-1 5/8 — Task 5-1-6 withWorkspace helper + Task 5-1-5 RLS 48 policy)
+> 현재 위치: **Phase 5 Epic 5-1 진행 중 (5/8 Task 정의 완료 — 스키마·RLS·helper·backfill 파일, Jayden DB push 대기 중)**. 다음은 Jayden DB push (0017→0018→0019→0020→0021 순차) → Task 5-1-4 NOT NULL 전환 / 또는 DB 무관 Task 5-1-7 (12 테이블 전면 withWorkspace migrate) 병행
 
 ## 전체 진행률
 
@@ -12,7 +12,7 @@
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | ✅ 완료 (W2/W3 cron 포함) | 100% (5/5 + cron 전체 완료) |
 | Phase 4 | 고객 포털 + /demo + PWA | ✅ 완료 | 100% (Task 4-1 ✅ / 4-2 M1~M8 ✅) |
-| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 3/8 (스키마 + backfill SQL 정의, DB push 대기) |
+| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 5/8 (스키마·RLS·helper·backfill 파일, DB push 대기) |
 
 ## Phase 0: 기반 설정 ✅
 
@@ -409,7 +409,105 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 
 ---
 
-## 이번 세션 (2026-04-20 후반 후속 — A→B→C→D 4단계 순차 실행, 7 커밋)
+## 이번 세션 (2026-04-20 후반 4차 — Phase 5 Epic 5-1 5/8 — Task 5-1-6 withWorkspace helper + Task 5-1-5 RLS 48 policy)
+
+### 세션 스코프 (2 Task 순차, 각 Task 단위 6단계 사이클)
+
+1. **Task 5-1-6 withWorkspace helper** — 신규 2 파일(`get-workspace-id.ts` + `workspace-scope.ts`) + 예시 migrate 2곳(`clients/actions.ts` createClientAction + getClients). code-reviewer HIGH 2건 반영.
+2. **Task 5-1-5 RLS 48 policy** — 신규 1 파일(`0021_rls_policies_multitenant.sql`, 332줄): helper `is_workspace_member(uuid)` + 11 테이블 deny_anon RESTRICTIVE + 12 테이블 × 4 CRUD authenticated + BEGIN/COMMIT + ROLLBACK. db-engineer HIGH 3 + MEDIUM 2 + LOW 1 반영.
+
+### 산출물
+
+**Task 5-1-6 (3 파일)**
+- `src/lib/auth/get-workspace-id.ts` (신규, 44줄) — React cache() + workspace_members innerJoin workspaces + deleted_at IS NULL 필터 + 2차 orderBy(id) 결정적 선택
+- `src/lib/db/workspace-scope.ts` (신규, 37줄) — `workspaceScope(col, wsId)` helper + `assertWorkspaceContext(wsId)` asserts narrowing
+- `src/app/dashboard/clients/actions.ts` (+14줄) — read 경로 `null → []` / write 경로 `null → ActionResult 에러`. 전면 migrate는 Task 5-1-7 스코프.
+
+**Task 5-1-5 (1 파일)**
+- `src/lib/db/migrations/0021_rls_policies_multitenant.sql` (신규, 332줄)
+  - helper: `public.is_workspace_member(uuid)` — SECURITY DEFINER + STABLE + `(select auth.uid())` InitPlan 최적화 + workspaces.deleted_at IS NULL 필터
+  - 11 테이블 deny_anon `AS RESTRICTIVE` (briefings 제외 — 0009 소유 정책 경계 유지)
+  - 12 테이블 × 4 CRUD authenticated 정책 (SELECT USING / INSERT WITH CHECK / UPDATE USING+WITH CHECK / DELETE USING)
+  - BEGIN/COMMIT 전체 래핑 + 완전 ROLLBACK SQL 주석
+
+### 검증
+
+- `pnpm tsc --noEmit` **0 errors** (Task 5-1-6 후)
+- `pnpm lint` 0 errors (기존 1 warning 유지, 이번 변경 무관)
+- code-reviewer 독립 리뷰 (Task 5-1-6): HIGH 2건 선조치 반영. MEDIUM 4 + LOW 2 중 일부는 Task 5-1-7 이월.
+- db-engineer 독립 리뷰 (Task 5-1-5): HIGH 3 + MEDIUM 2 + LOW 1 반영. H2 옵션 B(my_workspaces SETOF)는 Task 5-1-8 실측 후 판단.
+- SQL 실동작 검증: Jayden DB push (Task 5-1-4 NOT NULL 전환) 이후 Task 5-1-8 범위.
+
+### code-reviewer 리뷰 반영 내역 (Task 5-1-6)
+
+| 심각도 | 이슈 | 수정 |
+|--------|------|------|
+| 🟡 HIGH H-1 | `orderBy(joinedAt)` 동률 시 DB 임의 선택 → 같은 user가 매 request 다른 workspace 반환 가능 | `orderBy(asc(joinedAt), asc(id))` 2차 키 추가 |
+| 🟡 HIGH H-2 | `workspaces.deletedAt` 체크 누락 → soft-delete workspace fallback 시 read/write 모두 실패 | `workspaces innerJoin + isNull(deletedAt)` 필터 |
+
+Task 5-1-7 이월: M-1 AnyColumn 타입 가드 강화 / M-2 cache invalidation 문서화 / M-3 빈 배열 UX 구별 / M-4 updateClientAction 등 나머지 함수 migrate / L-1 래퍼 ROI 재평가. L-2 defense-in-depth 유지 (PASS).
+
+### db-engineer 리뷰 반영 내역 (Task 5-1-5)
+
+| 심각도 | 이슈 | 수정 |
+|--------|------|------|
+| 🟡 HIGH H1 | deny_anon PERMISSIVE → 향후 `FOR SELECT TO anon` 추가 시 OR 결합으로 deny 무력화 | 11 테이블 `AS RESTRICTIVE` 키워드 추가 |
+| 🟡 HIGH H2 | helper `auth.uid()` row-per-call → 대량 스캔 부담 | `(select auth.uid())` InitPlan 래핑 (옵션 A) |
+| 🟡 HIGH H3 | DROP + CREATE 사이 짧은 race window 가능 | 파일 상단 `BEGIN;` + 하단 `COMMIT;` 트랜잭션 래핑 |
+| 🟢 MEDIUM M1 | anon `GRANT EXECUTE` 불필요 — deny_anon으로 호출 경로 없음 | `GRANT anon` 삭제 + ROLLBACK `REVOKE anon` 삭제 |
+| 🟢 MEDIUM M2 | briefings_deny_anon DROP+CREATE가 0009 소유 경계 침범 | briefings 섹션 deny_anon 2줄 삭제 — 0009 원본 보존 |
+| 🔵 LOW L2 | portal_tokens 마지막 `--> statement-breakpoint` 누락 | 추가 |
+
+이월/생략:
+- H2 옵션 B (`my_workspaces() RETURNS SETOF uuid` + 정책 48개 IN 패턴): Task 5-1-8 실측 결과 기반 판단
+- 0009/0018 deny_anon RESTRICTIVE 전환: 별도 후속 Task
+- M3 시그니처 변경 가이드 주석: 정보성, 현 파일 수정 불필요
+- M4 이름 규칙: PASS
+- L1/L3: PASS
+
+### Phase 5 Epic 5-1 진행 현황 (갱신)
+
+| Task | 상태 | 산출물 |
+|------|------|--------|
+| 5-1-1 | ✅ 정의 | workspaces 4 테이블 + RLS deny_anon (0017/0018) |
+| 5-1-2 | ✅ 정의 | 12 테이블 workspace_id NULLABLE (0019) |
+| 5-1-3 | ✅ 정의 | default workspace + backfill + assertion (0020) |
+| **5-1-5** | ✅ 정의 | **RLS 48 policy 전면 재작성 (0021) ← NEW** |
+| **5-1-6** | ✅ 정의 | **withWorkspace helper + 예시 1건 migrate ← NEW** |
+| 5-1-4 | ⬜ 대기 | NOT NULL 전환 + 채번 UNIQUE 재조정 (Jayden DB push 후) |
+| 5-1-7 | ⬜ 대기 | 12 테이블 전면 migrate + Server Action guard |
+| 5-1-8 | ⬜ 대기 | E2E cross-workspace 누출 시뮬레이션 |
+
+### Jayden 수동 대기 (DB 반영, 순서 엄수)
+
+1. **0017** (4 테이블 DDL: workspaces/members/invitations/settings)
+2. **0018** (RLS ENABLE + `*_deny_anon` 정책)
+3. **0019** (12 도메인 ALTER ADD COLUMN workspace_id NULLABLE + FK RESTRICT)
+4. **0020** (default workspace 생성 + 12 테이블 backfill + 자동 assertion)
+5. **0021 (신규)** — RLS 48 정책. 권장 순서: Task 5-1-4 NOT NULL 전환 이후 (NULL row 전무 상태에서 적용하면 깨끗). 필수 아님.
+
+실행 경로: Supabase MCP `apply_migration` 또는 Dashboard SQL Editor.
+
+### 다음 세션 선택지
+
+1. **Jayden DB push (0017→0021 순차)** 후 Task 5-1-4 NOT NULL 전환 (채번 UNIQUE 재조정)
+2. **DB 무관 Task 5-1-7 계획** (12 테이블 전면 withWorkspace migrate + Server Action guard)
+3. **Stripe/Resend 인프라 조사** (Phase 5.5 선행)
+
+### 차단 요소
+
+없음. Jayden DB push 대기가 있지만 Task 5-1-7 코드 작업은 병행 가능(결합 시점 정합성 검증).
+
+### 교훈 기록 (learnings.md, 4건 추가 예정)
+
+1. React `cache()` 2단 합성 — getUserId cache → getCurrentWorkspaceId cache. 동일 request 내 중첩 호출도 DB 왕복 각 1회로 수렴.
+2. RLS `AS RESTRICTIVE` vs PERMISSIVE — deny 용도는 반드시 RESTRICTIVE 명시. PERMISSIVE OR 결합으로 deny 무력화 함정.
+3. Supabase `auth.uid()` InitPlan 최적화 — `(select auth.uid())` 서브쿼리 래핑. SECURITY DEFINER + STABLE만으로는 row-per-call 방지 못 함.
+4. RLS × Server Action Layered Security — 역할 세분화는 RLS가 아니라 Server Action. 정책 × 역할 조합 폭발 방지.
+
+---
+
+## 이전 세션 (2026-04-20 후반 후속 — A→B→C→D 4단계 순차 실행, 7 커밋)
 
 ### 세션 스코프
 

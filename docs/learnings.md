@@ -1,5 +1,52 @@
 # Dairect — 교훈 기록
 
+## 2026-04-20 후반 4차 — React `cache()` 2단 합성: getUserId + getCurrentWorkspaceId 중첩 메모이제이션
+
+- **상황**: Task 5-1-6에서 `getCurrentWorkspaceId()` 구현 시 내부에서 `getUserId()` 호출. 두 함수 모두 request 스코프에서 여러 번 불릴 수 있음 (Server Component + 여러 Server Action 경로). 각 함수를 독립 구현하면 대시보드 홈 6 쿼리 × 2(uid+wsId) = 12회 DB 왕복 잠재.
+- **원인**: `cache()` wrapper는 순수 request 스코프 메모이제이션. 중첩 호출 시 각 레이어가 **독립적으로 캐시**되어야 함. 외부에서 한 번 wrapping하고 내부 호출은 생호출이면 하위 레이어는 여전히 반복 호출.
+- **해결**: 두 함수 모두 `cache()` 래핑 + 부모 함수가 자식을 **내부 호출**. `getCurrentWorkspaceId = cache(async () => { const uid = await getUserId(); ... })`. 레이어별 1회로 수렴.
+- **규칙**:
+  1. **인증/컨텍스트 조회 함수는 전부 React `cache()` 래핑 기본**. 중첩 호출도 각 레이어 자동 중복 제거. 함수는 pure(같은 request 내 같은 입력 → 같은 출력)여야 함.
+  2. cache composition 패턴: 부모 cache 함수가 자식 cache 함수를 **내부에서 호출**. 결과를 파라미터로 전달받아 재호출하면 자식 레이어 캐시 혜택 소실.
+  3. request 경계 넘어서는 invalidation 안 됨 — workspace switcher 같은 "현재 컨텍스트 변경" 기능(Epic 5-2) 도입 시 revalidatePath + 클라이언트 re-fetch 조합 필요.
+  4. getUserId/getCurrentWorkspaceId는 **Server Action ActionResult 실패 응답에 쓰기 쉬운 null 반환** 형태로 통일. throw는 `assertWorkspaceContext` 같은 never-case 전용 assertion으로 격리.
+
+## 2026-04-20 후반 4차 — RLS `AS RESTRICTIVE` vs PERMISSIVE: deny 정책은 반드시 RESTRICTIVE 명시
+
+- **상황**: Task 5-1-5 RLS 48 정책 작성 시 각 테이블 `deny_anon` 정책을 `FOR ALL TO anon USING (false)`로 작성. db-engineer 리뷰 H1 — PostgreSQL 기본 `CREATE POLICY`는 **PERMISSIVE**. 여러 PERMISSIVE 정책은 **OR 결합**. 향후 누군가 `FOR SELECT TO anon USING (...)` permissive 정책을 추가하면 deny가 OR로 무력화되는 잠재 함정.
+- **원인**: CREATE POLICY 기본값이 PERMISSIVE라는 사실을 인지 못 하면 "USING (false) = 강제 차단"으로 오인. 단독일 때는 작동하지만 co-existing permissive 정책이 생기는 순간 의미 소실.
+- **해결**: deny 의도 정책은 반드시 `AS RESTRICTIVE` 키워드. RESTRICTIVE 정책은 **AND 결합** — 하나라도 false면 전체 차단. `CREATE POLICY "clients_deny_anon" ON "clients" AS RESTRICTIVE FOR ALL TO anon USING (false);`
+- **규칙**:
+  1. **deny 의도 RLS 정책은 RESTRICTIVE 명시**. PERMISSIVE는 allow-list 의도일 때만. USING (false)만 믿으면 함정.
+  2. 기존 PERMISSIVE deny 정책도 **같은 role에 co-existing permissive가 없는 한 실효 동일**. 하지만 누적 시 무력화 위험 — 정비 Task로 전환 권장.
+  3. PostgreSQL 공식 정의: "A restrictive policy reduces which rows each user has access to." → AND 결합으로 allow-list(permissive) + block-list(restrictive) 조합.
+  4. 멀티테넌트 RLS에서 정책 수가 많아질수록 잠재 — 설계 시점에 deny = restrictive로 선제 지정하면 확장 시 안전.
+
+## 2026-04-20 후반 4차 — Supabase `auth.uid()` InitPlan 최적화: `(select auth.uid())` 서브쿼리 래핑
+
+- **상황**: Task 5-1-5 helper function `is_workspace_member(uuid)` 작성 — SECURITY DEFINER + STABLE로 "쿼리 내 row-per-call 부담 최소화" 의도. db-engineer 리뷰 H2 — `STABLE`은 옵티마이저 hint일 뿐, PostgreSQL이 서브쿼리 pull-up/함수 재사용을 자동 보장하지 않음. 12 테이블 × N row 스캔 시 (특히 estimate_items 견적당 수십 row) 함수가 row 단위로 반복 호출.
+- **원인**: Supabase `auth.uid()`는 JWT claim 파싱 함수. SQL 함수 바디에서 직접 호출하면 옵티마이저가 "매 row 다른 값 가능"으로 간주해 재호출.
+- **해결**: `auth.uid()` → `(select auth.uid())` 서브쿼리 래핑. Postgres 옵티마이저가 **InitPlan**으로 추출 → 쿼리당 1회만 평가. Supabase 공식 "Performance: Optimize RLS queries" 첫 번째 권고 패턴.
+  ```sql
+  WHERE wm.user_id = (select auth.uid())  -- 쿼리당 1회
+  ```
+- **규칙**:
+  1. **RLS 정책·helper function에서 `auth.uid()` 호출은 반드시 `(select auth.uid())` 서브쿼리 래핑**. Supabase 공식 RLS 최적화 가이드 첫 번째 권고.
+  2. `STABLE`/`IMMUTABLE` marker는 옵티마이저 hint일 뿐 함수 재사용 강제 아님. InitPlan으로 추출되려면 표현식 자체가 row-independent 형태여야 함 — 서브쿼리 wrapping이 명시적 신호.
+  3. 더 강한 최적화: helper를 `RETURNS SETOF uuid`로 변경하고 정책에서 `workspace_id IN (SELECT my_workspaces())` — 쿼리당 1회 + IN-list 인덱스 활용. 수정 범위 크므로 실측(E2E) 후 전환 판단.
+  4. EXPLAIN ANALYZE에서 `InitPlan N (returns $M)` 표기면 최적화 성공 증거. row-per-call은 `SubPlan`으로 구분.
+
+## 2026-04-20 후반 4차 — RLS × Server Action Layered Security: 역할 세분화는 RLS가 아니라 Server Action
+
+- **상황**: Task 5-1-5 RLS 설계 시 PRD 섹션 10 C2 결정 "Member write 프로젝트 범위" 반영 여부 논의. RLS 정책에 `CASE WHEN role='member' THEN ... ELSE TRUE END` 형태로 역할 분기 내장 고려.
+- **원인**: 48 정책 × 3 역할 조합 = 144 branch 잠재. 가독성 극저하. 역할 추가(viewer/guest 등) 시 전 정책 수정 필요. 정책 변경도 DB 마이그레이션 무게 동반.
+- **해결**: **Layered security 원칙** — RLS는 workspace 격리 전담, 역할 권한은 Server Action 진입점 guard. Task 5-1-5 RLS 정책 모두 `is_workspace_member(workspace_id)` 단일 조건 통일. 역할 세분화는 Task 5-1-7 (Server Action guard)에서 구현.
+- **규칙**:
+  1. **RLS = 격리(isolation) / Server Action = 권한(authorization) 분리**. RLS에 역할 분기 넣으면 정책 수 × 역할 수 조합 폭발. 유지보수 악몽.
+  2. 격리(row-level 소유권)는 SQL 레벨 방어가 적합 — 앱 코드 버그로 쿼리 조건 누락해도 DB가 최종 방어선. 권한(기능별 허용/금지)은 애플리케이션 로직에 가까워 코드 레벨 구현이 자연스러움.
+  3. defense-in-depth 유지 — Server Action guard + RLS 격리 + DB 제약(FK/CHECK) 3중 방어. 한 레이어 누락돼도 다른 레이어가 잡음.
+  4. RLS에 역할 넣고 싶으면 helper function에 역할 인자 추가(`has_role_in_workspace(ws_id, 'member')`) 패턴. 하지만 정책 세분화는 결국 정책 수 증가 — 역할 3개면 최소 2~3× 확대. 실측 없이 선제 도입 금지.
+
 ## 2026-04-20 후반 후속 — DB data migration assertion: 트랜잭션 내 DO 블록 + RAISE EXCEPTION으로 "기대 상태 도달" 기계 보장
 
 - **상황**: Task 5-1-3 (0020 backfill) SQL에서 12 도메인 테이블의 `workspace_id IS NULL` 행을 default workspace로 UPDATE. db-engineer 리뷰에서 H2(🟡 HIGH) — 부모 경유 3개 테이블(`client_notes`/`milestones`/`estimate_items`) UPDATE가 `c.workspace_id IS NOT NULL` 가드로 자식만 남기는 silent skip 가능성 지적. 검증 쿼리를 주석으로 두면 실수로 통과 → 다음 Task 5-1-4 NOT NULL 전환에서 뒤늦게 실패.
