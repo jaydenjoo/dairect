@@ -3,6 +3,8 @@
 import { db } from "@/lib/db";
 import { projects, clients, milestones } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
+import { workspaceScope } from "@/lib/db/workspace-scope";
 import {
   projectFormSchema,
   projectStatusSchema,
@@ -26,6 +28,9 @@ export async function getProjects() {
   const userId = await getUserId();
   if (!userId) return [];
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return [];
+
   return db
     .select({
       id: projects.id,
@@ -43,7 +48,13 @@ export async function getProjects() {
     .from(projects)
     .leftJoin(clients, eq(clients.id, projects.clientId))
     .leftJoin(milestones, eq(milestones.projectId, projects.id))
-    .where(and(eq(projects.userId, userId), isNull(projects.deletedAt)))
+    .where(
+      and(
+        eq(projects.userId, userId),
+        workspaceScope(projects.workspaceId, workspaceId),
+        isNull(projects.deletedAt),
+      ),
+    )
     .groupBy(projects.id, clients.companyName)
     .orderBy(desc(projects.createdAt));
 }
@@ -53,6 +64,9 @@ export async function getProjects() {
 export async function getProject(id: string) {
   const userId = await getUserId();
   if (!userId) return null;
+
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return null;
 
   const rows = await db
     .select({
@@ -77,7 +91,12 @@ export async function getProject(id: string) {
     .from(projects)
     .leftJoin(clients, eq(clients.id, projects.clientId))
     .where(
-      and(eq(projects.id, id), eq(projects.userId, userId), isNull(projects.deletedAt)),
+      and(
+        eq(projects.id, id),
+        eq(projects.userId, userId),
+        workspaceScope(projects.workspaceId, workspaceId),
+        isNull(projects.deletedAt),
+      ),
     )
     .limit(1);
 
@@ -90,10 +109,18 @@ export async function getClientsForSelect() {
   const userId = await getUserId();
   if (!userId) return [];
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return [];
+
   return db
     .select({ id: clients.id, companyName: clients.companyName })
     .from(clients)
-    .where(eq(clients.userId, userId))
+    .where(
+      and(
+        eq(clients.userId, userId),
+        workspaceScope(clients.workspaceId, workspaceId),
+      ),
+    )
     .orderBy(clients.companyName);
 }
 
@@ -103,6 +130,9 @@ export async function createProjectAction(data: ProjectFormData): Promise<Action
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   const parsed = projectFormSchema.safeParse(data);
   if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "입력값이 올바르지 않습니다" };
 
@@ -110,12 +140,18 @@ export async function createProjectAction(data: ProjectFormData): Promise<Action
 
   try {
     // clientId 소유권 검증 — DevTools로 타인 client UUID 삽입 시 타인 회사명이 후속 PDF/견적서에
-    // 노출되는 경로 차단 (Task 3-3 보안 리뷰 M1).
+    // 노출되는 경로 차단 (Task 3-3 보안 리뷰 M1). workspace 조건 추가로 cross-workspace 방어.
     if (v.clientId) {
       const [owned] = await db
         .select({ id: clients.id })
         .from(clients)
-        .where(and(eq(clients.id, v.clientId), eq(clients.userId, userId)))
+        .where(
+          and(
+            eq(clients.id, v.clientId),
+            eq(clients.userId, userId),
+            workspaceScope(clients.workspaceId, workspaceId),
+          ),
+        )
         .limit(1);
       if (!owned) {
         return { success: false, error: "선택한 고객사에 접근할 수 없습니다" };
@@ -126,6 +162,7 @@ export async function createProjectAction(data: ProjectFormData): Promise<Action
       .insert(projects)
       .values({
         userId,
+        workspaceId,
         name: v.name,
         clientId: v.clientId ?? null,
         description: v.description || null,
@@ -154,6 +191,9 @@ export async function updateProjectStatusAction(
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   // [CRITICAL 2] 서버 측 상태값 Zod 검증
   const parsed = projectStatusSchema.safeParse(status);
   if (!parsed.success) return { success: false, error: "올바르지 않은 상태값입니다" };
@@ -177,12 +217,17 @@ export async function updateProjectStatusAction(
         .from(projects)
         .leftJoin(
           clients,
-          and(eq(projects.clientId, clients.id), eq(clients.userId, userId)),
+          and(
+            eq(projects.clientId, clients.id),
+            eq(clients.userId, userId),
+            workspaceScope(clients.workspaceId, workspaceId),
+          ),
         )
         .where(
           and(
             eq(projects.id, idCheck.data),
             eq(projects.userId, userId),
+            workspaceScope(projects.workspaceId, workspaceId),
             isNull(projects.deletedAt),
           ),
         )
@@ -198,6 +243,7 @@ export async function updateProjectStatusAction(
           and(
             eq(projects.id, idCheck.data),
             eq(projects.userId, userId),
+            workspaceScope(projects.workspaceId, workspaceId),
             isNull(projects.deletedAt),
           ),
         );
@@ -277,6 +323,9 @@ export async function updateProjectPublicFieldsAction(
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   const idCheck = projectIdSchema.safeParse(projectId);
   if (!idCheck.success) return { success: false, error: "프로젝트 식별자가 올바르지 않습니다" };
 
@@ -317,6 +366,7 @@ export async function updateProjectPublicFieldsAction(
         and(
           eq(projects.id, idCheck.data),
           eq(projects.userId, userId),
+          workspaceScope(projects.workspaceId, workspaceId),
           isNull(projects.deletedAt),
         ),
       )
@@ -342,13 +392,21 @@ export async function deleteProjectAction(id: string): Promise<ActionResult> {
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   try {
     await db
       .update(projects)
       .set({ deletedAt: new Date() })
       .where(
         // [CRITICAL 1] 이미 삭제된 레코드 재삭제 방지
-        and(eq(projects.id, id), eq(projects.userId, userId), isNull(projects.deletedAt)),
+        and(
+          eq(projects.id, id),
+          eq(projects.userId, userId),
+          workspaceScope(projects.workspaceId, workspaceId),
+          isNull(projects.deletedAt),
+        ),
       );
 
     revalidatePath("/dashboard/projects");

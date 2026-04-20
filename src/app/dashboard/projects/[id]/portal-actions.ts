@@ -3,6 +3,8 @@
 import { db } from "@/lib/db";
 import { projects, portalTokens, activityLogs } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
+import { workspaceScope } from "@/lib/db/workspace-scope";
 import { and, eq, gte, isNull, desc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -41,6 +43,9 @@ export async function getActivePortalToken(
   const userId = await getUserId();
   if (!userId) return null;
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return null;
+
   const idCheck = projectIdSchema.safeParse(projectId);
   if (!idCheck.success) return null;
 
@@ -54,6 +59,7 @@ export async function getActivePortalToken(
       and(
         eq(projects.id, idCheck.data),
         eq(projects.userId, userId),
+        workspaceScope(projects.workspaceId, workspaceId),
         isNull(projects.deletedAt),
       ),
     )
@@ -71,6 +77,7 @@ export async function getActivePortalToken(
     .where(
       and(
         eq(portalTokens.projectId, idCheck.data),
+        workspaceScope(portalTokens.workspaceId, workspaceId),
         isNull(portalTokens.revokedAt),
       ),
     )
@@ -97,6 +104,9 @@ export async function issuePortalTokenAction(
 ): Promise<IssuePortalTokenResult> {
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
+
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
 
   const idCheck = projectIdSchema.safeParse(projectId);
   if (!idCheck.success)
@@ -134,6 +144,7 @@ export async function issuePortalTokenAction(
           and(
             eq(projects.id, idCheck.data),
             eq(projects.userId, userId),
+            workspaceScope(projects.workspaceId, workspaceId),
             isNull(projects.deletedAt),
           ),
         )
@@ -152,6 +163,7 @@ export async function issuePortalTokenAction(
         .where(
           and(
             eq(portalTokens.projectId, idCheck.data),
+            workspaceScope(portalTokens.workspaceId, workspaceId),
             isNull(portalTokens.revokedAt),
           ),
         )
@@ -165,6 +177,7 @@ export async function issuePortalTokenAction(
         .insert(portalTokens)
         .values({
           projectId: idCheck.data,
+          workspaceId,
           token,
           issuedBy: userId,
           issuedAt: now,
@@ -176,6 +189,7 @@ export async function issuePortalTokenAction(
       // `reissue`와 `revokedTokenIds`로 "어느 토큰이 어느 토큰을 교체했는지" 역추적 가능.
       await tx.insert(activityLogs).values({
         userId,
+        workspaceId,
         projectId: idCheck.data,
         entityType: "portal_token",
         entityId: tokenRow.id,
@@ -216,6 +230,9 @@ export async function revokePortalTokenAction(
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   const idCheck = projectIdSchema.safeParse(projectId);
   if (!idCheck.success)
     return { success: false, error: "프로젝트 식별자가 올바르지 않습니다" };
@@ -229,6 +246,7 @@ export async function revokePortalTokenAction(
           and(
             eq(projects.id, idCheck.data),
             eq(projects.userId, userId),
+            workspaceScope(projects.workspaceId, workspaceId),
             isNull(projects.deletedAt),
           ),
         )
@@ -243,6 +261,7 @@ export async function revokePortalTokenAction(
         .where(
           and(
             eq(portalTokens.projectId, idCheck.data),
+            workspaceScope(portalTokens.workspaceId, workspaceId),
             isNull(portalTokens.revokedAt),
           ),
         )
@@ -252,6 +271,7 @@ export async function revokePortalTokenAction(
 
       await tx.insert(activityLogs).values({
         userId,
+        workspaceId,
         projectId: idCheck.data,
         entityType: "portal_token",
         action: "portal_token.revoked",

@@ -3,18 +3,31 @@
 import { db } from "@/lib/db";
 import { milestones, projects } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
+import { workspaceScope } from "@/lib/db/workspace-scope";
 import { milestoneFormSchema, type MilestoneFormData } from "@/lib/validation/milestones";
 import { eq, and, asc, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 type ActionResult = { success: boolean; error?: string };
 
-/** 프로젝트 소유권 검증 */
-async function verifyProjectOwnership(projectId: string, userId: string): Promise<boolean> {
+/** 프로젝트 소유권 검증 (defense-in-depth: userId + workspaceId) */
+async function verifyProjectOwnership(
+  projectId: string,
+  userId: string,
+  workspaceId: string,
+): Promise<boolean> {
   const rows = await db
     .select({ id: projects.id })
     .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.userId, userId), isNull(projects.deletedAt)))
+    .where(
+      and(
+        eq(projects.id, projectId),
+        eq(projects.userId, userId),
+        workspaceScope(projects.workspaceId, workspaceId),
+        isNull(projects.deletedAt),
+      ),
+    )
     .limit(1);
   return rows.length > 0;
 }
@@ -23,7 +36,10 @@ export async function getMilestones(projectId: string) {
   const userId = await getUserId();
   if (!userId) return [];
 
-  if (!(await verifyProjectOwnership(projectId, userId))) return [];
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return [];
+
+  if (!(await verifyProjectOwnership(projectId, userId, workspaceId))) return [];
 
   const rows = await db
     .select({
@@ -36,7 +52,12 @@ export async function getMilestones(projectId: string) {
       sortOrder: milestones.sortOrder,
     })
     .from(milestones)
-    .where(eq(milestones.projectId, projectId))
+    .where(
+      and(
+        eq(milestones.projectId, projectId),
+        workspaceScope(milestones.workspaceId, workspaceId),
+      ),
+    )
     .orderBy(asc(milestones.sortOrder), asc(milestones.createdAt));
 
   // isCompleted null → false 변환 (DB default는 false이지만 Drizzle 추론이 nullable)
@@ -50,7 +71,10 @@ export async function createMilestoneAction(
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
-  if (!(await verifyProjectOwnership(projectId, userId))) {
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
+  if (!(await verifyProjectOwnership(projectId, userId, workspaceId))) {
     return { success: false, error: "권한이 없습니다" };
   }
 
@@ -63,6 +87,7 @@ export async function createMilestoneAction(
   try {
     await db.insert(milestones).values({
       projectId,
+      workspaceId,
       title: v.title,
       description: v.description || null,
       dueDate: v.dueDate || null,
@@ -84,7 +109,10 @@ export async function toggleMilestoneAction(
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
-  if (!(await verifyProjectOwnership(projectId, userId))) {
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
+  if (!(await verifyProjectOwnership(projectId, userId, workspaceId))) {
     return { success: false, error: "권한이 없습니다" };
   }
 
@@ -96,7 +124,13 @@ export async function toggleMilestoneAction(
         completedAt: isCompleted ? new Date() : null,
         updatedAt: new Date(),
       })
-      .where(and(eq(milestones.id, milestoneId), eq(milestones.projectId, projectId)));
+      .where(
+        and(
+          eq(milestones.id, milestoneId),
+          eq(milestones.projectId, projectId),
+          workspaceScope(milestones.workspaceId, workspaceId),
+        ),
+      );
 
     revalidatePath(`/dashboard/projects/${projectId}`);
     revalidatePath("/dashboard/projects");
@@ -114,14 +148,23 @@ export async function deleteMilestoneAction(
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
-  if (!(await verifyProjectOwnership(projectId, userId))) {
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
+  if (!(await verifyProjectOwnership(projectId, userId, workspaceId))) {
     return { success: false, error: "권한이 없습니다" };
   }
 
   try {
     await db
       .delete(milestones)
-      .where(and(eq(milestones.id, milestoneId), eq(milestones.projectId, projectId)));
+      .where(
+        and(
+          eq(milestones.id, milestoneId),
+          eq(milestones.projectId, projectId),
+          workspaceScope(milestones.workspaceId, workspaceId),
+        ),
+      );
 
     revalidatePath(`/dashboard/projects/${projectId}`);
     revalidatePath("/dashboard/projects");

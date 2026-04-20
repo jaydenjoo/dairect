@@ -3,6 +3,8 @@
 import { db } from "@/lib/db";
 import { leads, clients, projects } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
+import { workspaceScope } from "@/lib/db/workspace-scope";
 import {
   leadFormSchema,
   leadStatusUpdateSchema,
@@ -19,11 +21,21 @@ type ActionResult = { success: boolean; error?: string; id?: string };
 
 const idSchema = z.string().uuid();
 
-async function verifyLeadOwnership(leadId: string, userId: string): Promise<boolean> {
+async function verifyLeadOwnership(
+  leadId: string,
+  userId: string,
+  workspaceId: string,
+): Promise<boolean> {
   const rows = await db
     .select({ id: leads.id })
     .from(leads)
-    .where(and(eq(leads.id, leadId), eq(leads.userId, userId)))
+    .where(
+      and(
+        eq(leads.id, leadId),
+        eq(leads.userId, userId),
+        workspaceScope(leads.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
   return rows.length > 0;
 }
@@ -46,7 +58,13 @@ export async function getLeads(filters: LeadListFilters = {}) {
   const userId = await getUserId();
   if (!userId) return [];
 
-  const conditions = [eq(leads.userId, userId)];
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return [];
+
+  const conditions = [
+    eq(leads.userId, userId),
+    workspaceScope(leads.workspaceId, workspaceId),
+  ];
 
   const sourceParse = leadSourceSchema.safeParse(filters.source);
   if (sourceParse.success) conditions.push(eq(leads.source, sourceParse.data));
@@ -88,6 +106,9 @@ export async function getLead(id: string) {
   const userId = await getUserId();
   if (!userId) return null;
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return null;
+
   const idCheck = idSchema.safeParse(id);
   if (!idCheck.success) return null;
 
@@ -108,7 +129,13 @@ export async function getLead(id: string) {
       createdAt: leads.createdAt,
     })
     .from(leads)
-    .where(and(eq(leads.id, idCheck.data), eq(leads.userId, userId)))
+    .where(
+      and(
+        eq(leads.id, idCheck.data),
+        eq(leads.userId, userId),
+        workspaceScope(leads.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   return rows[0] ?? null;
@@ -119,6 +146,9 @@ export async function getLead(id: string) {
 export async function createLeadAction(data: LeadFormData): Promise<ActionResult> {
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
+
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
 
   const parsed = leadFormSchema.safeParse(data);
   if (!parsed.success) {
@@ -131,6 +161,7 @@ export async function createLeadAction(data: LeadFormData): Promise<ActionResult
       .insert(leads)
       .values({
         userId,
+        workspaceId,
         source: v.source,
         name: v.name,
         email: v.email || null,
@@ -156,6 +187,9 @@ export async function updateLeadAction(id: string, data: LeadFormData): Promise<
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   const idCheck = idSchema.safeParse(id);
   if (!idCheck.success) return { success: false, error: "잘못된 요청입니다" };
 
@@ -177,7 +211,13 @@ export async function updateLeadAction(id: string, data: LeadFormData): Promise<
         budgetRange: v.budgetRange || null,
         description: v.description || null,
       })
-      .where(and(eq(leads.id, idCheck.data), eq(leads.userId, userId)));
+      .where(
+        and(
+          eq(leads.id, idCheck.data),
+          eq(leads.userId, userId),
+          workspaceScope(leads.workspaceId, workspaceId),
+        ),
+      );
 
     revalidatePath("/dashboard/leads");
     revalidatePath(`/dashboard/leads/${idCheck.data}`);
@@ -197,6 +237,9 @@ export async function updateLeadStatusAction(
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   const idCheck = idSchema.safeParse(id);
   if (!idCheck.success) return { success: false, error: "잘못된 요청입니다" };
 
@@ -206,7 +249,7 @@ export async function updateLeadStatusAction(
   }
   const v = parsed.data;
 
-  if (!(await verifyLeadOwnership(idCheck.data, userId))) {
+  if (!(await verifyLeadOwnership(idCheck.data, userId, workspaceId))) {
     return { success: false, error: "권한이 없습니다" };
   }
 
@@ -217,7 +260,13 @@ export async function updateLeadStatusAction(
         status: v.status,
         failReason: v.status === "failed" ? v.failReason || null : null,
       })
-      .where(and(eq(leads.id, idCheck.data), eq(leads.userId, userId)));
+      .where(
+        and(
+          eq(leads.id, idCheck.data),
+          eq(leads.userId, userId),
+          workspaceScope(leads.workspaceId, workspaceId),
+        ),
+      );
 
     revalidatePath("/dashboard/leads");
     revalidatePath(`/dashboard/leads/${idCheck.data}`);
@@ -234,6 +283,9 @@ export async function convertLeadToProjectAction(id: string): Promise<ActionResu
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   const idCheck = idSchema.safeParse(id);
   if (!idCheck.success) return { success: false, error: "잘못된 요청입니다" };
 
@@ -249,7 +301,13 @@ export async function convertLeadToProjectAction(id: string): Promise<ActionResu
       convertedToProjectId: leads.convertedToProjectId,
     })
     .from(leads)
-    .where(and(eq(leads.id, idCheck.data), eq(leads.userId, userId)))
+    .where(
+      and(
+        eq(leads.id, idCheck.data),
+        eq(leads.userId, userId),
+        workspaceScope(leads.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
   const lead = leadRows[0];
   if (!lead) return { success: false, error: "리드를 찾을 수 없습니다" };
@@ -266,7 +324,13 @@ export async function convertLeadToProjectAction(id: string): Promise<ActionResu
         const existing = await tx
           .select({ id: clients.id })
           .from(clients)
-          .where(and(eq(clients.userId, userId), eq(clients.email, lead.email)))
+          .where(
+            and(
+              eq(clients.userId, userId),
+              eq(clients.email, lead.email),
+              workspaceScope(clients.workspaceId, workspaceId),
+            ),
+          )
           .limit(1);
         clientId = existing[0]?.id ?? null;
       }
@@ -276,6 +340,7 @@ export async function convertLeadToProjectAction(id: string): Promise<ActionResu
           .insert(clients)
           .values({
             userId,
+            workspaceId,
             companyName: lead.name,
             contactName: null,
             email: lead.email ?? null,
@@ -291,6 +356,7 @@ export async function convertLeadToProjectAction(id: string): Promise<ActionResu
         .insert(projects)
         .values({
           userId,
+          workspaceId,
           clientId,
           name: projectName,
           description: lead.description,
@@ -309,6 +375,7 @@ export async function convertLeadToProjectAction(id: string): Promise<ActionResu
           and(
             eq(leads.id, idCheck.data),
             eq(leads.userId, userId),
+            workspaceScope(leads.workspaceId, workspaceId),
             isNull(leads.convertedToProjectId),
           ),
         )
@@ -343,13 +410,22 @@ export async function deleteLeadAction(id: string): Promise<ActionResult> {
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   const idCheck = idSchema.safeParse(id);
   if (!idCheck.success) return { success: false, error: "잘못된 요청입니다" };
 
   try {
     await db
       .delete(leads)
-      .where(and(eq(leads.id, idCheck.data), eq(leads.userId, userId)));
+      .where(
+        and(
+          eq(leads.id, idCheck.data),
+          eq(leads.userId, userId),
+          workspaceScope(leads.workspaceId, workspaceId),
+        ),
+      );
 
     revalidatePath("/dashboard/leads");
     return { success: true };

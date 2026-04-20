@@ -9,6 +9,8 @@ import {
   userSettings,
 } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
+import { workspaceScope } from "@/lib/db/workspace-scope";
 import {
   invoiceManualFormSchema,
   invoiceFromEstimateSchema,
@@ -61,6 +63,7 @@ function isUniqueViolation(err: unknown): boolean {
 async function generateInvoiceNumber(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   userId: string,
+  workspaceId: string,
   offset: number = 0,
 ): Promise<string> {
   const settingsRows = await tx
@@ -73,13 +76,18 @@ async function generateInvoiceNumber(
   const year = new Date().getFullYear();
   const pattern = `${prefix}-${year}-%`;
 
+  // Task 5-1-4에서 (workspace_id, invoice_number) UNIQUE 재조정 예정.
   const maxRows = await tx
     .select({
       maxNum: sql<string>`max(substring(${invoices.invoiceNumber} from '\\d+$'))`,
     })
     .from(invoices)
     .where(
-      and(eq(invoices.userId, userId), like(invoices.invoiceNumber, pattern)),
+      and(
+        eq(invoices.userId, userId),
+        workspaceScope(invoices.workspaceId, workspaceId),
+        like(invoices.invoiceNumber, pattern),
+      ),
     );
 
   // 같은 트랜잭션 내 N회 호출 시 직전 INSERT가 커밋 전이라 MAX에 반영 안됨.
@@ -154,6 +162,9 @@ export async function getInvoices(): Promise<InvoiceListItem[]> {
   const userId = await getUserId();
   if (!userId) return [];
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return [];
+
   const rows = await db
     .select({
       id: invoices.id,
@@ -171,7 +182,12 @@ export async function getInvoices(): Promise<InvoiceListItem[]> {
     .from(invoices)
     .leftJoin(projects, eq(projects.id, invoices.projectId))
     .leftJoin(clients, eq(clients.id, projects.clientId))
-    .where(eq(invoices.userId, userId))
+    .where(
+      and(
+        eq(invoices.userId, userId),
+        workspaceScope(invoices.workspaceId, workspaceId),
+      ),
+    )
     .orderBy(desc(invoices.createdAt));
 
   const today = new Date().toISOString().slice(0, 10);
@@ -190,6 +206,9 @@ export async function getInvoiceFormOptions() {
   const userId = await getUserId();
   if (!userId) return { projects: [], estimates: [] };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { projects: [], estimates: [] };
+
   const [projectRows, estimateRows] = await Promise.all([
     db
       .select({
@@ -199,7 +218,12 @@ export async function getInvoiceFormOptions() {
       })
       .from(projects)
       .leftJoin(clients, eq(clients.id, projects.clientId))
-      .where(eq(projects.userId, userId))
+      .where(
+        and(
+          eq(projects.userId, userId),
+          workspaceScope(projects.workspaceId, workspaceId),
+        ),
+      )
       .orderBy(desc(projects.createdAt)),
     db
       .select({
@@ -220,6 +244,7 @@ export async function getInvoiceFormOptions() {
       .where(
         and(
           eq(estimates.userId, userId),
+          workspaceScope(estimates.workspaceId, workspaceId),
           eq(estimates.status, "accepted"),
         ),
       )
@@ -234,6 +259,9 @@ export async function getInvoiceFormOptions() {
 export async function getInvoice(id: string) {
   const userId = await getUserId();
   if (!userId) return null;
+
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return null;
 
   if (!uuidSchema.safeParse(id).success) return null;
 
@@ -270,7 +298,13 @@ export async function getInvoice(id: string) {
     .leftJoin(projects, eq(projects.id, invoices.projectId))
     .leftJoin(clients, eq(clients.id, projects.clientId))
     .leftJoin(estimates, eq(estimates.id, invoices.estimateId))
-    .where(and(eq(invoices.id, id), eq(invoices.userId, userId)))
+    .where(
+      and(
+        eq(invoices.id, id),
+        eq(invoices.userId, userId),
+        workspaceScope(invoices.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   if (!rows[0]) return null;
@@ -292,6 +326,9 @@ export async function createInvoiceAction(
   if (!userId)
     return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   const parsed = invoiceManualFormSchema.safeParse(data);
   if (!parsed.success)
     return {
@@ -301,22 +338,34 @@ export async function createInvoiceAction(
 
   const v = parsed.data;
 
-  // 프로젝트 소유권 검증
+  // 프로젝트 소유권 검증 (workspace 경계 내)
   const projectRows = await db
     .select({ id: projects.id })
     .from(projects)
-    .where(and(eq(projects.id, v.projectId), eq(projects.userId, userId)))
+    .where(
+      and(
+        eq(projects.id, v.projectId),
+        eq(projects.userId, userId),
+        workspaceScope(projects.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   if (projectRows.length === 0)
     return { success: false, error: "유효하지 않은 프로젝트입니다" };
 
-  // 견적서 소유권 검증 (있는 경우)
+  // 견적서 소유권 검증 (있는 경우, workspace 경계 내)
   if (v.estimateId) {
     const estimateRows = await db
       .select({ id: estimates.id })
       .from(estimates)
-      .where(and(eq(estimates.id, v.estimateId), eq(estimates.userId, userId)))
+      .where(
+        and(
+          eq(estimates.id, v.estimateId),
+          eq(estimates.userId, userId),
+          workspaceScope(estimates.workspaceId, workspaceId),
+        ),
+      )
       .limit(1);
 
     if (estimateRows.length === 0)
@@ -328,11 +377,12 @@ export async function createInvoiceAction(
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const row = await db.transaction(async (tx) => {
-        const invoiceNumber = await generateInvoiceNumber(tx, userId);
+        const invoiceNumber = await generateInvoiceNumber(tx, userId, workspaceId);
         const [inserted] = await tx
           .insert(invoices)
           .values({
             userId,
+            workspaceId,
             projectId: v.projectId,
             estimateId: v.estimateId ?? null,
             invoiceNumber,
@@ -382,6 +432,9 @@ export async function generateInvoicesFromEstimateAction(
   if (!userId)
     return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   const parsed = invoiceFromEstimateSchema.safeParse(data);
   if (!parsed.success)
     return {
@@ -391,7 +444,7 @@ export async function generateInvoicesFromEstimateAction(
 
   const v = parsed.data;
 
-  // 견적서 소유권 + accepted 상태 + 금액/분할 정보 조회
+  // 견적서 소유권 + accepted 상태 + 금액/분할 정보 조회 (workspace 경계 내)
   const estimateRows = await db
     .select({
       id: estimates.id,
@@ -403,7 +456,11 @@ export async function generateInvoicesFromEstimateAction(
     })
     .from(estimates)
     .where(
-      and(eq(estimates.id, v.estimateId), eq(estimates.userId, userId)),
+      and(
+        eq(estimates.id, v.estimateId),
+        eq(estimates.userId, userId),
+        workspaceScope(estimates.workspaceId, workspaceId),
+      ),
     )
     .limit(1);
 
@@ -473,7 +530,7 @@ export async function generateInvoicesFromEstimateAction(
       const ids = await db.transaction(async (tx) => {
         const inserted: string[] = [];
         for (let i = 0; i < splitItems.length; i++) {
-          const invoiceNumber = await generateInvoiceNumber(tx, userId, i);
+          const invoiceNumber = await generateInvoiceNumber(tx, userId, workspaceId, i);
           const type = TYPE_BY_INDEX[i] ?? "final";
           const amount = supplySplits[i];
           const taxAmount = taxSplits[i];
@@ -483,6 +540,7 @@ export async function generateInvoicesFromEstimateAction(
             .insert(invoices)
             .values({
               userId,
+              workspaceId,
               projectId: e.projectId,
               estimateId: e.id,
               invoiceNumber,
@@ -528,6 +586,9 @@ export async function updateInvoiceStatusAction(
   if (!userId)
     return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   if (!uuidSchema.safeParse(id).success)
     return { success: false, error: "유효하지 않은 식별자입니다" };
 
@@ -538,7 +599,13 @@ export async function updateInvoiceStatusAction(
   const currentRows = await db
     .select({ status: invoices.status })
     .from(invoices)
-    .where(and(eq(invoices.id, id), eq(invoices.userId, userId)))
+    .where(
+      and(
+        eq(invoices.id, id),
+        eq(invoices.userId, userId),
+        workspaceScope(invoices.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   if (currentRows.length === 0)
@@ -569,7 +636,13 @@ export async function updateInvoiceStatusAction(
     await db
       .update(invoices)
       .set(setValues)
-      .where(and(eq(invoices.id, id), eq(invoices.userId, userId)));
+      .where(
+        and(
+          eq(invoices.id, id),
+          eq(invoices.userId, userId),
+          workspaceScope(invoices.workspaceId, workspaceId),
+        ),
+      );
 
     revalidatePath("/dashboard/invoices");
     revalidatePath(`/dashboard/invoices/${id}`);
@@ -590,6 +663,9 @@ export async function markPaidAction(
   if (!userId)
     return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   if (!uuidSchema.safeParse(id).success)
     return { success: false, error: "유효하지 않은 식별자입니다" };
 
@@ -603,7 +679,13 @@ export async function markPaidAction(
   const currentRows = await db
     .select({ status: invoices.status })
     .from(invoices)
-    .where(and(eq(invoices.id, id), eq(invoices.userId, userId)))
+    .where(
+      and(
+        eq(invoices.id, id),
+        eq(invoices.userId, userId),
+        workspaceScope(invoices.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   if (currentRows.length === 0)
@@ -628,7 +710,13 @@ export async function markPaidAction(
         paidAmount: parsed.data.paidAmount,
         updatedAt: new Date(),
       })
-      .where(and(eq(invoices.id, id), eq(invoices.userId, userId)));
+      .where(
+        and(
+          eq(invoices.id, id),
+          eq(invoices.userId, userId),
+          workspaceScope(invoices.workspaceId, workspaceId),
+        ),
+      );
 
     revalidatePath("/dashboard/invoices");
     revalidatePath(`/dashboard/invoices/${id}`);
@@ -649,14 +737,23 @@ export async function toggleTaxInvoiceAction(
   if (!userId)
     return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   if (!uuidSchema.safeParse(id).success)
     return { success: false, error: "유효하지 않은 식별자입니다" };
 
-  // 소유권 + 상태 검증 (세무 감사 증빙 무결성)
+  // 소유권 + 상태 검증 (세무 감사 증빙 무결성, workspace 경계 내)
   const rows = await db
     .select({ status: invoices.status })
     .from(invoices)
-    .where(and(eq(invoices.id, id), eq(invoices.userId, userId)))
+    .where(
+      and(
+        eq(invoices.id, id),
+        eq(invoices.userId, userId),
+        workspaceScope(invoices.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   if (rows.length === 0)
@@ -684,7 +781,13 @@ export async function toggleTaxInvoiceAction(
     await db
       .update(invoices)
       .set({ taxInvoiceIssued: issued, updatedAt: new Date() })
-      .where(and(eq(invoices.id, id), eq(invoices.userId, userId)));
+      .where(
+        and(
+          eq(invoices.id, id),
+          eq(invoices.userId, userId),
+          workspaceScope(invoices.workspaceId, workspaceId),
+        ),
+      );
 
     revalidatePath(`/dashboard/invoices/${id}`);
     return { success: true };
@@ -701,13 +804,22 @@ export async function deleteInvoiceAction(id: string): Promise<ActionResult> {
   if (!userId)
     return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   if (!uuidSchema.safeParse(id).success)
     return { success: false, error: "유효하지 않은 식별자입니다" };
 
   const ownerRows = await db
     .select({ status: invoices.status })
     .from(invoices)
-    .where(and(eq(invoices.id, id), eq(invoices.userId, userId)))
+    .where(
+      and(
+        eq(invoices.id, id),
+        eq(invoices.userId, userId),
+        workspaceScope(invoices.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   if (ownerRows.length === 0)
@@ -727,7 +839,13 @@ export async function deleteInvoiceAction(id: string): Promise<ActionResult> {
     // 방어적 이중 필터: 선행 소유권 조회가 리팩토링으로 제거돼도 보호
     await db
       .delete(invoices)
-      .where(and(eq(invoices.id, id), eq(invoices.userId, userId)));
+      .where(
+        and(
+          eq(invoices.id, id),
+          eq(invoices.userId, userId),
+          workspaceScope(invoices.workspaceId, workspaceId),
+        ),
+      );
     revalidatePath("/dashboard/invoices");
     return { success: true };
   } catch (err) {

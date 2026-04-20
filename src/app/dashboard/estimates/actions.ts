@@ -10,6 +10,8 @@ import {
   contracts,
 } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
+import { workspaceScope } from "@/lib/db/workspace-scope";
 import {
   estimateFormSchema,
   estimateStatusSchema,
@@ -30,6 +32,7 @@ const uuidSchema = z.string().uuid();
 async function generateEstimateNumber(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   userId: string,
+  workspaceId: string,
 ): Promise<string> {
   const settingsRows = await tx
     .select({ estimateNumberPrefix: userSettings.estimateNumberPrefix })
@@ -41,6 +44,8 @@ async function generateEstimateNumber(
   const year = new Date().getFullYear();
   const pattern = `${prefix}-${year}-%`;
 
+  // Task 5-1-4에서 (workspace_id, estimate_number) UNIQUE 재조정 예정.
+  // 현재는 WHERE에 workspace 추가로 동일 workspace 내 MAX만 조회 (cross-workspace 간섭 방지).
   const maxRows = await tx
     .select({
       maxNum: sql<string>`max(substring(${estimates.estimateNumber} from '\\d+$'))`,
@@ -49,6 +54,7 @@ async function generateEstimateNumber(
     .where(
       and(
         eq(estimates.userId, userId),
+        workspaceScope(estimates.workspaceId, workspaceId),
         like(estimates.estimateNumber, pattern),
       ),
     );
@@ -135,10 +141,18 @@ export async function getClientsForSelect() {
   const userId = await getUserId();
   if (!userId) return [];
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return [];
+
   return db
     .select({ id: clients.id, companyName: clients.companyName })
     .from(clients)
-    .where(eq(clients.userId, userId))
+    .where(
+      and(
+        eq(clients.userId, userId),
+        workspaceScope(clients.workspaceId, workspaceId),
+      ),
+    )
     .orderBy(clients.companyName);
 }
 
@@ -146,10 +160,18 @@ export async function getProjectsForSelect() {
   const userId = await getUserId();
   if (!userId) return [];
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return [];
+
   return db
     .select({ id: projects.id, name: projects.name })
     .from(projects)
-    .where(eq(projects.userId, userId))
+    .where(
+      and(
+        eq(projects.userId, userId),
+        workspaceScope(projects.workspaceId, workspaceId),
+      ),
+    )
     .orderBy(desc(projects.createdAt));
 }
 
@@ -158,6 +180,9 @@ export async function getProjectsForSelect() {
 export async function getEstimates() {
   const userId = await getUserId();
   if (!userId) return [];
+
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return [];
 
   return db
     .select({
@@ -173,7 +198,12 @@ export async function getEstimates() {
     })
     .from(estimates)
     .leftJoin(clients, eq(clients.id, estimates.clientId))
-    .where(eq(estimates.userId, userId))
+    .where(
+      and(
+        eq(estimates.userId, userId),
+        workspaceScope(estimates.workspaceId, workspaceId),
+      ),
+    )
     .orderBy(desc(estimates.createdAt));
 }
 
@@ -182,6 +212,9 @@ export async function getEstimates() {
 export async function getEstimate(id: string) {
   const userId = await getUserId();
   if (!userId) return null;
+
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return null;
 
   if (!uuidSchema.safeParse(id).success) return null;
 
@@ -210,7 +243,13 @@ export async function getEstimate(id: string) {
     .from(estimates)
     .leftJoin(clients, eq(clients.id, estimates.clientId))
     .leftJoin(projects, eq(projects.id, estimates.projectId))
-    .where(and(eq(estimates.id, id), eq(estimates.userId, userId)))
+    .where(
+      and(
+        eq(estimates.id, id),
+        eq(estimates.userId, userId),
+        workspaceScope(estimates.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   if (!rows[0]) return null;
@@ -229,7 +268,12 @@ export async function getEstimate(id: string) {
       sortOrder: estimateItems.sortOrder,
     })
     .from(estimateItems)
-    .where(eq(estimateItems.estimateId, id))
+    .where(
+      and(
+        eq(estimateItems.estimateId, id),
+        workspaceScope(estimateItems.workspaceId, workspaceId),
+      ),
+    )
     .orderBy(estimateItems.sortOrder);
 
   const parsedSplit = z.array(paymentSplitItemSchema).safeParse(rows[0].paymentSplit);
@@ -252,6 +296,9 @@ export async function createEstimateAction(
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   const parsed = estimateFormSchema.safeParse(data);
   if (!parsed.success)
     return {
@@ -269,22 +316,34 @@ export async function createEstimateAction(
 
   const v = parsed.data;
 
-  // 소유권 검증: clientId
+  // 소유권 검증: clientId (workspace 경계 내)
   const clientRows = await db
     .select({ id: clients.id })
     .from(clients)
-    .where(and(eq(clients.id, v.clientId), eq(clients.userId, userId)))
+    .where(
+      and(
+        eq(clients.id, v.clientId),
+        eq(clients.userId, userId),
+        workspaceScope(clients.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   if (clientRows.length === 0)
     return { success: false, error: "유효하지 않은 고객입니다" };
 
-  // I4: 소유권 검증: projectId
+  // I4: 소유권 검증: projectId (workspace 경계 내)
   if (v.projectId) {
     const projectRows = await db
       .select({ id: projects.id })
       .from(projects)
-      .where(and(eq(projects.id, v.projectId), eq(projects.userId, userId)))
+      .where(
+        and(
+          eq(projects.id, v.projectId),
+          eq(projects.userId, userId),
+          workspaceScope(projects.workspaceId, workspaceId),
+        ),
+      )
       .limit(1);
 
     if (projectRows.length === 0)
@@ -314,12 +373,13 @@ export async function createEstimateAction(
   try {
     // C3: 트랜잭션으로 원자적 처리 (I3: 채번도 트랜잭션 내)
     const row = await db.transaction(async (tx) => {
-      const estimateNumber = await generateEstimateNumber(tx, userId);
+      const estimateNumber = await generateEstimateNumber(tx, userId, workspaceId);
 
       const [inserted] = await tx
         .insert(estimates)
         .values({
           userId,
+          workspaceId,
           clientId: v.clientId,
           projectId: v.projectId ?? null,
           estimateNumber,
@@ -340,6 +400,7 @@ export async function createEstimateAction(
         await tx.insert(estimateItems).values(
           itemValues.map((item) => ({
             estimateId: inserted.id,
+            workspaceId,
             name: item.name,
             description: item.description || null,
             category: item.category || null,
@@ -373,6 +434,9 @@ export async function updateEstimateStatusAction(
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   if (!uuidSchema.safeParse(id).success)
     return { success: false, error: "유효하지 않은 식별자입니다" };
 
@@ -385,7 +449,13 @@ export async function updateEstimateStatusAction(
     const referencingContracts = await db
       .select({ id: contracts.id })
       .from(contracts)
-      .where(and(eq(contracts.estimateId, id), eq(contracts.userId, userId)))
+      .where(
+        and(
+          eq(contracts.estimateId, id),
+          eq(contracts.userId, userId),
+          workspaceScope(contracts.workspaceId, workspaceId),
+        ),
+      )
       .limit(1);
 
     if (referencingContracts.length > 0)
@@ -403,7 +473,13 @@ export async function updateEstimateStatusAction(
     await db
       .update(estimates)
       .set(setValues)
-      .where(and(eq(estimates.id, id), eq(estimates.userId, userId)));
+      .where(
+        and(
+          eq(estimates.id, id),
+          eq(estimates.userId, userId),
+          workspaceScope(estimates.workspaceId, workspaceId),
+        ),
+      );
 
     revalidatePath("/dashboard/estimates");
     revalidatePath(`/dashboard/estimates/${id}`);
@@ -420,14 +496,23 @@ export async function deleteEstimateAction(id: string): Promise<ActionResult> {
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   if (!uuidSchema.safeParse(id).success)
     return { success: false, error: "유효하지 않은 식별자입니다" };
 
-  // C1: 소유권 검증을 삭제 전에 수행
+  // C1: 소유권 검증을 삭제 전에 수행 (workspace 경계 내)
   const ownerRows = await db
     .select({ id: estimates.id })
     .from(estimates)
-    .where(and(eq(estimates.id, id), eq(estimates.userId, userId)))
+    .where(
+      and(
+        eq(estimates.id, id),
+        eq(estimates.userId, userId),
+        workspaceScope(estimates.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   if (ownerRows.length === 0)
@@ -437,7 +522,13 @@ export async function deleteEstimateAction(id: string): Promise<ActionResult> {
   const referencingContracts = await db
     .select({ id: contracts.id })
     .from(contracts)
-    .where(and(eq(contracts.estimateId, id), eq(contracts.userId, userId)))
+    .where(
+      and(
+        eq(contracts.estimateId, id),
+        eq(contracts.userId, userId),
+        workspaceScope(contracts.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   if (referencingContracts.length > 0)
@@ -449,8 +540,22 @@ export async function deleteEstimateAction(id: string): Promise<ActionResult> {
   try {
     // C3: 트랜잭션으로 원자적 삭제
     await db.transaction(async (tx) => {
-      await tx.delete(estimateItems).where(eq(estimateItems.estimateId, id));
-      await tx.delete(estimates).where(eq(estimates.id, id));
+      await tx
+        .delete(estimateItems)
+        .where(
+          and(
+            eq(estimateItems.estimateId, id),
+            workspaceScope(estimateItems.workspaceId, workspaceId),
+          ),
+        );
+      await tx
+        .delete(estimates)
+        .where(
+          and(
+            eq(estimates.id, id),
+            workspaceScope(estimates.workspaceId, workspaceId),
+          ),
+        );
     });
 
     revalidatePath("/dashboard/estimates");

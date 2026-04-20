@@ -9,6 +9,8 @@ import {
   userSettings,
 } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
+import { workspaceScope } from "@/lib/db/workspace-scope";
 import {
   contractFormSchema,
   contractStatusSchema,
@@ -47,6 +49,7 @@ function isUniqueViolation(err: unknown): boolean {
 async function generateContractNumber(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   userId: string,
+  workspaceId: string,
 ): Promise<string> {
   const settingsRows = await tx
     .select({ contractNumberPrefix: userSettings.contractNumberPrefix })
@@ -58,6 +61,7 @@ async function generateContractNumber(
   const year = new Date().getFullYear();
   const pattern = `${prefix}-${year}-%`;
 
+  // Task 5-1-4에서 (workspace_id, contract_number) UNIQUE 재조정 예정.
   const maxRows = await tx
     .select({
       maxNum: sql<string>`max(substring(${contracts.contractNumber} from '\\d+$'))`,
@@ -66,6 +70,7 @@ async function generateContractNumber(
     .where(
       and(
         eq(contracts.userId, userId),
+        workspaceScope(contracts.workspaceId, workspaceId),
         like(contracts.contractNumber, pattern),
       ),
     );
@@ -79,6 +84,9 @@ async function generateContractNumber(
 export async function getContracts() {
   const userId = await getUserId();
   if (!userId) return [];
+
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return [];
 
   return db
     .select({
@@ -98,7 +106,12 @@ export async function getContracts() {
     .from(contracts)
     .leftJoin(estimates, eq(estimates.id, contracts.estimateId))
     .leftJoin(clients, eq(clients.id, estimates.clientId))
-    .where(eq(contracts.userId, userId))
+    .where(
+      and(
+        eq(contracts.userId, userId),
+        workspaceScope(contracts.workspaceId, workspaceId),
+      ),
+    )
     .orderBy(desc(contracts.createdAt));
 }
 
@@ -107,6 +120,9 @@ export async function getContracts() {
 export async function getAcceptedEstimatesForContract() {
   const userId = await getUserId();
   if (!userId) return [];
+
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return [];
 
   return db
     .select({
@@ -118,7 +134,13 @@ export async function getAcceptedEstimatesForContract() {
     })
     .from(estimates)
     .leftJoin(clients, eq(clients.id, estimates.clientId))
-    .where(and(eq(estimates.userId, userId), eq(estimates.status, "accepted")))
+    .where(
+      and(
+        eq(estimates.userId, userId),
+        workspaceScope(estimates.workspaceId, workspaceId),
+        eq(estimates.status, "accepted"),
+      ),
+    )
     .orderBy(desc(estimates.createdAt));
 }
 
@@ -127,6 +149,9 @@ export async function getAcceptedEstimatesForContract() {
 export async function getContract(id: string) {
   const userId = await getUserId();
   if (!userId) return null;
+
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return null;
 
   if (!uuidSchema.safeParse(id).success) return null;
 
@@ -161,7 +186,13 @@ export async function getContract(id: string) {
     .leftJoin(estimates, eq(estimates.id, contracts.estimateId))
     .leftJoin(projects, eq(projects.id, estimates.projectId))
     .leftJoin(clients, eq(clients.id, estimates.clientId))
-    .where(and(eq(contracts.id, id), eq(contracts.userId, userId)))
+    .where(
+      and(
+        eq(contracts.id, id),
+        eq(contracts.userId, userId),
+        workspaceScope(contracts.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   if (!rows[0]) return null;
@@ -185,6 +216,9 @@ export async function createContractAction(
   if (!userId)
     return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   const parsed = contractFormSchema.safeParse(data);
   if (!parsed.success)
     return {
@@ -194,7 +228,7 @@ export async function createContractAction(
 
   const v = parsed.data;
 
-  // 견적서 소유권 + accepted 상태 검증
+  // 견적서 소유권 + accepted 상태 + workspace 경계 검증
   const estimateRows = await db
     .select({
       id: estimates.id,
@@ -202,7 +236,13 @@ export async function createContractAction(
       projectId: estimates.projectId,
     })
     .from(estimates)
-    .where(and(eq(estimates.id, v.estimateId), eq(estimates.userId, userId)))
+    .where(
+      and(
+        eq(estimates.id, v.estimateId),
+        eq(estimates.userId, userId),
+        workspaceScope(estimates.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   if (estimateRows.length === 0)
@@ -218,12 +258,13 @@ export async function createContractAction(
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const row = await db.transaction(async (tx) => {
-        const contractNumber = await generateContractNumber(tx, userId);
+        const contractNumber = await generateContractNumber(tx, userId, workspaceId);
 
         const [inserted] = await tx
           .insert(contracts)
           .values({
             userId,
+            workspaceId,
             estimateId: v.estimateId,
             projectId: estimateRows[0].projectId,
             contractNumber,
@@ -260,6 +301,9 @@ export async function updateContractStatusAction(
   if (!userId)
     return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   if (!uuidSchema.safeParse(id).success)
     return { success: false, error: "유효하지 않은 식별자입니다" };
 
@@ -267,11 +311,17 @@ export async function updateContractStatusAction(
   if (!parsed.success)
     return { success: false, error: "올바르지 않은 상태값입니다" };
 
-  // H2: 현재 상태 조회 + 전이 허용 여부 검증
+  // H2: 현재 상태 조회 + 전이 허용 여부 검증 (workspace 경계 내)
   const currentRows = await db
     .select({ status: contracts.status })
     .from(contracts)
-    .where(and(eq(contracts.id, id), eq(contracts.userId, userId)))
+    .where(
+      and(
+        eq(contracts.id, id),
+        eq(contracts.userId, userId),
+        workspaceScope(contracts.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   if (currentRows.length === 0)
@@ -294,7 +344,13 @@ export async function updateContractStatusAction(
     await db
       .update(contracts)
       .set(setValues)
-      .where(and(eq(contracts.id, id), eq(contracts.userId, userId)));
+      .where(
+        and(
+          eq(contracts.id, id),
+          eq(contracts.userId, userId),
+          workspaceScope(contracts.workspaceId, workspaceId),
+        ),
+      );
 
     revalidatePath("/dashboard/contracts");
     revalidatePath(`/dashboard/contracts/${id}`);
@@ -312,14 +368,23 @@ export async function deleteContractAction(id: string): Promise<ActionResult> {
   if (!userId)
     return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   if (!uuidSchema.safeParse(id).success)
     return { success: false, error: "유효하지 않은 식별자입니다" };
 
-  // H3: 소유권 + draft 상태 동시 확인 (법적 증빙 보호)
+  // H3: 소유권 + draft 상태 동시 확인 (법적 증빙 보호, workspace 경계 내)
   const ownerRows = await db
     .select({ id: contracts.id, status: contracts.status })
     .from(contracts)
-    .where(and(eq(contracts.id, id), eq(contracts.userId, userId)))
+    .where(
+      and(
+        eq(contracts.id, id),
+        eq(contracts.userId, userId),
+        workspaceScope(contracts.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   if (ownerRows.length === 0)
@@ -332,7 +397,14 @@ export async function deleteContractAction(id: string): Promise<ActionResult> {
     };
 
   try {
-    await db.delete(contracts).where(eq(contracts.id, id));
+    await db
+      .delete(contracts)
+      .where(
+        and(
+          eq(contracts.id, id),
+          workspaceScope(contracts.workspaceId, workspaceId),
+        ),
+      );
     revalidatePath("/dashboard/contracts");
     return { success: true };
   } catch (err) {

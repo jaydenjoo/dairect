@@ -11,12 +11,22 @@ import { revalidatePath } from "next/cache";
 
 export type ActionResult = { success: boolean; error?: string; id?: string };
 
-/** clientId가 현재 사용자의 고객인지 검증 */
-async function verifyClientOwnership(clientId: string, userId: string): Promise<boolean> {
+/** clientId가 현재 workspace + user의 고객인지 검증 (defense-in-depth: userId + workspaceId) */
+async function verifyClientOwnership(
+  clientId: string,
+  userId: string,
+  workspaceId: string,
+): Promise<boolean> {
   const rows = await db
     .select({ id: clients.id })
     .from(clients)
-    .where(and(eq(clients.id, clientId), eq(clients.userId, userId)))
+    .where(
+      and(
+        eq(clients.id, clientId),
+        eq(clients.userId, userId),
+        workspaceScope(clients.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   return rows.length > 0;
@@ -28,7 +38,6 @@ export async function getClients() {
   const userId = await getUserId();
   if (!userId) return [];
 
-  // Task 5-1-6 예시 migrate: workspace 스코프 주입 (read 경로 → null은 빈 배열).
   const workspaceId = await getCurrentWorkspaceId();
   if (!workspaceId) return [];
 
@@ -64,6 +73,9 @@ export async function getClient(id: string) {
   const userId = await getUserId();
   if (!userId) return null;
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return null;
+
   const rows = await db
     .select({
       id: clients.id,
@@ -76,7 +88,13 @@ export async function getClient(id: string) {
       createdAt: clients.createdAt,
     })
     .from(clients)
-    .where(and(eq(clients.id, id), eq(clients.userId, userId)))
+    .where(
+      and(
+        eq(clients.id, id),
+        eq(clients.userId, userId),
+        workspaceScope(clients.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   return rows[0] ?? null;
@@ -86,8 +104,10 @@ export async function getClientProjects(clientId: string) {
   const userId = await getUserId();
   if (!userId) return [];
 
-  // [CRITICAL 2] 소유권 검증
-  if (!(await verifyClientOwnership(clientId, userId))) return [];
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return [];
+
+  if (!(await verifyClientOwnership(clientId, userId, workspaceId))) return [];
 
   return db
     .select({
@@ -103,6 +123,7 @@ export async function getClientProjects(clientId: string) {
       and(
         eq(projects.clientId, clientId),
         eq(projects.userId, userId),
+        workspaceScope(projects.workspaceId, workspaceId),
         isNull(projects.deletedAt),
       ),
     )
@@ -113,8 +134,10 @@ export async function getClientNotes(clientId: string) {
   const userId = await getUserId();
   if (!userId) return [];
 
-  // [CRITICAL 2] 소유권 검증
-  if (!(await verifyClientOwnership(clientId, userId))) return [];
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return [];
+
+  if (!(await verifyClientOwnership(clientId, userId, workspaceId))) return [];
 
   return db
     .select({
@@ -124,7 +147,11 @@ export async function getClientNotes(clientId: string) {
     })
     .from(clientNotes)
     .where(
-      and(eq(clientNotes.clientId, clientId), eq(clientNotes.userId, userId)),
+      and(
+        eq(clientNotes.clientId, clientId),
+        eq(clientNotes.userId, userId),
+        workspaceScope(clientNotes.workspaceId, workspaceId),
+      ),
     )
     .orderBy(asc(clientNotes.createdAt));
 }
@@ -173,6 +200,9 @@ export async function updateClientAction(id: string, data: ClientFormData): Prom
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   const parsed = clientFormSchema.safeParse(data);
   if (!parsed.success) return { success: false, error: "입력값이 올바르지 않습니다" };
 
@@ -192,7 +222,13 @@ export async function updateClientAction(id: string, data: ClientFormData): Prom
         memo: v.memo || null,
         updatedAt: new Date(),
       })
-      .where(and(eq(clients.id, id), eq(clients.userId, userId)));
+      .where(
+        and(
+          eq(clients.id, id),
+          eq(clients.userId, userId),
+          workspaceScope(clients.workspaceId, workspaceId),
+        ),
+      );
 
     revalidatePath("/dashboard/clients");
     revalidatePath(`/dashboard/clients/${id}`);
@@ -209,11 +245,13 @@ export async function addNoteAction(clientId: string, data: ClientNoteData): Pro
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   const parsed = clientNoteSchema.safeParse(data);
   if (!parsed.success) return { success: false, error: "내용을 입력해주세요" };
 
-  // [CRITICAL 2] 소유권 검증
-  if (!(await verifyClientOwnership(clientId, userId))) {
+  if (!(await verifyClientOwnership(clientId, userId, workspaceId))) {
     return { success: false, error: "권한이 없습니다" };
   }
 
@@ -221,6 +259,7 @@ export async function addNoteAction(clientId: string, data: ClientNoteData): Pro
     await db.insert(clientNotes).values({
       clientId,
       userId,
+      workspaceId,
       content: parsed.data.content,
     });
 
@@ -236,10 +275,19 @@ export async function deleteNoteAction(noteId: string, clientId: string): Promis
   const userId = await getUserId();
   if (!userId) return { success: false, error: "인증 정보를 확인할 수 없습니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   try {
     await db
       .delete(clientNotes)
-      .where(and(eq(clientNotes.id, noteId), eq(clientNotes.userId, userId)));
+      .where(
+        and(
+          eq(clientNotes.id, noteId),
+          eq(clientNotes.userId, userId),
+          workspaceScope(clientNotes.workspaceId, workspaceId),
+        ),
+      );
 
     revalidatePath(`/dashboard/clients/${clientId}`);
     return { success: true };

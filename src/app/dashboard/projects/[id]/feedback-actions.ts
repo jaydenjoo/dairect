@@ -10,6 +10,12 @@ import {
 } from "@/lib/db/schema";
 import { db } from "@/lib/db";
 import { getUserId } from "@/lib/auth/get-user-id";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
+import { workspaceScope } from "@/lib/db/workspace-scope";
+
+// 정책: portal_feedbacks 테이블은 workspace_id 컬럼 없음 (Task 5-1-2 범위 외).
+//   projects 경유 간접 격리 — 소유권 체크 시 projects.workspace_id 조건 추가.
+//   activity_logs INSERT 시 workspaceId 주입.
 
 const uuidSchema = z.string().uuid();
 
@@ -49,10 +55,13 @@ export async function getProjectFeedbacks(
   const userId = await getUserId();
   if (!userId) return empty;
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return empty;
+
   const idCheck = uuidSchema.safeParse(projectId);
   if (!idCheck.success) return empty;
 
-  // 소유권 확인 — 타 사용자 프로젝트의 피드백 열람 방지. soft-delete 포함 필터.
+  // 소유권 확인 — 타 사용자/워크스페이스 프로젝트의 피드백 열람 방지. soft-delete 포함 필터.
   const [owned] = await db
     .select({ id: projects.id })
     .from(projects)
@@ -60,6 +69,7 @@ export async function getProjectFeedbacks(
       and(
         eq(projects.id, idCheck.data),
         eq(projects.userId, userId),
+        workspaceScope(projects.workspaceId, workspaceId),
         isNull(projects.deletedAt),
       ),
     )
@@ -123,6 +133,9 @@ export async function getTotalUnreadFeedbackForUser(): Promise<number> {
     const userId = await getUserId();
     if (!userId) return 0;
 
+    const workspaceId = await getCurrentWorkspaceId();
+    if (!workspaceId) return 0;
+
     const [row] = await db
       .select({ cnt: count() })
       .from(portalFeedbacks)
@@ -130,6 +143,7 @@ export async function getTotalUnreadFeedbackForUser(): Promise<number> {
       .where(
         and(
           eq(projects.userId, userId),
+          workspaceScope(projects.workspaceId, workspaceId),
           isNull(projects.deletedAt),
           eq(portalFeedbacks.isRead, false),
         ),
@@ -153,6 +167,9 @@ export async function getUnreadFeedbackCount(projectId: string): Promise<number>
   const userId = await getUserId();
   if (!userId) return 0;
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return 0;
+
   const idCheck = uuidSchema.safeParse(projectId);
   if (!idCheck.success) return 0;
 
@@ -163,6 +180,7 @@ export async function getUnreadFeedbackCount(projectId: string): Promise<number>
       and(
         eq(projects.id, idCheck.data),
         eq(projects.userId, userId),
+        workspaceScope(projects.workspaceId, workspaceId),
         isNull(projects.deletedAt),
       ),
     )
@@ -207,6 +225,9 @@ export async function markFeedbackReadAction(
   const userId = await getUserId();
   if (!userId) return { success: false, error: "로그인이 필요합니다" };
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { success: false, error: "워크스페이스를 확인할 수 없습니다" };
+
   const parsed = markActionSchema.safeParse(input);
   if (!parsed.success) {
     console.error({
@@ -231,6 +252,7 @@ export async function markFeedbackReadAction(
       and(
         eq(portalFeedbacks.id, feedbackId),
         eq(projects.userId, userId),
+        workspaceScope(projects.workspaceId, workspaceId),
         isNull(projects.deletedAt),
       ),
     )
@@ -255,6 +277,7 @@ export async function markFeedbackReadAction(
 
       await tx.insert(activityLogs).values({
         userId,
+        workspaceId,
         projectId: fb.projectId,
         entityType: "portal_feedback",
         entityId: fb.id,
