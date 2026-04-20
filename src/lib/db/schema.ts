@@ -27,6 +27,12 @@ export const users = pgTable(
     email: text().unique().notNull(),
     name: text(),
     avatarUrl: text("avatar_url"),
+    // Phase 5 Task 5-2-3-A (PRD 섹션 10 결정): 로그인 직후 "마지막 접속 workspace" 우선 해석.
+    // NULL 허용 (신규 가입 직후 이력 없음). ON DELETE SET NULL (workspace hard delete 시 자동 해제).
+    // `() =>` 화살표 함수로 forward reference — workspaces는 아래에서 정의되지만 Drizzle이 lazy resolve.
+    lastWorkspaceId: uuid("last_workspace_id").references(() => workspaces.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
   },
   (table) => [
