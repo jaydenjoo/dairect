@@ -54,6 +54,9 @@ export type DemoData = {
 // ─── 고정 UUID (데모 전용 예약 범위) ───
 
 export const DEMO_USER_ID = "00000000-0000-0000-0000-000000000000";
+// 데모 전용 예약 workspace UUID — 실 DB 침입 방지(users_not_demo_uuid check 패턴과 동일 의도).
+// Phase 5 Task 5-1-4: schema.ts의 13 테이블 workspaceId NOT NULL 전환 후 sample-data 타입 정합 복원.
+export const DEMO_WORKSPACE_ID = "00000000-0000-0000-0000-000000000001";
 
 export const DEMO_CLIENT_IDS = {
   techstart: "11111111-1111-1111-1111-111111111101",
@@ -119,7 +122,7 @@ function buildClients(base: Date): DemoClient[] {
     {
       id: DEMO_CLIENT_IDS.techstart,
       userId: DEMO_USER_ID,
-      workspaceId: null,
+      workspaceId: DEMO_WORKSPACE_ID,
       companyName: "테크스타트 주식회사",
       contactName: "김주현",
       email: "contact@techstart.example",
@@ -134,7 +137,7 @@ function buildClients(base: Date): DemoClient[] {
     {
       id: DEMO_CLIENT_IDS.boutique,
       userId: DEMO_USER_ID,
-      workspaceId: null,
+      workspaceId: DEMO_WORKSPACE_ID,
       companyName: "부티크 커머스",
       contactName: "이소영",
       email: "soyoung@boutique.example",
@@ -149,7 +152,7 @@ function buildClients(base: Date): DemoClient[] {
     {
       id: DEMO_CLIENT_IDS.educenter,
       userId: DEMO_USER_ID,
-      workspaceId: null,
+      workspaceId: DEMO_WORKSPACE_ID,
       companyName: "에듀센터",
       contactName: "박민호",
       email: "minho@educenter.example",
@@ -171,7 +174,7 @@ function buildProjects(base: Date): DemoProject[] {
     {
       id: DEMO_PROJECT_IDS.mvpApp,
       userId: DEMO_USER_ID,
-      workspaceId: null,
+      workspaceId: DEMO_WORKSPACE_ID,
       clientId: DEMO_CLIENT_IDS.techstart,
       name: "모바일 앱 MVP 개발",
       description: "iOS/Android 네이티브 MVP. 인증·핵심 피처 3개·결제 연동.",
@@ -197,7 +200,7 @@ function buildProjects(base: Date): DemoProject[] {
     {
       id: DEMO_PROJECT_IDS.saasDash,
       userId: DEMO_USER_ID,
-      workspaceId: null,
+      workspaceId: DEMO_WORKSPACE_ID,
       clientId: DEMO_CLIENT_IDS.techstart,
       name: "SaaS 대시보드 구축",
       description: "관리자 대시보드 + 실시간 차트 + 권한 관리.",
@@ -223,7 +226,7 @@ function buildProjects(base: Date): DemoProject[] {
     {
       id: DEMO_PROJECT_IDS.commerce,
       userId: DEMO_USER_ID,
-      workspaceId: null,
+      workspaceId: DEMO_WORKSPACE_ID,
       clientId: DEMO_CLIENT_IDS.boutique,
       name: "이커머스 리뉴얼",
       description: "레거시 쇼핑몰 → Next.js 이전 + 결제·배송 리팩토링.",
@@ -249,7 +252,7 @@ function buildProjects(base: Date): DemoProject[] {
     {
       id: DEMO_PROJECT_IDS.landing,
       userId: DEMO_USER_ID,
-      workspaceId: null,
+      workspaceId: DEMO_WORKSPACE_ID,
       clientId: DEMO_CLIENT_IDS.educenter,
       name: "브랜드 랜딩 페이지",
       description: "교육 브랜드 리뉴얼 랜딩. 모션·반응형 포함.",
@@ -275,7 +278,7 @@ function buildProjects(base: Date): DemoProject[] {
     {
       id: DEMO_PROJECT_IDS.chatbot,
       userId: DEMO_USER_ID,
-      workspaceId: null,
+      workspaceId: DEMO_WORKSPACE_ID,
       clientId: DEMO_CLIENT_IDS.educenter,
       name: "AI 챗봇 PoC",
       description: "수강생 FAQ 자동 응대 챗봇 개념검증.",
@@ -332,7 +335,7 @@ function buildMilestones(base: Date): DemoMilestone[] {
   return seeds.map((s, idx) => ({
     id: `44444444-4444-4444-4444-4444444444${String(idx + 1).padStart(2, "0")}`,
     projectId: s.projectId,
-    workspaceId: null,
+    workspaceId: DEMO_WORKSPACE_ID,
     title: s.title,
     description: null,
     isCompleted: s.completed,
@@ -351,7 +354,7 @@ function buildEstimates(base: Date): DemoEstimate[] {
     {
       id: DEMO_ESTIMATE_IDS.mvpApp,
       userId: DEMO_USER_ID,
-      workspaceId: null,
+      workspaceId: DEMO_WORKSPACE_ID,
       projectId: DEMO_PROJECT_IDS.mvpApp,
       clientId: DEMO_CLIENT_IDS.techstart,
       estimateNumber: "EST-2026-001",
@@ -379,7 +382,7 @@ function buildEstimates(base: Date): DemoEstimate[] {
     {
       id: DEMO_ESTIMATE_IDS.saasDash,
       userId: DEMO_USER_ID,
-      workspaceId: null,
+      workspaceId: DEMO_WORKSPACE_ID,
       projectId: DEMO_PROJECT_IDS.saasDash,
       clientId: DEMO_CLIENT_IDS.techstart,
       estimateNumber: "EST-2026-002",
@@ -407,7 +410,7 @@ function buildEstimates(base: Date): DemoEstimate[] {
     {
       id: DEMO_ESTIMATE_IDS.chatbot,
       userId: DEMO_USER_ID,
-      workspaceId: null,
+      workspaceId: DEMO_WORKSPACE_ID,
       projectId: DEMO_PROJECT_IDS.chatbot,
       clientId: DEMO_CLIENT_IDS.educenter,
       estimateNumber: "EST-2026-003",
@@ -440,17 +443,17 @@ function buildEstimateItems(): DemoEstimateItem[] {
   // 견적서당 대표 항목 3개씩 (9건). 시연용이라 상세도 축약.
   return [
     // MVP 앱
-    { id: "55555555-0000-0000-0000-000000000001", workspaceId: null, estimateId: DEMO_ESTIMATE_IDS.mvpApp, name: "iOS 네이티브 개발", description: "Swift UI·핵심 피처 3종", category: "구현", manDays: "22.0", difficulty: "1.2", unitPrice: 700_000, quantity: 1, subtotal: 18_480_000, sortOrder: 0 },
-    { id: "55555555-0000-0000-0000-000000000002", workspaceId: null, estimateId: DEMO_ESTIMATE_IDS.mvpApp, name: "Android 네이티브 개발", description: "Kotlin + Jetpack Compose", category: "구현", manDays: "22.0", difficulty: "1.2", unitPrice: 700_000, quantity: 1, subtotal: 18_480_000, sortOrder: 1 },
-    { id: "55555555-0000-0000-0000-000000000003", workspaceId: null, estimateId: DEMO_ESTIMATE_IDS.mvpApp, name: "결제 연동 (PG/인앱)", description: "아임포트 · 스토어 결제", category: "외부연동", manDays: "6.0", difficulty: "1.0", unitPrice: 700_000, quantity: 1, subtotal: 4_200_000, sortOrder: 2 },
+    { id: "55555555-0000-0000-0000-000000000001", workspaceId: DEMO_WORKSPACE_ID, estimateId: DEMO_ESTIMATE_IDS.mvpApp, name: "iOS 네이티브 개발", description: "Swift UI·핵심 피처 3종", category: "구현", manDays: "22.0", difficulty: "1.2", unitPrice: 700_000, quantity: 1, subtotal: 18_480_000, sortOrder: 0 },
+    { id: "55555555-0000-0000-0000-000000000002", workspaceId: DEMO_WORKSPACE_ID, estimateId: DEMO_ESTIMATE_IDS.mvpApp, name: "Android 네이티브 개발", description: "Kotlin + Jetpack Compose", category: "구현", manDays: "22.0", difficulty: "1.2", unitPrice: 700_000, quantity: 1, subtotal: 18_480_000, sortOrder: 1 },
+    { id: "55555555-0000-0000-0000-000000000003", workspaceId: DEMO_WORKSPACE_ID, estimateId: DEMO_ESTIMATE_IDS.mvpApp, name: "결제 연동 (PG/인앱)", description: "아임포트 · 스토어 결제", category: "외부연동", manDays: "6.0", difficulty: "1.0", unitPrice: 700_000, quantity: 1, subtotal: 4_200_000, sortOrder: 2 },
     // SaaS
-    { id: "55555555-0000-0000-0000-000000000004", workspaceId: null, estimateId: DEMO_ESTIMATE_IDS.saasDash, name: "인증/권한 시스템", description: "RBAC · 세션 · 감사 로그", category: "구현", manDays: "12.0", difficulty: "1.1", unitPrice: 700_000, quantity: 1, subtotal: 9_240_000, sortOrder: 0 },
-    { id: "55555555-0000-0000-0000-000000000005", workspaceId: null, estimateId: DEMO_ESTIMATE_IDS.saasDash, name: "대시보드 + 차트", description: "실시간 갱신 · Recharts", category: "구현", manDays: "22.0", difficulty: "1.2", unitPrice: 700_000, quantity: 1, subtotal: 18_480_000, sortOrder: 1 },
-    { id: "55555555-0000-0000-0000-000000000006", workspaceId: null, estimateId: DEMO_ESTIMATE_IDS.saasDash, name: "배포 파이프라인", description: "Vercel · Preview Deploy", category: "DevOps", manDays: "8.0", difficulty: "1.0", unitPrice: 700_000, quantity: 1, subtotal: 5_600_000, sortOrder: 2 },
+    { id: "55555555-0000-0000-0000-000000000004", workspaceId: DEMO_WORKSPACE_ID, estimateId: DEMO_ESTIMATE_IDS.saasDash, name: "인증/권한 시스템", description: "RBAC · 세션 · 감사 로그", category: "구현", manDays: "12.0", difficulty: "1.1", unitPrice: 700_000, quantity: 1, subtotal: 9_240_000, sortOrder: 0 },
+    { id: "55555555-0000-0000-0000-000000000005", workspaceId: DEMO_WORKSPACE_ID, estimateId: DEMO_ESTIMATE_IDS.saasDash, name: "대시보드 + 차트", description: "실시간 갱신 · Recharts", category: "구현", manDays: "22.0", difficulty: "1.2", unitPrice: 700_000, quantity: 1, subtotal: 18_480_000, sortOrder: 1 },
+    { id: "55555555-0000-0000-0000-000000000006", workspaceId: DEMO_WORKSPACE_ID, estimateId: DEMO_ESTIMATE_IDS.saasDash, name: "배포 파이프라인", description: "Vercel · Preview Deploy", category: "DevOps", manDays: "8.0", difficulty: "1.0", unitPrice: 700_000, quantity: 1, subtotal: 5_600_000, sortOrder: 2 },
     // 챗봇 PoC
-    { id: "55555555-0000-0000-0000-000000000007", workspaceId: null, estimateId: DEMO_ESTIMATE_IDS.chatbot, name: "Claude API 연동", description: "시스템 프롬프트 · Tool use", category: "AI", manDays: "6.0", difficulty: "1.0", unitPrice: 700_000, quantity: 1, subtotal: 4_200_000, sortOrder: 0 },
-    { id: "55555555-0000-0000-0000-000000000008", workspaceId: null, estimateId: DEMO_ESTIMATE_IDS.chatbot, name: "RAG 기본 구성", description: "pgvector · 임베딩 파이프라인", category: "AI", manDays: "8.0", difficulty: "1.1", unitPrice: 700_000, quantity: 1, subtotal: 6_160_000, sortOrder: 1 },
-    { id: "55555555-0000-0000-0000-000000000009", workspaceId: null, estimateId: DEMO_ESTIMATE_IDS.chatbot, name: "데모 웹 위젯", description: "임베드 가능한 위젯 UI", category: "구현", manDays: "4.0", difficulty: "0.9", unitPrice: 700_000, quantity: 1, subtotal: 2_520_000, sortOrder: 2 },
+    { id: "55555555-0000-0000-0000-000000000007", workspaceId: DEMO_WORKSPACE_ID, estimateId: DEMO_ESTIMATE_IDS.chatbot, name: "Claude API 연동", description: "시스템 프롬프트 · Tool use", category: "AI", manDays: "6.0", difficulty: "1.0", unitPrice: 700_000, quantity: 1, subtotal: 4_200_000, sortOrder: 0 },
+    { id: "55555555-0000-0000-0000-000000000008", workspaceId: DEMO_WORKSPACE_ID, estimateId: DEMO_ESTIMATE_IDS.chatbot, name: "RAG 기본 구성", description: "pgvector · 임베딩 파이프라인", category: "AI", manDays: "8.0", difficulty: "1.1", unitPrice: 700_000, quantity: 1, subtotal: 6_160_000, sortOrder: 1 },
+    { id: "55555555-0000-0000-0000-000000000009", workspaceId: DEMO_WORKSPACE_ID, estimateId: DEMO_ESTIMATE_IDS.chatbot, name: "데모 웹 위젯", description: "임베드 가능한 위젯 UI", category: "구현", manDays: "4.0", difficulty: "0.9", unitPrice: 700_000, quantity: 1, subtotal: 2_520_000, sortOrder: 2 },
   ];
 }
 
@@ -495,7 +498,7 @@ function inv(
   return {
     id,
     userId: DEMO_USER_ID,
-    workspaceId: null,
+    workspaceId: DEMO_WORKSPACE_ID,
     projectId,
     estimateId,
     invoiceNumber,
@@ -547,7 +550,7 @@ function buildActivityLogs(base: Date): DemoActivityLog[] {
   return seeds.map((s, idx) => ({
     id: `77777777-0000-0000-0000-0000000000${String(idx + 1).padStart(2, "0")}`,
     userId: DEMO_USER_ID,
-    workspaceId: null,
+    workspaceId: DEMO_WORKSPACE_ID,
     projectId: s.projectId,
     entityType: s.entityType,
     entityId: null,

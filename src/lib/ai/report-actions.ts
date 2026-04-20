@@ -6,6 +6,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { userSettings, weeklyReports } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
 import { CLAUDE_MODEL, getClaudeClient } from "@/lib/ai/claude-client";
 import { REPORT_SYSTEM_PROMPT, REPORT_TOOL } from "@/lib/ai/report-prompt";
 import { getKstDateParts } from "@/lib/ai/briefing-data";
@@ -129,6 +130,11 @@ export async function regenerateWeeklyReportAction(
     return { success: false, error: "인증 정보를 확인할 수 없습니다", code: "AUTH" };
   }
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) {
+    return { success: false, error: "워크스페이스를 확인할 수 없습니다", code: "AUTH" };
+  }
+
   const idCheck = projectIdSchema.safeParse(projectId);
   if (!idCheck.success) {
     return {
@@ -172,6 +178,7 @@ export async function regenerateWeeklyReportAction(
     }
     const saved = await upsertReport(
       userId,
+      workspaceId,
       idCheck.data,
       reportInput.weekStartDate,
       emptyParsed.data,
@@ -344,6 +351,7 @@ export async function regenerateWeeklyReportAction(
   try {
     const saved = await upsertReport(
       userId,
+      workspaceId,
       idCheck.data,
       reportInput.weekStartDate,
       responseParsed.data,
@@ -440,6 +448,7 @@ async function rollbackCounter(userId: string): Promise<number> {
 
 async function upsertReport(
   userId: string,
+  workspaceId: string,
   projectId: string,
   weekStartDate: string,
   content: ReportContent,
@@ -449,6 +458,7 @@ async function upsertReport(
     .insert(weeklyReports)
     .values({
       userId,
+      workspaceId,
       projectId,
       weekStartDate,
       contentJson: content,

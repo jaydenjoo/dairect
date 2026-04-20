@@ -5,6 +5,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { briefings, userSettings } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
 import { CLAUDE_MODEL, getClaudeClient } from "@/lib/ai/claude-client";
 import { BRIEFING_SYSTEM_PROMPT, BRIEFING_TOOL } from "@/lib/ai/briefing-prompt";
 import { getWeeklyBriefingData, getKstDateParts } from "@/lib/ai/briefing-data";
@@ -122,6 +123,11 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
     return { success: false, error: "인증 정보를 확인할 수 없습니다", code: "AUTH" };
   }
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) {
+    return { success: false, error: "워크스페이스를 확인할 수 없습니다", code: "AUTH" };
+  }
+
   const { weekStart } = getKstDateParts();
 
   // 1) 쿨다운: 10초 내 생성된 row 있으면 그대로 반환 (DB/Claude write 생략)
@@ -134,7 +140,7 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
   // 3) 빈 데이터 short-circuit: AI 호출 없이 fallback 저장. 카운터 차감 안 함.
   if (isWeeklyDataEmpty(weeklyData)) {
     const empty = buildEmptyBriefing();
-    const saved = await upsertBriefing(userId, weeklyData.weekStartDate, empty, "empty_fallback");
+    const saved = await upsertBriefing(userId, workspaceId, weeklyData.weekStartDate, empty, "empty_fallback");
     const dailyCount = await readDailyCount(userId);
     return {
       success: true,
@@ -301,7 +307,7 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
 
   // 7) DB 저장 실패 대비 try-catch — 카운터 이미 차감됐으므로 사용자에게 한도 소모 안내
   try {
-    const saved = await upsertBriefing(userId, weeklyData.weekStartDate, responseParsed.data, "ai");
+    const saved = await upsertBriefing(userId, workspaceId, weeklyData.weekStartDate, responseParsed.data, "ai");
     return {
       success: true,
       content: responseParsed.data,
@@ -389,6 +395,7 @@ async function rollbackCounter(userId: string): Promise<number> {
 
 async function upsertBriefing(
   userId: string,
+  workspaceId: string,
   weekStartDate: string,
   content: BriefingContent,
   generationType: GenerationType,
@@ -397,6 +404,7 @@ async function upsertBriefing(
     .insert(briefings)
     .values({
       userId,
+      workspaceId,
       weekStartDate,
       contentJson: content,
       generationType,

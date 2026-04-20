@@ -1,9 +1,9 @@
 "use server";
 
 import { headers } from "next/headers";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { inquiries, leads, users } from "@/lib/db/schema";
+import { inquiries, leads, users, workspaceMembers, workspaces } from "@/lib/db/schema";
 import {
   inquiryFormSchema,
   type InquiryFormData,
@@ -87,19 +87,29 @@ export async function submitInquiryAction(
     // 트랜잭션: leads insert + inquiries.convertedToLeadId 업데이트 원자성 보장
     // inquiries insert는 트랜잭션 밖 — 리드 생성 실패해도 고객 문의는 보존
     try {
+      // 공개 landing form: 인증된 사용자 없음 → 최초 가입 운영자(single-tenant 전제)의
+      // 첫 번째 workspace에 lead 귀속. Phase 5.5 SaaS 전환 시 도메인/서브도메인 기반으로 교체.
       const ownerRows = await db
-        .select({ id: users.id })
+        .select({
+          userId: users.id,
+          workspaceId: workspaceMembers.workspaceId,
+        })
         .from(users)
-        .orderBy(asc(users.createdAt))
+        .innerJoin(workspaceMembers, eq(workspaceMembers.userId, users.id))
+        .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
+        .where(isNull(workspaces.deletedAt))
+        .orderBy(asc(users.createdAt), asc(workspaceMembers.joinedAt), asc(workspaceMembers.id))
         .limit(1);
-      const ownerId = ownerRows[0]?.id;
-      if (ownerId && inquiry) {
+      const ownerId = ownerRows[0]?.userId;
+      const ownerWorkspaceId = ownerRows[0]?.workspaceId;
+      if (ownerId && ownerWorkspaceId && inquiry) {
         const isEmail = cleanContact.includes("@");
         await db.transaction(async (tx) => {
           const [lead] = await tx
             .insert(leads)
             .values({
               userId: ownerId,
+              workspaceId: ownerWorkspaceId,
               source: "landing_form",
               name: cleanName,
               email: isEmail ? cleanContact : null,

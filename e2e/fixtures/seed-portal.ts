@@ -21,6 +21,8 @@ import {
   invoices,
   portalTokens,
   portalFeedbacks,
+  workspaces,
+  workspaceMembers,
 } from "@/lib/db/schema";
 
 // 고정 UUID — 한번에 cleanup 가능. e2e 격리용 별도 namespace (실 사용자 영역 침입 차단).
@@ -28,6 +30,10 @@ import {
 const E2E_USER_ID = "11111111-1111-4111-8111-e2e000000001";
 const E2E_CLIENT_ID = "11111111-1111-4111-8111-e2e000000002";
 const E2E_PROJECT_ID = "11111111-1111-4111-8111-e2e000000003";
+// Phase 5 Task 5-1-4: 13 도메인 테이블 workspace_id NOT NULL 전환 후 portal 시드도 workspace 귀속 필요.
+// workspace-isolation(22222222-) 시드와 namespace 분리 (11111111-).
+const E2E_WORKSPACE_ID = "11111111-1111-4111-8111-e2e00000a001";
+const E2E_WORKSPACE_MEMBER_ID = "11111111-1111-4111-8111-e2e00000a002";
 
 // 활성 / 만료 / revoked 토큰 — 시나리오 #7에서 invalid 분기 검증.
 const E2E_TOKEN_ACTIVE = "11111111-1111-4111-8111-e2e0000a0001";
@@ -74,6 +80,13 @@ export async function seedPortalFixtures(): Promise<void> {
   const oneYearLater = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
   const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
 
+  // 1. workspace (Phase 5 Task 5-1-4: 모든 도메인 row가 workspace 귀속)
+  await db.insert(workspaces).values({
+    id: E2E_WORKSPACE_ID,
+    name: "e2e_test_portal_workspace",
+    slug: "e2e-portal-test",
+  });
+
   await db.insert(users).values({
     id: E2E_USER_ID,
     email: "e2e-test-user@dairect.local",
@@ -87,9 +100,18 @@ export async function seedPortalFixtures(): Promise<void> {
     businessEmail: E2E_FIXTURE.pmBusinessEmail,
   });
 
+  // 2. workspace_member — PM user가 workspace owner
+  await db.insert(workspaceMembers).values({
+    id: E2E_WORKSPACE_MEMBER_ID,
+    workspaceId: E2E_WORKSPACE_ID,
+    userId: E2E_USER_ID,
+    role: "owner",
+  });
+
   await db.insert(clients).values({
     id: E2E_CLIENT_ID,
     userId: E2E_USER_ID,
+    workspaceId: E2E_WORKSPACE_ID,
     companyName: E2E_FIXTURE.clientCompanyName,
     contactName: E2E_FIXTURE.clientContactName,
   });
@@ -97,6 +119,7 @@ export async function seedPortalFixtures(): Promise<void> {
   await db.insert(projects).values({
     id: E2E_PROJECT_ID,
     userId: E2E_USER_ID,
+    workspaceId: E2E_WORKSPACE_ID,
     clientId: E2E_CLIENT_ID,
     name: E2E_FIXTURE.projectName,
     status: "in_progress",
@@ -110,6 +133,7 @@ export async function seedPortalFixtures(): Promise<void> {
     {
       id: E2E_MILESTONE_DONE_ID,
       projectId: E2E_PROJECT_ID,
+      workspaceId: E2E_WORKSPACE_ID,
       title: "기획 완료",
       isCompleted: true,
       completedAt: oneHourAgo,
@@ -118,6 +142,7 @@ export async function seedPortalFixtures(): Promise<void> {
     {
       id: E2E_MILESTONE_PROGRESS_ID,
       projectId: E2E_PROJECT_ID,
+      workspaceId: E2E_WORKSPACE_ID,
       title: "디자인 진행 중",
       isCompleted: false,
       sortOrder: 2,
@@ -125,6 +150,7 @@ export async function seedPortalFixtures(): Promise<void> {
     {
       id: E2E_MILESTONE_PENDING_ID,
       projectId: E2E_PROJECT_ID,
+      workspaceId: E2E_WORKSPACE_ID,
       title: "개발 대기",
       isCompleted: false,
       sortOrder: 3,
@@ -135,6 +161,7 @@ export async function seedPortalFixtures(): Promise<void> {
   await db.insert(invoices).values({
     id: E2E_INVOICE_ID,
     userId: E2E_USER_ID,
+    workspaceId: E2E_WORKSPACE_ID,
     projectId: E2E_PROJECT_ID,
     invoiceNumber: "e2e_INV-2026-001",
     type: "advance",
@@ -151,6 +178,7 @@ export async function seedPortalFixtures(): Promise<void> {
     {
       id: E2E_TOKEN_ROW_ACTIVE_ID,
       projectId: E2E_PROJECT_ID,
+      workspaceId: E2E_WORKSPACE_ID,
       token: E2E_TOKEN_ACTIVE,
       issuedBy: E2E_USER_ID,
       issuedAt: now,
@@ -159,6 +187,7 @@ export async function seedPortalFixtures(): Promise<void> {
     {
       id: E2E_TOKEN_ROW_EXPIRED_ID,
       projectId: E2E_PROJECT_ID,
+      workspaceId: E2E_WORKSPACE_ID,
       token: E2E_TOKEN_EXPIRED,
       issuedBy: E2E_USER_ID,
       issuedAt: new Date(now.getTime() - 400 * 24 * 60 * 60 * 1000),
@@ -169,6 +198,7 @@ export async function seedPortalFixtures(): Promise<void> {
     {
       id: E2E_TOKEN_ROW_REVOKED_ID,
       projectId: E2E_PROJECT_ID,
+      workspaceId: E2E_WORKSPACE_ID,
       token: E2E_TOKEN_REVOKED,
       issuedBy: E2E_USER_ID,
       issuedAt: oneHourAgo,
@@ -179,15 +209,18 @@ export async function seedPortalFixtures(): Promise<void> {
 }
 
 export async function cleanupPortalFixtures(): Promise<void> {
-  // 1차: 고정 ID 기반 직접 삭제 — FK 역순(feedbacks → tokens → invoices → milestones → projects → clients → user_settings → users)
+  // 1차: 고정 ID 기반 직접 삭제 — FK 역순
+  // (feedbacks → tokens → invoices → milestones → projects → clients → member → user_settings → users → workspace)
   await db.delete(portalFeedbacks).where(eq(portalFeedbacks.projectId, E2E_PROJECT_ID));
   await db.delete(portalTokens).where(eq(portalTokens.projectId, E2E_PROJECT_ID));
   await db.delete(invoices).where(eq(invoices.projectId, E2E_PROJECT_ID));
   await db.delete(milestones).where(eq(milestones.projectId, E2E_PROJECT_ID));
   await db.delete(projects).where(eq(projects.id, E2E_PROJECT_ID));
   await db.delete(clients).where(eq(clients.id, E2E_CLIENT_ID));
+  await db.delete(workspaceMembers).where(eq(workspaceMembers.id, E2E_WORKSPACE_MEMBER_ID));
   await db.delete(userSettings).where(eq(userSettings.userId, E2E_USER_ID));
   await db.delete(users).where(eq(users.id, E2E_USER_ID));
+  await db.delete(workspaces).where(eq(workspaces.id, E2E_WORKSPACE_ID));
 
   // 2차 안전망 — E2E_USER_ID로 발급된 모든 토큰/인보이스/프로젝트 일괄 삭제.
   // 1차 cleanup이 부분 실패한 경우(connection drop / FK constraint race)에도
@@ -200,6 +233,8 @@ export async function cleanupPortalFixtures(): Promise<void> {
     .where(
       and(eq(projects.userId, E2E_USER_ID), like(projects.name, "e2e_test_%")),
     );
+  await db.delete(workspaceMembers).where(eq(workspaceMembers.userId, E2E_USER_ID));
+  await db.delete(workspaces).where(eq(workspaces.slug, "e2e-portal-test"));
 
   // 3차 안전망 — 다른 e2e_test_* prefix 잔존 피드백(예: 다른 환경에서 시드된 row)
   await db

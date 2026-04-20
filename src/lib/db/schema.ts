@@ -93,7 +93,7 @@ export const clients = pgTable("clients", {
   // Phase 5.0 Task 5-1-2: workspace_id NULLABLE 추가 (backfill 전단계).
   // ON DELETE RESTRICT: workspace 삭제 시 하위 data 고아화 방지 (soft delete는 workspaces.deleted_at으로).
   // Task 5-1-3 backfill → Task 5-1-4 NOT NULL 전환.
-  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
   companyName: text("company_name").notNull(),
   contactName: text("contact_name"),
   email: text(),
@@ -115,7 +115,7 @@ export const clientNotes = pgTable("client_notes", {
     .notNull()
     .references(() => users.id),
   // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT)
-  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
   content: text().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
 });
@@ -128,7 +128,7 @@ export const leads = pgTable(
       .notNull()
       .references(() => users.id),
     // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT)
-    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
     source: text({
       enum: ["wishket", "kmong", "referral", "direct", "landing_form", "other"],
     }),
@@ -167,7 +167,7 @@ export const projects = pgTable("projects", {
     .notNull()
     .references(() => users.id),
   // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT)
-  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
   clientId: uuid("client_id").references(() => clients.id),
   name: text().notNull(),
   description: text(),
@@ -206,7 +206,7 @@ export const milestones = pgTable("milestones", {
     .notNull()
     .references(() => projects.id),
   // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). projects.workspace_id 상속이지만 JOIN 회피 위해 직접 보관.
-  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
   title: text().notNull(),
   description: text(),
   isCompleted: boolean("is_completed").default(false),
@@ -221,13 +221,15 @@ export const milestones = pgTable("milestones", {
 // 견적서
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-export const estimates = pgTable("estimates", {
+export const estimates = pgTable(
+  "estimates",
+  {
   id: uuid().primaryKey().default(sql`gen_random_uuid()`),
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id),
   // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). 채번 UNIQUE 재조정은 Task 5-1-4.
-  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
   projectId: uuid("project_id").references(() => projects.id),
   clientId: uuid("client_id").references(() => clients.id),
   estimateNumber: text("estimate_number").notNull(),
@@ -251,7 +253,12 @@ export const estimates = pgTable("estimates", {
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   pdfUrl: text("pdf_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-});
+  },
+  (table) => [
+    // 채번 경합 방지: (workspaceId, estimateNumber) 조합 유니크 (Task 5-1-4 신규).
+    unique("estimates_workspace_number_unique").on(table.workspaceId, table.estimateNumber),
+  ],
+);
 
 export const estimateItems = pgTable("estimate_items", {
   id: uuid().primaryKey().default(sql`gen_random_uuid()`),
@@ -259,7 +266,7 @@ export const estimateItems = pgTable("estimate_items", {
     .notNull()
     .references(() => estimates.id),
   // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). 견적 1건당 수십 row라 JOIN 회피 효과 큼.
-  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
   name: text().notNull(),
   description: text(),
   category: text(),
@@ -283,7 +290,7 @@ export const contracts = pgTable(
       .notNull()
       .references(() => users.id),
     // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). 채번 UNIQUE 재조정은 Task 5-1-4.
-    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
     projectId: uuid("project_id").references(() => projects.id),
     estimateId: uuid("estimate_id").references(() => estimates.id),
     contractNumber: text("contract_number").notNull(),
@@ -303,8 +310,8 @@ export const contracts = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
   },
   (table) => [
-    // 채번 경합 방지: (userId, contractNumber) 조합 유니크
-    unique("contracts_user_number_unique").on(table.userId, table.contractNumber),
+    // 채번 경합 방지: (workspaceId, contractNumber) 조합 유니크 (Task 5-1-4 재조정).
+    unique("contracts_workspace_number_unique").on(table.workspaceId, table.contractNumber),
   ],
 );
 
@@ -320,7 +327,7 @@ export const invoices = pgTable(
       .notNull()
       .references(() => users.id),
     // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). W2 cron workspace 필터 핵심 + 채번 UNIQUE 재조정은 Task 5-1-4.
-    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
     projectId: uuid("project_id").references(() => projects.id),
     estimateId: uuid("estimate_id").references(() => estimates.id),
     invoiceNumber: text("invoice_number").notNull(),
@@ -345,8 +352,8 @@ export const invoices = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
   },
   (table) => [
-    // 채번 경합 방지: (userId, invoiceNumber) 조합 유니크
-    unique("invoices_user_number_unique").on(table.userId, table.invoiceNumber),
+    // 채번 경합 방지: (workspaceId, invoiceNumber) 조합 유니크 (Task 5-1-4 재조정).
+    unique("invoices_workspace_number_unique").on(table.workspaceId, table.invoiceNumber),
   ],
 );
 
@@ -360,7 +367,7 @@ export const activityLogs = pgTable("activity_logs", {
     .notNull()
     .references(() => users.id),
   // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). 감사 로그 workspace 스코프 조회 필수.
-  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
   projectId: uuid("project_id").references(() => projects.id),
   entityType: text("entity_type"),
   entityId: uuid("entity_id"),
@@ -424,7 +431,7 @@ export const briefings = pgTable(
       .notNull()
       .references(() => users.id),
     // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). briefings는 사용자 개인 브리핑 성격 유지, workspace 격리는 쿼리 시점 필터.
-    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
     // mode:"string": postgres.js가 Date 객체로 변환하지 않도록 명시 — UI/Zod 경로에서 ISO date string 일관 유지
     weekStartDate: date("week_start_date", { mode: "string" }).notNull(),
     contentJson: jsonb("content_json").notNull(),
@@ -467,7 +474,7 @@ export const weeklyReports = pgTable(
       .references(() => users.id),
     // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). weekly_reports는
     //   프로젝트별 고객 발송 보고서라 workspace 격리 대상. Task 5-1-4에서 NOT NULL 전환.
-    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
     projectId: uuid("project_id")
       .notNull()
       .references(() => projects.id),
@@ -514,7 +521,7 @@ export const portalTokens = pgTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). projects.workspace_id 상속이지만 포털 토큰 조회 시 workspace 컨텍스트 직접 필터.
-    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
     token: text().notNull().unique(),
     issuedBy: uuid("issued_by")
       .notNull()
