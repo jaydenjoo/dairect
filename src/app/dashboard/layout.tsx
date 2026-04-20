@@ -5,6 +5,7 @@ import { Header } from "@/components/dashboard/header";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import { ensureDefaultWorkspace } from "@/lib/auth/ensure-default-workspace";
 import { getTotalUnreadFeedbackForUser } from "./projects/[id]/feedback-actions";
 
 export const metadata: Metadata = {
@@ -35,15 +36,21 @@ export default async function DashboardLayout({
     avatar_url?: string;
     picture?: string;
   };
+  const resolvedName = metadata.full_name ?? metadata.name ?? null;
   await db
     .insert(users)
     .values({
       id: user.id,
       email: user.email,
-      name: metadata.full_name ?? metadata.name ?? null,
+      name: resolvedName,
       avatarUrl: metadata.avatar_url ?? metadata.picture ?? null,
     })
     .onConflictDoNothing({ target: users.id });
+
+  // Phase 5 Task 5-2-7: 소속 workspace 없으면 default 자동 생성.
+  // 내부에서 "이미 소속 있으면 early return"이라 매 진입 비용은 SELECT 1회.
+  // /signup 직후 진입 / Google OAuth 신규 가입 / 기존 유저 재진입 모두 같은 경로.
+  await ensureDefaultWorkspace(user.id, resolvedName, user.email);
 
   // 사이드바 "프로젝트" 메뉴 뱃지 — 사용자 전체 미확인 피드백 합계.
   // layout 레벨에서 1회만 계산, 자식 페이지에 prop으로 전파.

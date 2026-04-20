@@ -173,6 +173,13 @@ function LoginForm() {
               이메일로 로그인
             </Button>
           </form>
+
+          <div className="text-center text-xs text-muted-foreground">
+            계정이 없으신가요?{" "}
+            <Link href="/signup" className="text-primary hover:underline">
+              회원가입
+            </Link>
+          </div>
         </div>
 
         <p className="text-center text-xs text-muted-foreground">

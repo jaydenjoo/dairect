@@ -40,8 +40,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 로그인 상태에서 /login 접근 시 → /dashboard 리다이렉트
-  if (user && request.nextUrl.pathname === "/login") {
+  // 로그인 상태에서 /login 또는 /signup 접근 시 → /dashboard 리다이렉트
+  if (
+    user &&
+    (request.nextUrl.pathname === "/login" ||
+      request.nextUrl.pathname === "/signup")
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
