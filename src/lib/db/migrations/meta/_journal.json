@@ -120,6 +120,20 @@
       "when": 1776597969966,
       "tag": "0016_charming_nemesis",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1776671235588,
+      "tag": "0017_modern_eternals",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1776674155144,
+      "tag": "0019_slim_gertrude_yorkes",
+      "breakpoints": true
     }
   ]
 }

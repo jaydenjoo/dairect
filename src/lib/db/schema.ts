@@ -11,6 +11,7 @@ import {
   decimal,
   unique,
   uniqueIndex,
+  index,
   check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -89,6 +90,10 @@ export const clients = pgTable("clients", {
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id),
+  // Phase 5.0 Task 5-1-2: workspace_id NULLABLE 추가 (backfill 전단계).
+  // ON DELETE RESTRICT: workspace 삭제 시 하위 data 고아화 방지 (soft delete는 workspaces.deleted_at으로).
+  // Task 5-1-3 backfill → Task 5-1-4 NOT NULL 전환.
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
   companyName: text("company_name").notNull(),
   contactName: text("contact_name"),
   email: text(),
@@ -109,6 +114,8 @@ export const clientNotes = pgTable("client_notes", {
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id),
+  // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT)
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
   content: text().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
 });
@@ -120,6 +127,8 @@ export const leads = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id),
+    // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT)
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
     source: text({
       enum: ["wishket", "kmong", "referral", "direct", "landing_form", "other"],
     }),
@@ -157,6 +166,8 @@ export const projects = pgTable("projects", {
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id),
+  // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT)
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
   clientId: uuid("client_id").references(() => clients.id),
   name: text().notNull(),
   description: text(),
@@ -194,6 +205,8 @@ export const milestones = pgTable("milestones", {
   projectId: uuid("project_id")
     .notNull()
     .references(() => projects.id),
+  // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). projects.workspace_id 상속이지만 JOIN 회피 위해 직접 보관.
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
   title: text().notNull(),
   description: text(),
   isCompleted: boolean("is_completed").default(false),
@@ -213,6 +226,8 @@ export const estimates = pgTable("estimates", {
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id),
+  // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). 채번 UNIQUE 재조정은 Task 5-1-4.
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
   projectId: uuid("project_id").references(() => projects.id),
   clientId: uuid("client_id").references(() => clients.id),
   estimateNumber: text("estimate_number").notNull(),
@@ -243,6 +258,8 @@ export const estimateItems = pgTable("estimate_items", {
   estimateId: uuid("estimate_id")
     .notNull()
     .references(() => estimates.id),
+  // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). 견적 1건당 수십 row라 JOIN 회피 효과 큼.
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
   name: text().notNull(),
   description: text(),
   category: text(),
@@ -265,6 +282,8 @@ export const contracts = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id),
+    // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). 채번 UNIQUE 재조정은 Task 5-1-4.
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
     projectId: uuid("project_id").references(() => projects.id),
     estimateId: uuid("estimate_id").references(() => estimates.id),
     contractNumber: text("contract_number").notNull(),
@@ -300,6 +319,8 @@ export const invoices = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id),
+    // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). W2 cron workspace 필터 핵심 + 채번 UNIQUE 재조정은 Task 5-1-4.
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
     projectId: uuid("project_id").references(() => projects.id),
     estimateId: uuid("estimate_id").references(() => estimates.id),
     invoiceNumber: text("invoice_number").notNull(),
@@ -338,6 +359,8 @@ export const activityLogs = pgTable("activity_logs", {
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id),
+  // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). 감사 로그 workspace 스코프 조회 필수.
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
   projectId: uuid("project_id").references(() => projects.id),
   entityType: text("entity_type"),
   entityId: uuid("entity_id"),
@@ -400,6 +423,8 @@ export const briefings = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id),
+    // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). briefings는 사용자 개인 브리핑 성격 유지, workspace 격리는 쿼리 시점 필터.
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
     // mode:"string": postgres.js가 Date 객체로 변환하지 않도록 명시 — UI/Zod 경로에서 ISO date string 일관 유지
     weekStartDate: date("week_start_date", { mode: "string" }).notNull(),
     contentJson: jsonb("content_json").notNull(),
@@ -485,6 +510,8 @@ export const portalTokens = pgTable(
     projectId: uuid("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
+    // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). projects.workspace_id 상속이지만 포털 토큰 조회 시 workspace 컨텍스트 직접 필터.
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
     token: text().notNull().unique(),
     issuedBy: uuid("issued_by")
       .notNull()
@@ -529,6 +556,149 @@ export const portalFeedbacks = pgTable("portal_feedbacks", {
   isRead: boolean("is_read").default(false).notNull(),
   readAt: timestamp("read_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
+    .default(sql`now()`)
+    .notNull(),
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Phase 5.0 Multi-tenant 기반 (Task 5-1-1)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// PRD-phase5.md Epic 5-1 + PRD-phase5-erd.md 섹션 3 명세 구현.
+// 4 테이블 신규: workspaces / workspace_members / workspace_invitations / workspace_settings.
+// DB 실제 반영은 Jayden 수동 검토 후 별도 단계 (`pnpm db:push` 또는 Supabase MCP apply_migration).
+
+export const workspaces = pgTable(
+  "workspaces",
+  {
+    id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+    name: text().notNull(),
+    // URL-safe 식별자 (예: /invite/[token] 라우팅 맥락). 회원가입 자동 생성 로직은 Task 5-1-3/5-2-7에서.
+    slug: text().notNull().unique(),
+    // Phase 5.5 Stripe 도입 전까지는 'free' 유지. CHECK로 enum 고정.
+    subscriptionStatus: text("subscription_status").default("free").notNull(),
+    stripeCustomerId: text("stripe_customer_id"),
+    // Workspace soft delete — R7 완화 (30일 유예 복구 가능).
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "workspaces_subscription_status_check",
+      sql`${table.subscriptionStatus} IN ('free', 'active', 'past_due', 'canceled', 'paused')`,
+    ),
+  ],
+);
+
+export const workspaceMembers = pgTable(
+  "workspace_members",
+  {
+    id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // owner: 결제+멤버관리+전체 write / admin: 멤버관리+전체 write / member: 자기 프로젝트+하위 write (C2 결정, 2026-04-20)
+    role: text().notNull(),
+    joinedAt: timestamp("joined_at", { withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+  },
+  (table) => [
+    // 한 user는 한 workspace에 1회만 소속
+    unique("workspace_members_ws_user_unique").on(table.workspaceId, table.userId),
+    check(
+      "workspace_members_role_check",
+      sql`${table.role} IN ('owner', 'admin', 'member')`,
+    ),
+    // "이 user가 속한 모든 workspace" 조회는 로그인 후 매 페이지 navigation 핫패스.
+    // 복합 UNIQUE의 2번째 컬럼만 쓰면 B-tree prefix 규칙상 index 활용 불가 → user_id 단독 인덱스 추가.
+    index("workspace_members_user_idx").on(table.userId),
+  ],
+);
+
+export const workspaceInvitations = pgTable(
+  "workspace_invitations",
+  {
+    id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    // 초대 대상 이메일 — 가입 전 사용자일 수도 있으므로 users.id FK는 수락 시점에 연결.
+    email: text().notNull(),
+    // 수락 시 부여될 역할. 같은 3종 CHECK 공유.
+    role: text().notNull(),
+    // W5 portal_tokens 패턴 재사용 — crypto.randomUUID() 122-bit 엔트로피.
+    token: text().notNull().unique(),
+    // SET NULL + nullable: 초대자(PM) user 삭제 시 pending 초대 row는 보존(감사 기록) + 초대자 기록만 소실.
+    // CASCADE면 감사 끊김, NO ACTION이면 user 삭제 자체 실패 (운영 장애).
+    invitedBy: uuid("invited_by")
+      .references(() => users.id, { onDelete: "set null" }),
+    // 발급 시점 +7일 (B1 결정, 2026-04-20). 연장 옵션(14일)은 별도 Task.
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    // NULL=대기, NOT NULL=수락 완료. workspace_members row 생성과 같은 트랜잭션.
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    // 수동 취소 / 재초대 시 기록. soft revoke로 감사 경로 보존.
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "workspace_invitations_role_check",
+      sql`${table.role} IN ('owner', 'admin', 'member')`,
+    ),
+    // 활성 초대(수락 전 + 취소 전) 중복 방어 — 같은 workspace+email에 여러 건 발급 방지.
+    uniqueIndex("workspace_invitations_pending_idx")
+      .on(table.workspaceId, table.email)
+      .where(sql`${table.acceptedAt} IS NULL AND ${table.revokedAt} IS NULL`),
+  ],
+);
+
+// A1 독립 테이블 결정 (2026-04-20). user_settings에서 14 필드 이전.
+// PK=FK 패턴: workspace_id가 PK이자 workspaces.id FK — 1:1 관계.
+// ⚠️ workspace 생성 시 settings row도 반드시 같은 트랜잭션에서 생성해야 함.
+//    Task 5-1-3 default backfill + Task 5-2-7 회원가입 자동 프로비저닝에서
+//    `INSERT INTO workspaces RETURNING id` → `INSERT INTO workspace_settings (workspace_id) VALUES (...)` 트랜잭션 강제.
+//    누락 시 PDF 생성 경로(companyName 참조)에서 null 크래시 위험.
+export const workspaceSettings = pgTable("workspace_settings", {
+  workspaceId: uuid("workspace_id")
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+
+  // 사업자 정보 (견적서/계약서/청구서 PDF에 자동 삽입) — user_settings 7 필드 이전
+  companyName: text("company_name"),
+  representativeName: text("representative_name"),
+  businessNumber: text("business_number"),
+  businessAddress: text("business_address"),
+  businessPhone: text("business_phone"),
+  businessEmail: text("business_email"),
+  // 계좌번호/은행명/예금주 jsonb — 청구서 PDF에 표시 (invoices/actions.ts bankInfoSchema 재사용)
+  bankInfo: jsonb("bank_info"),
+
+  // 견적서 기본값 — user_settings 5 필드 이전
+  estimateNumberPrefix: text("estimate_number_prefix").default("EST"),
+  contractNumberPrefix: text("contract_number_prefix").default("CON"),
+  invoiceNumberPrefix: text("invoice_number_prefix").default("INV"),
+  dailyRate: bigint("daily_rate", { mode: "number" }).default(700000),
+  defaultPaymentSplit: jsonb("default_payment_split").default(sql`'[
+    {"label":"착수금","percentage":30},
+    {"label":"중도금","percentage":40},
+    {"label":"잔금","percentage":30}
+  ]'::jsonb`),
+
+  // 기능 프리셋 — user_settings에서 이전
+  featurePresets: jsonb("feature_presets").default(sql`'[]'::jsonb`),
+
+  updatedAt: timestamp("updated_at", { withTimezone: true })
     .default(sql`now()`)
     .notNull(),
 });
