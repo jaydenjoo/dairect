@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-20 (Phase 5 PRD v4.0 초안 작성 — Phase 3 cron 종결 직후 Phase 5 SaaS 킥오프)
-> 현재 위치: Phase 3 + Phase 4 완료, Phase 3 cron 전체 종결, **Phase 5 PRD 초안 완료**. 다음은 Phase 5.0 Epic 5-1 Data Model 착수 / loading.tsx / DB 쿼리 최적화 중 택1
+> 최종 업데이트: 2026-04-20 후반 (Phase 5 Epic 5-1 착수 — Task 5-1-1 + 5-1-2 완료, 4+12 테이블 스키마·마이그레이션 정의)
+> 현재 위치: **Phase 5 Epic 5-1 진행 중 (2/8 Task 완료, DB push 대기)**. 다음은 Task 5-1-3 default workspace 생성 + backfill 스크립트 / 또는 Jayden DB push 후 Task 5-1-4 NOT NULL 전환
 
 ## 전체 진행률
 
@@ -12,7 +12,7 @@
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | ✅ 완료 (W2/W3 cron 포함) | 100% (5/5 + cron 전체 완료) |
 | Phase 4 | 고객 포털 + /demo + PWA | ✅ 완료 | 100% (Task 4-1 ✅ / 4-2 M1~M8 ✅) |
-| Phase 5 | SaaS 전환 준비 (옵션) | ⬜ 대기 | 0% |
+| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 2/8 (스키마 정의만, DB push 대기) |
 
 ## Phase 0: 기반 설정 ✅
 
@@ -409,7 +409,82 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 
 ---
 
-## 이번 세션 (2026-04-19~20 Phase 3 cron 전체 종결 + Phase 5 PRD v4.0 킥오프)
+## 이번 세션 (2026-04-20 후반 — Phase 5 Epic 5-1 착수 + DB 최적화 + ERD + loading.tsx)
+
+### 세션 스코프 (7 Task 누적, 연속 Task 단위 6단계 사이클)
+
+1. **PRD v4.0 리뷰 2회 반영** — PRD-phase5.md 7건 + PRD.md Phase 5 섹션 교체(B 옵션) + 추가 발견 잔재 3건(A1/A2/A3) 일괄 수정 (총 14건 Edit)
+2. **(다) DB 쿼리 최적화** — `getUserId` React `cache()` + `getInvoices` 컬럼 축소. code-reviewer MEDIUM 1건 반영 (주석 수치 decoupling)
+3. **(가) Epic 5-1 ERD 다이어그램** — `docs/PRD-phase5-erd.md` 신규 (445줄 Mermaid) + PRD-phase5.md 섹션 12 링크 + 12개 직접 추가 정합성 수정
+4. **(2) loading.tsx 8개** — 대시보드 라우트별 Suspense fallback (홈/목록 6/상세 1). DESIGN.md 준수 (`aria-busy`/`surface-card`/`shadow-ambient`)
+5. **(3) 섹션 10 결정 3건** — **A1 `workspace_settings` 독립 테이블 / B1 초대 TTL 7일 / C2 Member write 프로젝트 범위** 확정. PRD-phase5.md 섹션 10 [x] + ERD 섹션 3-4 신설 + 섹션 6-2 역할 매트릭스 구체화 (총 10건 Edit)
+6. **(4) Task 5-1-1 Drizzle 스키마** — `workspaces`/`members`/`invitations`/`settings` 4 테이블 + `0017_modern_eternals.sql` + `0018_rls_workspaces.sql`. db-engineer HIGH 2 + MEDIUM 2 반영 (updatedAt notNull / invited_by SET NULL / user_idx / 자동 생성 주석)
+7. **(5-1-2) Task 5-1-2 workspace_id NULLABLE 추가** — 12 도메인 테이블 × ALTER + FK RESTRICT + `0019_slim_gertrude_yorkes.sql`. sample-data.ts 7 데모 테이블 `workspaceId: null` 타입 호환. db-engineer MEDIUM 2 반영 (statement-breakpoint / 롤백 트랜잭션)
+
+### 변경 사항 (커밋 대기)
+
+**수정 파일 7**:
+- `docs/PRD.md` — Phase 5 섹션 v4.0 요약 박스로 교체 + v3.1 잔재 3건 업데이트 (수익 모델/리스크 표 2행)
+- `docs/PRD-phase5.md` — 섹션 1/4/6/10/11/12 14건 갱신 (결정 3건 반영 + 신규 4 테이블)
+- `src/lib/auth/get-user-id.ts` — React cache() 래핑 (1줄 변경 + 주석)
+- `src/app/dashboard/invoices/actions.ts` — `InvoiceListItem` + select에서 `createdAt`/`paidDate` 제거
+- `src/lib/db/schema.ts` — 신규 4 테이블 + 12 테이블 ALTER (`workspaceId: uuid.references... onDelete: "restrict"`) + `index` import
+- `src/lib/demo/sample-data.ts` — 7 데모 객체에 `workspaceId: null` (Drizzle InferSelectModel 타입 정합)
+- `src/lib/db/migrations/meta/_journal.json` — idx 17 + 19 (18은 RLS 수동이라 등록 안 함)
+
+**신규 파일 13**:
+- `docs/PRD-phase5-erd.md` (445줄 Mermaid ERD + 섹션 9개)
+- `src/app/dashboard/loading.tsx` + projects/(loading + [id]/loading)/clients/estimates/contracts/invoices/leads/loading.tsx (8개)
+- `src/lib/db/migrations/0017_modern_eternals.sql` (Task 5-1-1 DDL)
+- `src/lib/db/migrations/0018_rls_workspaces.sql` (수동 RLS — briefings 0009 패턴)
+- `src/lib/db/migrations/0019_slim_gertrude_yorkes.sql` (Task 5-1-2 ALTER + FK)
+- `src/lib/db/migrations/meta/0017_snapshot.json` + `0019_snapshot.json`
+
+### 검증 (통합)
+
+- `pnpm tsc --noEmit` **0 errors** (매 Task마다 확인)
+- `pnpm lint` 0 errors (기존 1 warning `_id` 유지)
+- `pnpm build` **41 routes 성공** + SW artifact OK
+- `pnpm drizzle-kit generate` **21 tables** 정상 diff
+- code-reviewer 독립 리뷰 (DB 최적화): CRITICAL 0 · MEDIUM 1 반영
+- db-engineer 독립 리뷰 (Task 5-1-1): CRITICAL 0 · HIGH 2 + MEDIUM 2 반영
+- db-engineer 독립 리뷰 (Task 5-1-2): CRITICAL 0 · HIGH 0 · MEDIUM 2 반영
+
+### Phase 5 Epic 5-1 진행 현황
+
+| Task | 상태 | 산출물 |
+|------|------|--------|
+| 5-1-1 | ✅ 정의 완료 | 4 테이블 schema + 0017 DDL + 0018 RLS |
+| 5-1-2 | ✅ 정의 완료 | 12 ALTER + FK RESTRICT + 0019 |
+| 5-1-3 | ⬜ 대기 | default workspace + backfill 스크립트 |
+| 5-1-4 | ⬜ 대기 | NOT NULL 전환 + 채번 UNIQUE 재조정 |
+| 5-1-5 | ⬜ 대기 | RLS 48 policy 전면 재작성 |
+| 5-1-6 | ⬜ 대기 | Drizzle `withWorkspace()` helper |
+| 5-1-7 | ⬜ 대기 | Server Action workspace guard |
+| 5-1-8 | ⬜ 대기 | E2E cross-workspace 누출 시뮬레이션 |
+
+### Jayden 수동 대기 (DB 반영)
+
+Epic 5-1 Task 5-1-1 + 5-1-2까지 **스키마 + 마이그레이션 파일 정의만 완료**. 실제 DB 반영은 Jayden 수동:
+1. **0017 → 0018 → 0019 순차 적용** (또는 `pnpm db:push` + RLS 별도 MCP `apply_migration`)
+2. 적용 순서: 4 테이블 생성 → RLS ENABLE + deny_anon → 12 ALTER ADD COLUMN + FK
+3. 적용 후 12 테이블 전부 `workspace_id IS NULL` 상태 → Task 5-1-3 backfill 대상
+4. 기존 앱 동작 영향 0 (코드는 workspaceId 참조 안 함, 신규 테이블도 사용 안 함)
+
+### 다음 세션 선택지
+
+1. **Task 5-1-3 계획** (default workspace + backfill 스크립트 작성, DB push 이전 가능)
+2. **Jayden DB push 대기** 후 Task 5-1-4 (NOT NULL 전환)
+3. **Phase 5 남은 섹션 10 결정 4건** (Admin 방식 / subscription_status 타이밍 / Workspace picker UX / Multi-workspace 기본 선택)
+4. **No-Line Rule 정비** (loading.tsx `divide-y` + 기존 테이블 UI 포괄 정비 별도 Task)
+5. **Vercel Speed Insights 실측 도입** (DB 최적화 효과 측정)
+
+### 교훈 기록 (learnings.md 2026-04-20 후반)
+1. React cache() 요청 스코프 메모이제이션 — 대시보드 `getUserId` 6번 → 1번 수렴 패턴
+2. Drizzle `InferSelectModel` + schema 컬럼 추가 시 샘플 데이터 타입 에러 연쇄 — TypeScript strict의 미묘한 trade-off
+3. drizzle-kit generate + 수동 RLS SQL 마이그레이션 번호 충돌 — journal 기반 순번 계산 함정
+
+## 이전 세션 (2026-04-19~20 Phase 3 cron 전체 종결 + Phase 5 PRD v4.0 킥오프)
 
 ### 완료 내역 (커밋 3개 + PRD 초안 1건)
 

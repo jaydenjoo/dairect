@@ -1,5 +1,38 @@
 # Dairect — 교훈 기록
 
+## 2026-04-20 후반 — React `cache()`로 request 스코프 메모이제이션: `supabase.auth.getUser()` 중복 호출 제거
+
+- **상황**: 대시보드 홈/프로젝트 상세 페이지가 6개 쿼리를 `Promise.all`로 병렬화했지만, 각 쿼리 내부에서 `getUserId()`를 호출 → request당 `supabase.auth.getUser()` 네트워크 왕복 6회 발생. region 정렬(icn1↔ap-northeast-2)로도 RTT ~20~50ms × 6 = 150~300ms 낭비. M1 탐색 중 기존 코드가 이미 매우 잘 최적화되어 있어 P1~P4 후보(순차 await/과잉 select/N+1) 풀이 실질 0이었고, **P5 (request 스코프 메모이제이션 누락)** 가 진짜 병목으로 드러남.
+- **원인**: `src/lib/auth/get-user-id.ts`가 `async function getUserId()` 형태로 매 호출마다 `createClient()` + `auth.getUser()` 실행. React/Next.js App Router는 `cache()` wrapper로 request 스코프 메모이제이션 제공하지만 미적용 상태.
+- **해결**: `import { cache } from "react"` + `export const getUserId = cache(async (): Promise<...> => {...})`. 1줄 변경으로 전 대시보드 + 모든 Server Action 전파. request 내 첫 호출만 네트워크, 이후 캐시 반환.
+- **규칙**:
+  1. **모든 인증/설정 조회 함수는 React `cache()` 기본 적용** — 같은 request 내 여러 Server Component/Action에서 호출되는 함수는 자동으로 중복 제거. 단, 함수가 pure하게 같은 입력 → 같은 출력이어야 함 (request 내 세션 불변 가정 정확).
+  2. 서브에이전트 Explore가 실패해도 **직접 탐색 → 병목 근본 원인 찾기**를 포기하지 말 것. 탐색 결과 "이미 최적화됨" 판정이어도, 한 단계 더 깊이 파면 다른 층위의 병목이 드러날 수 있음.
+  3. code-reviewer 리뷰는 "주석의 수치가 stale할 수 있으니 WHY만 남기고 측정값은 PR/PROGRESS로 이동" — 주석 과잉 금지 원칙 재확인. 성능 수치는 측정 컨텍스트와 분리되면 곧 거짓말.
+  4. 적용 후 실측 부재는 투명하게 보고 — `~100~150ms 이론값, 실측은 Vercel Speed Insights 별도 도입` 식. 이론치를 확정값처럼 말하지 말 것.
+
+## 2026-04-20 후반 — Drizzle 스키마 컬럼 추가 시 `InferSelectModel` 기반 샘플/목업 데이터 타입 에러 연쇄
+
+- **상황**: Task 5-1-2에서 12 테이블에 `workspaceId` NULLABLE 컬럼 추가 후 `pnpm tsc --noEmit` → 19건 에러. 원인은 `src/lib/demo/sample-data.ts`가 `InferSelectModel<typeof projectsTable>` 등으로 Drizzle 타입을 직접 추론하고, strict TypeScript에서 새 nullable 컬럼도 **명시적으로 `workspaceId: null`을 객체에 포함**해야 함. 7 데모 테이블 × 각 1~12 객체 = 수정 지점 분산.
+- **원인**: `InferSelectModel`은 스키마 컬럼 전부를 타입에 반영. nullable이라도 `workspaceId?: string | null`이 아니라 `workspaceId: string | null`(required but nullable). 객체 리터럴에서 해당 키 생략 시 `Property 'workspaceId' is missing` 에러.
+- **해결**: 각 샘플 객체에 `workspaceId: null` 명시. `replace_all`로 공통 패턴(`userId: DEMO_USER_ID,\n      clientId:`, `userId: DEMO_USER_ID,\n      projectId:`, `, estimateId:` 등) 찾아 일괄 삽입. 테이블별 다음 컬럼 이름이 달라서 패턴별 replace_all 4~5회 필요.
+- **규칙**:
+  1. **Drizzle schema에 컬럼 추가할 때** 반드시 `grep "InferSelectModel\|: typeof <tableName>"`으로 타입 의존 파일 식별. 보통 샘플/목업 데이터 / 시드 스크립트 / 테스트 픽스처가 걸림.
+  2. 대안: `Partial<InferSelectModel<...>>` 사용으로 선택적 필드로 전환 가능. 단 타입 엄격성 약화.
+  3. `replace_all` 사용 시 **각 테이블의 고유 다음 컬럼 패턴**으로 분리해야 cross-contamination 방지. `userId: DEMO_USER_ID,` 뒤에 `clientId` vs `companyName` vs `projectId` 등 테이블별 구분.
+  4. 데모 데이터가 "single-user 상태" 표현이면 `null` 대입이 자연스러운 선택. multi-tenant 전환 후 real workspace ID로 교체 예정임을 주석에 명시.
+
+## 2026-04-20 후반 — `drizzle-kit generate` + 수동 RLS SQL 마이그레이션 번호 충돌: journal 기반 자동 순번의 함정
+
+- **상황**: Task 5-1-1에서 `0017_modern_eternals.sql` (자동 DDL) + `0018_rls_workspaces.sql` (수동 RLS — briefings 0009 패턴) 생성. Task 5-1-2에서 `pnpm drizzle-kit generate` 실행 → 자동 생성 파일이 `0018_slim_gertrude_yorkes.sql`로 충돌. 같은 번호 두 파일 존재.
+- **원인**: `drizzle-kit`은 `src/lib/db/migrations/meta/_journal.json`의 마지막 idx를 기준으로 다음 순번 생성. 수동 작성한 `0018_rls_workspaces.sql`은 journal에 등록 안 했으므로 drizzle-kit이 "0018은 비어있다"고 인식 → 자동으로 0018 할당.
+- **해결**: 자동 생성 파일을 `0019_slim_gertrude_yorkes.sql`로 mv + meta/0018_snapshot.json → meta/0019_snapshot.json mv + _journal.json의 idx 18 → 19 + tag 수정. 순서가 `0017 (DDL) → 0018 (RLS) → 0019 (ALTER)`로 정렬.
+- **규칙**:
+  1. **수동 SQL 마이그레이션 추가 후 다음 `drizzle-kit generate` 전에** 번호 충돌 예측. 관례: 수동 파일은 자동 생성 번호 영역과 겹치지 않는 별도 접두사 고려(`0018a_rls_...`) 또는 journal에 수동 등록.
+  2. **`pnpm db:push` 사용 프로젝트는 journal 참조 안 함** → journal 불일치 자체는 앱 동작 영향 0. 하지만 파일명 순번은 실제 적용 순서를 표현하므로 혼동 방지 차원에서 정리 필수.
+  3. Drizzle 공식: `drizzle-kit migrate` 쓰는 경우만 journal 엄격 요구. MCP `apply_migration` 또는 Supabase Dashboard 수동 실행 시 journal 무관.
+  4. 마이그레이션 파일 상단 주석에 "전제: 0017 적용 후 실행" 등 **명시적 순서 의존성 기록**. 특히 FK 대상 테이블이 앞 마이그레이션에 있는 경우 필수.
+
 ## 2026-04-20 — SELECT → 외부 emit → UPDATE 패턴의 race: UPDATE WHERE 재포함 + `.returning()`로 DB 레벨 차단
 
 - **상황**: Task A-2 W2 invoice.overdue cron에서 연체 invoice 조회 후 n8n emit(3초) 후 상태 `'sent' → 'overdue'` 전이. security-reviewer가 SELECT와 UPDATE 사이 window에서 사용자가 대시보드로 `paid` 변경 시 cron이 `paid`를 `overdue`로 덮어쓰면서 "연체 안내" 이메일까지 발송하는 🔴 HIGH race를 지적. 🟡 프로젝트의 재무 무결성 위반.
