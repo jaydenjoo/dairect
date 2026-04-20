@@ -1,5 +1,51 @@
 # Dairect — 교훈 기록
 
+## 2026-04-20 후반 후속 — DB data migration assertion: 트랜잭션 내 DO 블록 + RAISE EXCEPTION으로 "기대 상태 도달" 기계 보장
+
+- **상황**: Task 5-1-3 (0020 backfill) SQL에서 12 도메인 테이블의 `workspace_id IS NULL` 행을 default workspace로 UPDATE. db-engineer 리뷰에서 H2(🟡 HIGH) — 부모 경유 3개 테이블(`client_notes`/`milestones`/`estimate_items`) UPDATE가 `c.workspace_id IS NOT NULL` 가드로 자식만 남기는 silent skip 가능성 지적. 검증 쿼리를 주석으로 두면 실수로 통과 → 다음 Task 5-1-4 NOT NULL 전환에서 뒤늦게 실패.
+- **원인**: data migration의 "성공 기준"(= NULL row 0)을 human-in-the-loop 수동 검증에 의존하면 자동화 파이프라인에서 누락 위험. 특히 `UPDATE ... WHERE workspace_id IS NULL`은 0 row 업데이트를 에러로 보지 않아 silent success.
+- **해결**: 트랜잭션 내부에 `DO $$ ... END $$` PL/pgSQL 블록 + 12 테이블 반복 `IF n > 0 THEN RAISE EXCEPTION END IF` assertion. 한 건이라도 NULL 남으면 RAISE로 BEGIN 전체 롤백. 검증이 SQL 그 자체의 일부가 됨.
+  ```sql
+  DO $$
+  DECLARE t text; n bigint;
+    tables text[] := ARRAY['clients', 'leads', ...]; -- 12개
+  BEGIN
+    FOREACH t IN ARRAY tables LOOP
+      EXECUTE format('SELECT COUNT(*) FROM %I WHERE workspace_id IS NULL', t) INTO n;
+      IF n > 0 THEN RAISE EXCEPTION 'Backfill incomplete: % has % NULL rows', t, n; END IF;
+    END LOOP;
+  END $$;
+  ```
+- **규칙**:
+  1. **Data migration은 트랜잭션 내 자동 assertion으로 "기대 상태 도달"을 기계적으로 보장**. 주석 검증 쿼리나 사람의 수동 확인은 보조로만. 실패 시 RAISE → BEGIN 롤백으로 unsafe 상태 원천 차단.
+  2. `EXECUTE format('%I', t)`로 동적 테이블명을 안전하게 바인딩 (`%I`는 identifier quoting). 매번 테이블별 statement 반복하지 말 것.
+  3. `DO` 블록은 ad-hoc 스크립트 전용 — 반복 실행 정의는 FUNCTION으로 승격. 본 backfill은 일회성이라 DO가 적합.
+  4. 후속 DDL(NOT NULL 전환)의 안전 게이트 역할도 함께 수행 — 이전 마이그레이션이 "끝났다"는 사실을 다음 마이그레이션이 믿을 수 있게 됨.
+
+## 2026-04-20 후반 후속 — 일회성 backfill slug는 full UUID: 가독성 대신 충돌 안전성 우선
+
+- **상황**: Task 5-1-3 SQL 초안에서 default workspace slug를 `'default-' || substring(u.id::text, 1, 8)`로 제안. db-engineer M1(🟢 MEDIUM) — 32-bit prefix는 생일 문제(√(2·2³²·ln2) ≈ 77,000)에서 50% 충돌. 현 single-user 시점은 0%이지만 multi-tenant 확장 시 UNIQUE 충돌로 해당 user가 backfill에서 누락되는 silent failure 가능.
+- **원인**: UUID 축약(`substring(..., 1, 8)`)은 "사람이 읽고 식별하는 맥락"에서만 정당함. backfill 식별자는 user-facing 노출 0이고, workspace 본체 name("기본 워크스페이스")과 역할 분리돼 있어 가독성 요구 자체가 없음. 축약은 이득 없이 충돌 위험만 도입.
+- **해결**: `'default-' || u.id::text` (full UUID 36자). 충돌 확률 수학적 0. slug가 길어도 일회성 backfill 이후 노출 경로 없음 — UI는 workspace.name만 표시.
+- **규칙**:
+  1. **user-facing 의미 없는 식별자는 가독성 대신 충돌 안전성 우선**. substring·축약·hash prefix는 사람이 직접 타이핑·기억·인용해야 할 때만. 일회성 backfill 식별자 / 내부 API 경로 / 시스템 reference ID는 full UUID 또는 `crypto.randomUUID()`.
+  2. "지금은 user가 1명뿐이니 충돌 확률 0%" 논리는 multi-tenant 전환 예정 프로젝트에선 **선제적으로 틀렸다고 간주**. Phase 5 착수 시점의 single-user는 임시 상태.
+  3. 생일 문제 체크리스트: N-bit 식별자는 √(2^N)에서 50% 충돌. 32-bit = 65K 언저리, 64-bit = 40억 언저리, 122-bit (UUID v4 random) = 실용상 무한.
+  4. 축약이 필요한 UX(예: 공유 링크 단축)가 진짜 있을 땐 충돌 감지 + suffix fallback(`-2`, `-3`) 전략 별도 설계 — backfill 용도와 혼동하지 말 것.
+
+## 2026-04-20 후반 후속 — No-Line Rule skeleton 패턴: divide-y → flex gap + 배경 톤 차이로 행 구분
+
+- **상황**: Phase 5 Epic 5-1 병행 작업으로 추가한 loading.tsx 8개 중 6개 목록 페이지에서 `<div className="divide-y divide-border/20">`로 행 구분. DESIGN.md "No-Line Rule"(1px 솔리드 테두리 금지, 배경 톤 전환으로만 경계 표현) 위반. shadcn/Tailwind 기본 테이블 skeleton 레시피가 divide-y라 무의식적 복붙 시 규칙 위반 누적.
+- **원인**: skeleton은 "데이터 로딩 중 임시 표현"이라 디자인 시스템 규칙 적용 우선순위를 낮게 보는 관성. 하지만 loading 상태도 사용자에게 노출되는 UI의 일부 → 디자인 일관성 = 모든 상태 커버.
+- **해결**: `<div className="flex flex-col gap-1 p-1">` + 행 `bg-muted/30` (부모 `bg-card`와 미세 톤 차이). 4px gap(여백) + 배경 톤 차이(대비)로 행 경계 표현. 선 0개.
+  - 컨테이너 `bg-card` + 행 `bg-muted/30` = 카드 안의 카드 패턴으로 자연스러운 계층감
+  - gap은 `gap-0.5` ~ `gap-2` 범위에서 조절 — 너무 크면 "별도 카드 집합"처럼 보이고, 너무 작으면 밀착
+- **규칙**:
+  1. **"행 구분"은 배경 톤·여백·radius 3요소 조합으로 표현. divide-y/border-t/border-b 계열 Tailwind 유틸은 No-Line Rule 영향받는 프로젝트에서 전면 금지**. skeleton·모달·드로어 등 모든 UI 상태 공통 적용.
+  2. 컨테이너와 행 간 톤 관계: `bg-card` + 행 `bg-muted/30` 또는 `bg-foreground/[0.02]` — 미세 차이(alpha 0.02~0.1)가 "선 없이도 경계 있음"의 핵심.
+  3. 복붙 레시피 (shadcn table / data list 등)는 프로젝트 디자인 시스템에 맞춰 1회 정비하고 팀/AI에게 명시 — 이번처럼 무의식적 반복 방어.
+  4. loading.tsx처럼 "짧게 스쳐 지나가는 상태"도 code review 체크리스트에 포함 — "잠깐 보이니까 괜찮다"는 디자인 부채로 누적.
+
 ## 2026-04-20 후반 — React `cache()`로 request 스코프 메모이제이션: `supabase.auth.getUser()` 중복 호출 제거
 
 - **상황**: 대시보드 홈/프로젝트 상세 페이지가 6개 쿼리를 `Promise.all`로 병렬화했지만, 각 쿼리 내부에서 `getUserId()`를 호출 → request당 `supabase.auth.getUser()` 네트워크 왕복 6회 발생. region 정렬(icn1↔ap-northeast-2)로도 RTT ~20~50ms × 6 = 150~300ms 낭비. M1 탐색 중 기존 코드가 이미 매우 잘 최적화되어 있어 P1~P4 후보(순차 await/과잉 select/N+1) 풀이 실질 0이었고, **P5 (request 스코프 메모이제이션 누락)** 가 진짜 병목으로 드러남.

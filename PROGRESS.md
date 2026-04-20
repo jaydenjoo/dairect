@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-20 후반 (Phase 5 Epic 5-1 착수 — Task 5-1-1 + 5-1-2 완료, 4+12 테이블 스키마·마이그레이션 정의)
-> 현재 위치: **Phase 5 Epic 5-1 진행 중 (2/8 Task 완료, DB push 대기)**. 다음은 Task 5-1-3 default workspace 생성 + backfill 스크립트 / 또는 Jayden DB push 후 Task 5-1-4 NOT NULL 전환
+> 최종 업데이트: 2026-04-20 후반 후속 (Phase 5 Epic 5-1 3/8 — Task 5-1-3 backfill SQL 정의 + PRD 섹션 10 결정 4건 + No-Line Rule 정비)
+> 현재 위치: **Phase 5 Epic 5-1 진행 중 (3/8 Task 정의 완료 — 스키마·마이그레이션 파일만, Jayden DB push 대기)**. 다음은 Jayden DB push (0017→0018→0019→0020 순차) → Task 5-1-4 NOT NULL 전환 / 또는 DB 무관 Task 5-1-5(RLS)/5-1-6(withWorkspace helper) 병행 설계
 
 ## 전체 진행률
 
@@ -12,7 +12,7 @@
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | ✅ 완료 (W2/W3 cron 포함) | 100% (5/5 + cron 전체 완료) |
 | Phase 4 | 고객 포털 + /demo + PWA | ✅ 완료 | 100% (Task 4-1 ✅ / 4-2 M1~M8 ✅) |
-| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 2/8 (스키마 정의만, DB push 대기) |
+| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 3/8 (스키마 + backfill SQL 정의, DB push 대기) |
 
 ## Phase 0: 기반 설정 ✅
 
@@ -409,7 +409,103 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 
 ---
 
-## 이번 세션 (2026-04-20 후반 — Phase 5 Epic 5-1 착수 + DB 최적화 + ERD + loading.tsx)
+## 이번 세션 (2026-04-20 후반 후속 — A→B→C→D 4단계 순차 실행, 7 커밋)
+
+### 세션 스코프
+
+Jayden "a->b->c->d 순서대로 진행" 지시로 4단계를 연속 Task 단위 사이클로 실행.
+
+- **A-1** 미커밋 변경 4 커밋 분리 (이전 save에서 문서만 커밋되고 코드 20개 파일이 unstaged로 잔존) — 4 커밋
+- **B** Task 5-1-3 default workspace + 12 테이블 backfill SQL 정의 (db-engineer 독립 리뷰 → HIGH/MEDIUM/LOW 3건 반영) — 1 커밋
+- **C** PRD 섹션 10 남은 결정 4건 확정 (Admin env / Picker dropdown / last_workspace_id / 실시간 count) + 연관 Task 2건 정합 업데이트 — 1 커밋
+- **D** No-Line Rule 정비 (loading.tsx 6개 divide-y 제거) — 1 커밋
+
+### 커밋 내역 (총 7건)
+
+| # | Commit | 내용 |
+|---|--------|------|
+| 1 | `ae45572` | feat(db): Phase 5 Epic 5-1 workspaces 4 테이블 + 12 도메인 ALTER (NULLABLE) |
+| 2 | `7883297` | docs(phase5): PRD v4.0 확정 + ERD 다이어그램 신규 (445줄 Mermaid) |
+| 3 | `4721651` | perf(dashboard): getUserId React cache() + invoices 쿼리 컬럼 축소 |
+| 4 | `36b13c1` | feat(dashboard): Suspense fallback loading.tsx 8개 |
+| 5 | `a7b2e1f` | feat(db): Task 5-1-3 default workspace + backfill SQL (0020) |
+| 6 | `bfdb4b3` | docs(phase5): PRD 섹션 10 결정 4건 확정 + 연관 Task 업데이트 |
+| 7 | `ca25b9a` | fix(dashboard): loading.tsx 6개 divide-y 제거 — No-Line Rule 준수 |
+
+### 검증 (통합)
+
+- `pnpm tsc --noEmit` **0 errors**
+- `pnpm lint` 0 errors (기존 1 warning `_id` 유지, 이번 변경 무관)
+- db-engineer 독립 리뷰 (Task 5-1-3): CRITICAL 0 · HIGH 2 + MEDIUM 3 + LOW 3 중 3건 반영
+
+### db-engineer 리뷰 반영 내역 (Task 5-1-3)
+
+| 심각도 | 이슈 | 수정 |
+|--------|------|------|
+| 🟡 HIGH H2 | 부모 경유 UPDATE가 NULL 잔존을 묵인 → Task 5-1-4 NOT NULL 전환에서 실패 | 트랜잭션 내 DO 블록 + `RAISE EXCEPTION` — 12 테이블 workspace_id NULL 카운트 = 0 assertion |
+| 🟡 MEDIUM M1 | slug `substring(uuid,1,8)` 32-bit → 77K user 50% 생일 충돌 (multi-tenant 확장 시 잠재) | full UUID 사용 (`'default-' \|\| u.id::text`) — 일회성 backfill이라 가독성 요구 0 |
+| 🟢 LOW L1 | ROLLBACK 블록에 FK RESTRICT 순서 경고 누락 | "12 테이블 workspace_id = NULL 먼저 → workspaces DELETE" 안내 주석 추가 |
+
+생략 3건 (non-blocking, 의도대로 동작 확인):
+- H1: 단일 트랜잭션 commit 전제라 비발현 + ON CONFLICT 추가 시 silent skip 위험 증가
+- M4: `user_settings → workspace_settings` 값 이전은 Task 5-4-3 스코프 (PRD 명시)
+- M2/M3/L2: 트랜잭션 statement 순서 / UNIQUE 충돌 시나리오 / RLS 간섭 — 모두 의도대로
+
+### PRD 섹션 10 확정 내역 (C 단계)
+
+| 결정 항목 | 확정안 | 근거 |
+|----------|--------|------|
+| Admin 계정 부여 | env `ADMIN_EMAILS` | 초기 1명 전제, DB flag 조작 방어 부담 회피, 재배포 = 결재선 역할 |
+| Workspace picker UX | 헤더 dropdown + 모바일 bottom sheet | Slack/Linear/Notion 업계 표준, PM 타겟 동시 소속 ≤3 가정 |
+| Multi-workspace 기본 | `users.last_workspace_id` 컬럼 + NULL 폴백 joinedAt MIN | 직관적 UX, 1 컬럼 추가 비용 미미 |
+| 사용량 측정 | 실시간 COUNT (트랜잭션 내 + race RAISE) | 소규모 한도에서 latency 영향 0, Phase 5.6+ 시 trigger 전환 |
+
+연관 Task 분해 정합성 유지:
+- Task 5-2-3 "헤더 dropdown + 모바일 bottom sheet + `users.last_workspace_id` 컬럼 추가"
+- Task 5-3-6 "INSERT 트랜잭션 내 실시간 COUNT + race 방어"
+
+미결정 3건 유지 (Phase 5.5 또는 부차):
+- Plan 한도 정확한 수치 (베타 피드백 후)
+- 토스페이먼츠 통합 시점 (한국 사용자 비중 기준)
+- Workspace 로고 업로드 (Storage 설계 Task 5-2-2 시점)
+
+### D No-Line Rule 정비 내역
+
+6개 loading.tsx (clients / contracts / estimates / invoices / leads / projects):
+- Before: `<div className="divide-y divide-border/20">` + 행 `bg-card` (1px 솔리드 선 = No-Line Rule 위반)
+- After: `<div className="flex flex-col gap-1 p-1">` + 행 `bg-muted/30` (4px gap + 미세 톤 차이로 행 경계 표현)
+
+대시보드 홈 + 프로젝트 상세 loading.tsx 2개는 원래 divide-y 미사용 → 정비 대상 외.
+
+### Jayden 수동 대기 (DB 반영, 순서 엄수)
+
+1. **0017** (4 테이블 DDL: workspaces/members/invitations/settings)
+2. **0018** (RLS ENABLE + `*_deny_anon` 정책)
+3. **0019** (12 도메인 ALTER ADD COLUMN workspace_id NULLABLE + FK RESTRICT)
+4. **0020** (default workspace 생성 + 12 테이블 backfill + 자동 assertion)
+
+실행 경로: Supabase MCP `apply_migration` 또는 Dashboard SQL Editor. 적용 후 0020 assertion이 성공하면 workspace_id IS NULL 행 0 자동 보장 → Task 5-1-4 진입 가능.
+
+### 다음 세션 선택지
+
+1. **Jayden DB push 후 Task 5-1-4** (NOT NULL 전환 + 채번 UNIQUE 재조정)
+2. **DB 무관 Task 5-1-5 준비** (RLS 48 policy 전면 재작성 계획 — 12 테이블 × 4 policy)
+3. **DB 무관 Task 5-1-6 설계** (Drizzle `withWorkspace(query, wsId)` helper 패턴 초안)
+4. 그 외: Stripe/Resend 인프라 조사 (Phase 5.5 선행)
+
+### 차단 요소
+
+없음. Jayden 후속 DB push 의존 있으나, 차단 없는 병행 경로(5-1-5 계획 / 5-1-6 설계)로 해소 가능.
+
+### 교훈 기록 (learnings.md)
+
+1. DB data migration assertion 패턴 — 트랜잭션 내 DO 블록 + RAISE EXCEPTION으로 "기대 상태 도달" 기계 보장
+2. 일회성 backfill slug는 full UUID — user-facing 의미 없는 식별자는 가독성 대신 충돌 안전성 우선
+3. No-Line Rule skeleton 패턴 — divide-y → flex gap + 배경 톤 차이로 행 구분
+
+---
+
+## 이전 세션 (2026-04-20 후반 — Phase 5 Epic 5-1 착수 + DB 최적화 + ERD + loading.tsx)
 
 ### 세션 스코프 (7 Task 누적, 연속 Task 단위 6단계 사이클)
 
@@ -456,7 +552,7 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 |------|------|--------|
 | 5-1-1 | ✅ 정의 완료 | 4 테이블 schema + 0017 DDL + 0018 RLS |
 | 5-1-2 | ✅ 정의 완료 | 12 ALTER + FK RESTRICT + 0019 |
-| 5-1-3 | ⬜ 대기 | default workspace + backfill 스크립트 |
+| 5-1-3 | ✅ 정의 완료 | 0020 backfill SQL (트랜잭션 내 DO 블록 자동 assertion + full UUID slug + FK 순서 경고) |
 | 5-1-4 | ⬜ 대기 | NOT NULL 전환 + 채번 UNIQUE 재조정 |
 | 5-1-5 | ⬜ 대기 | RLS 48 policy 전면 재작성 |
 | 5-1-6 | ⬜ 대기 | Drizzle `withWorkspace()` helper |
