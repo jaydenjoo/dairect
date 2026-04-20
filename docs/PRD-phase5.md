@@ -46,6 +46,8 @@ Phase 5.0 (Multi-tenant 기반)         Phase 5.5 (Billing 도입)
 
 결제는 지인 테스트 마무리 후 현실적 가격 정책을 실측 데이터로 확정한 뒤 도입.
 
+> **베타 기간 보안 등급**: 무료 전 기능 + 결제 미도입이므로 🟡 유지. 🔴 전환은 Phase 5.5 Stripe 도입 시점. 베타 중 결제 정보·카드번호 수집 금지.
+
 ---
 
 ## 2. 목적 (Goals)
@@ -89,18 +91,19 @@ Phase 5.0 + 5.5 범위에서 **하지 않는다**:
 
 ### Epic 5-1: Data Model 멀티테넌시 (Phase 5.0)
 
-**새 테이블 (3개)**:
+**새 테이블 (4개)**:
 - `workspaces` — 조직/워크스페이스 단위. 현재 UI로는 "프리랜서 회사 단위"
 - `workspace_members` — user × workspace × role (owner / admin / member)
-- `workspace_invitations` — 초대 토큰 + 이메일 + 만료 + 수락 시점
+- `workspace_invitations` — 초대 토큰 + 이메일 + 만료(7일) + 수락 시점
+- `workspace_settings` — workspace 1:1 사업자 정보 + 견적서 기본값 + 결제분할 + 기능 프리셋 (섹션 10 A1 결정, 2026-04-20)
 
-**기존 테이블에 `workspace_id` 추가 (13개)**:
+**기존 테이블에 `workspace_id` 추가 (12개)**:
 
 user scope 테이블 중 workspace 단위로 이전:
 ```
 projects / milestones / clients / client_notes / leads /
 estimates / estimate_items / contracts / invoices / activity_logs /
-briefings / portal_tokens / portal_feedbacks
+briefings / portal_tokens
 ```
 
 제외 (설계 판단):
@@ -108,7 +111,7 @@ briefings / portal_tokens / portal_feedbacks
 - `user_settings` — UI 설정만 user scope 유지 (dark mode, 언어 등). 사업자 정보는 `workspace_settings`로 이전
 - `inquiries` — 랜딩폼 공개 입력 (workspace 소속 없음)
 - `weekly_reports` — Phase 3 백로그, 사용 안 하면 삭제 고려
-- `portal_feedbacks` ← projectId 통해 간접 격리
+- `portal_feedbacks` — projectId 통해 간접 격리 (project.workspace_id 상속)
 
 **RLS 정책 재작성**:
 - 기존: `user_id = auth.uid()`
@@ -224,19 +227,20 @@ Admin 계정 부여 방식:
 
 | Task | 내용 |
 |------|------|
-| 5-1-1 | `workspaces` / `workspace_members` / `workspace_invitations` 스키마 + migration |
-| 5-1-2 | 13개 도메인 테이블에 `workspace_id` NULLABLE 컬럼 추가 (backfill 전단계) |
+| 5-1-1 | `workspaces` / `workspace_members` / `workspace_invitations` / `workspace_settings` 스키마 + migration (4 테이블 신규, A1 독립 테이블 결정 반영) |
+| 5-1-2 | 12개 도메인 테이블에 `workspace_id` NULLABLE 컬럼 추가 (backfill 전단계) |
 | 5-1-3 | default workspace 생성 + 기존 data 일괄 UPDATE (`workspace_id = default_ws.id`) |
 | 5-1-4 | `workspace_id` NOT NULL 전환 + FK 설정 |
-| 5-1-5 | RLS 전면 재작성 (13개 테이블 × 4 policy = 52개) |
+| 5-1-5 | RLS 전면 재작성 (12개 테이블 × 4 policy = 48개) |
 | 5-1-6 | Drizzle query helper `withWorkspace(query, wsId)` |
 | 5-1-7 | Server Actions workspace scope 가드 추가 |
 | 5-1-8 | E2E: cross-workspace 누출 공격 시뮬레이션 (Playwright) |
 
-### Epic 5-2: Workspace + Onboarding (7 Task, 1.5주)
+### Epic 5-2: Workspace + Onboarding (8 Task, 1.5~2주)
 
 | Task | 내용 |
 |------|------|
+| 5-2-0 | **회원가입 UI + 이메일 verification** (현재 `/login`은 signInWithPassword만 — Phase 5 예약분. 회원가입 본류 + email OTP/confirmation 플로우 신규 구축) |
 | 5-2-1 | `/onboarding` 플로우 (workspace 생성 → 기본 설정) |
 | 5-2-2 | Workspace 설정 페이지 (이름/로고/사업자 정보) |
 | 5-2-3 | Workspace picker (헤더 dropdown) |
@@ -297,7 +301,7 @@ Admin 계정 부여 방식:
 
 ### Phase 5.5 DoD
 
-- [ ] **Stripe 실제 결제 1회 이상 검증** (테스트 모드 + prod 모드 각각)
+- [ ] **Stripe 실제 결제 1회 이상 검증** (테스트 모드 전수 시나리오 통과 + prod 모드는 소액 실결제 1회 → 즉시 환불 확인. 🔴 등급 전환 직후이므로 full-price 방치 금지)
 - [ ] 플랜 한도 초과 시 UI 차단 + 명확한 Upgrade CTA
 - [ ] 환불 / 플랜 변경 / 취소 플로우 각 1회 이상 검증
 - [ ] Webhook **idempotency** — 중복 이벤트 2회 수신해도 DB 상태 1회만 반영
@@ -315,10 +319,13 @@ Admin 계정 부여 방식:
   - 마이그레이션 전 pg_dump 전체 백업
   - 이관 후 row count 일치 검증 스크립트
   - dry-run 환경(Supabase branch)에서 먼저 실행
-  - 실패 시 `workspace_id` 컬럼만 drop하고 원복 가능
+  - 실패 시 원복 전략 (단계별):
+    - Task 5-1-2 (NULLABLE 추가) 직후: `ALTER TABLE ... DROP COLUMN workspace_id` (FK 미적용 상태 → 깔끔)
+    - Task 5-1-4 (NOT NULL + FK 적용) 이후: `ALTER TABLE ... DROP COLUMN workspace_id CASCADE`로 FK 제약 동시 드롭 (CASCADE 필수, 미지정 시 `dependent objects still exist` 에러)
+    - RLS 정책 재작성(5-1-5) 이후: 각 테이블 RLS 정책도 개별 `DROP POLICY` 필요 — 롤백 스크립트 별도 준비
 
 ### R2. RLS 전면 재작성 → 누락 시 cross-tenant 누출
-- **위험**: 13개 테이블 × 4 policy = 52개 RLS 재작성 중 1곳이라도 `workspace_id` 필터 빠지면 치명적 누출
+- **위험**: 12개 테이블 × 4 policy = 48개 RLS 재작성 중 1곳이라도 `workspace_id` 필터 빠지면 치명적 누출
 - **완화**:
   - 체크리스트 명시 (policy별 pass/fail)
   - E2E: A workspace 세션으로 B workspace 데이터 시도 → 0건 확인
@@ -408,9 +415,10 @@ Week 11:   Phase 5.5 QA + 정식 런칭 준비
 
 Phase 5 착수 직전에 확정:
 
+- [x] **`workspace_settings` 구조 결정 (2026-04-20)** — **A1 독립 테이블 확정**. `workspace_settings` 1:1 with `workspaces` (사업자 정보 7 + 견적서 기본값 5 + 결제분할/기능 프리셋 jsonb 2 = 14 필드). 타입 안전 + PDF 생성 시 쿼리 성능 + 도메인 분리 근거. Stripe 관련(stripe_customer_id/subscription_status)은 `workspaces` 본체에 직접 추가.
 - [ ] Workspace picker UX 디테일 (dropdown vs 사이드바 separate panel)
-- [ ] 역할별 권한 매트릭스 최종 (Member에게 어떤 테이블까지 write 허용?)
-- [ ] 초대 만료 TTL (7일? 30일?)
+- [x] **역할별 권한 매트릭스 최종 (2026-04-20)** — **C2 프로젝트 범위 write 확정**. Member는 자기 생성 projects + 해당 프로젝트 하위 엔티티(milestones/estimates/estimate_items/contracts/invoices/activity_logs) write 가능. client_notes는 자기 작성만 write. 다른 멤버 데이터는 read only. 베타 2~3명 피드백으로 완화/강화 가능.
+- [x] **초대 만료 TTL (2026-04-20)** — **7일 확정**. Linear/Notion/Figma 업계 표준. 연장 옵션(14일) 별도 구현. 🟡 보안 등급상 탈취 토큰 수명 제한 우선.
 - [ ] 사용량 측정 주기 (실시간 count vs 일일 집계 + cache)
 - [ ] Admin 계정 부여 방식 (env var `ADMIN_EMAILS=...` vs DB flag)
 - [ ] Plan 한도 정확한 수치 (베타 피드백 반영)
@@ -445,10 +453,11 @@ Phase 5.0 착수 전 확인:
 
 - [ ] PRD v4.0 Jayden 리뷰 + 승인
 - [ ] PRD 내 "만들지 않을 것" 재확인
-- [ ] Workspace 모델 ERD 다이어그램 별도 작성
+- [x] Workspace 모델 ERD 다이어그램 별도 작성 → [PRD-phase5-erd.md](./PRD-phase5-erd.md) (2026-04-20)
 - [ ] Drizzle 스키마 drafting (코드 작성 전)
 - [ ] 기존 RLS 정책 전체 목록화 (변경 대상 명확히)
 - [ ] 지인 베타 대상자 2~3명 사전 컨택
+- [ ] **메일 인프라 결정** — Resend 도입 vs n8n 재사용 (Epic 5-2-4 초대 메일 발송 + Phase 5.5 결제 알림까지 영향). Phase 5.0 착수 시점에 확정 필요
 - [ ] Phase 5.5 착수 전 결제 가격 정책 확정 (베타 피드백 반영)
 
 Phase 5.5 착수 전 추가:

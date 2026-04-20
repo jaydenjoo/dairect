@@ -1026,27 +1026,22 @@ Task 4-4: PWA 지원 (0.5일)
   - 완료 기준: 모바일에서 PWA 설치 가능
 ```
 
-### Phase 5: SaaS 전환 준비 [의존성: Phase 4, 옵션] — 2~3일
+### Phase 5: SaaS 전환 준비 [의존성: Phase 4] — 약 11주
 
-```
-이 Phase는 Jayden이 3개월 이상 직접 사용 후 SaaS 전환 결정 시에만 실행.
-Phase 1~3 단계에서는 DB 스키마만 준비되어 있음 (user_id FK).
+> 🆕 **Phase 5 상세는 [PRD v4.0 (docs/PRD-phase5.md)](./PRD-phase5.md)로 분리되었다.** 이 섹션은 v3.1의 초안 스케치(2~3일)를 대체한다.
 
-Task 5-1: 멀티 사용자 온보딩 (1일)
-  - 일반 회원가입 (Google OAuth 외 이메일 추가)
-  - 무료 플랜 기본값 제한 로직 (프로젝트 3개, 견적서 5건/월)
-  - 사용량 카운터 구현
+**v3.1 → v4.0 변경 요약:**
+- **범위 확장**: 단일 문서 2~3일 스케치 → 별도 PRD로 분리, 11주 타임라인 (Phase 5.0 + 베타 + Phase 5.5)
+- **2단계 전환**: Phase 5.0 (Multi-tenant 기반, 🟡) → 지인 베타 → Phase 5.5 (Billing, 🔴)
+- **5 Epic / 36 Task**: Data Model / Onboarding / Billing / 기존 기능 확장 / Admin+Observability
+- **결제 스택 변경**: TossPayments → **Stripe 우선** (토스페이먼츠는 Phase 5.6+ 재검토)
+- **보안 설계 강화**: Workspace 기반 RLS 전면 재작성 (12테이블 × 4 policy = 48개), Stripe Webhook idempotency, Feature flag `MULTITENANT_ENABLED` 점진 릴리스
 
-Task 5-2: 결제 연동 (1일)
-  - TossPayments 구독 결제 연동
-  - 플랜: Free / Pro (월 9,900원) / Team (월 29,900원)
-  - 결제 실패/만료 처리
+**참조:**
+- [PRD-phase5.md](./PRD-phase5.md) — 12개 섹션 (개요 / 목적 / 만들지 않을 것 14개 / Epic → Task / DoD / 리스크 7개 / 의존성 / 타임라인 / 후속 결정 / 리뷰 체크리스트)
+- Phase 3 cron 선제 대비: W2/W3에서 이미 BigInt-safe 금액 + deadline gate + user별 루프 구조 적용 완료 → Epic 5-4 부담 최소
 
-Task 5-3: 팀원 관리 (C-D1, 1일)
-  - 멤버 초대 이메일
-  - RBAC (admin / member)
-  - 팀별 데이터 격리 (team_id FK 추가)
-```
+> **v3.1 원본 스케치(2~3일, Task 5-1/5-2/5-3 TossPayments 기준)는 PRD v4.0으로 대체됨.** git log에서 확인 가능.
 
 ### ⛔ 각 Phase의 Not Doing
 
@@ -1062,7 +1057,7 @@ Task 5-3: 팀원 관리 (C-D1, 1일)
 | 3 | n8n 워크플로우에 결제/정산 금액 변경 로직 포함 금지 (🟡 부분보안 원칙) |
 | 4 | 고객 포털에서 파일 업로드 금지 |
 | 4 | 경비 관리에 영수증 OCR 추가 금지 |
-| 5 | SaaS 전환은 Jayden이 3개월 실사용 후 별도 결정 |
+| 5 | 다국어 · 커스텀 도메인 · SSO · Marketplace 등 엔터프라이즈 기능 금지 ([PRD v4.0 / PRD-phase5.md](./PRD-phase5.md) 섹션 3 참조) |
 
 ---
 
@@ -1729,18 +1724,13 @@ src/
 - 무료 피드백 수집
 - SaaS 전환 여부 판단 근거
 
-### Phase 5+: SaaS 전환 (Jayden 3개월 실사용 후 결정)
+### Phase 5+: SaaS 전환 → [PRD v4.0 (docs/PRD-phase5.md)](./PRD-phase5.md) 참조
 
-| 플랜 | 가격 | 타겟 | 제한 |
-|------|------|------|------|
-| Free | ₩0/월 | 체험 | 프로젝트 3개, 견적서 5건/월, 고객 포털 X |
-| Pro | ₩9,900/월 | 1인 프리랜서 | 무제한 + 고객 포털 + AI |
-| Team | ₩29,900/월 | 2~5인 에이전시 | Pro + 팀원 5명 + 팀 대시보드 |
+- **타이밍**: Phase 4 완료 직후 Phase 5.0 (Multi-tenant 기반, 🟡) 착수 → 지인 베타 2~3명(2주) → Phase 5.5 (Billing, Stripe, 🔴)
+- **플랜 구성**: Free / Pro (15,000원/월) / Team (30,000원/멤버/월) — 상세는 [PRD-phase5.md](./PRD-phase5.md) 섹션 4 Epic 5-3. **베타 피드백 후 Phase 5.5 착수 직전 재확정**
+- **결제 스택**: Stripe 우선 (토스페이먼츠는 Phase 5.6+ 한국 사용자 비중 확인 후)
 
-**SaaS 전환 판단 기준:**
-1. Jayden이 3개월+ 매일 사용
-2. 도구가 개인 관리 시간을 주 10h → 3h로 단축 입증
-3. 지인 프리랜서 3명 이상 "돈 낼 의향 있다" 의사 확인
+> **v3.1 가격표(₩9,900/29,900) + "Jayden 3개월 실사용 후 결정" 조건은 v4.0으로 대체됨.** git log에서 확인 가능.
 
 ---
 
@@ -1751,7 +1741,7 @@ src/
 | 리스크 | 영향 | 완화 전략 |
 |--------|------|----------|
 | PDF 생성 품질 | 견적서가 비전문적 → 고객 인식 저하 | 실제 고객 피드백 반영 + 한국 SI 템플릿 벤치마크 |
-| 1인 → SaaS 전환 간극 | 멀티테넌트 전환 시 DB 마이그레이션 필요 | user_id FK 미리 설계 (이미 반영) |
+| 1인 → multi-tenant 전환 | `workspace_id` backfill + RLS 전면 재작성 리스크 | user_id FK 기반 설계 완료 → workspace_id 추가 마이그레이션 + backfill ([PRD v4.0](./PRD-phase5.md) R1/R2 + Phase 3 cron 선제 대비 완료) |
 | 한국 세금 규정 변경 | 부가세율/양식 변경 가능 | 세금 로직 utils 분리 + 설정값 관리 |
 | Claude API 비용 폭증 | AI 기능 남용 시 비용 증가 | 일일 호출 한도 (10회/일), Sonnet 사용 |
 | n8n 서버 장애 | 알림/자동화 중단 | 핵심 기능은 직접 코드로 동작 + n8n은 "부가" |
@@ -1777,7 +1767,7 @@ src/
 
 | 리스크 | 완화 |
 |--------|------|
-| Jayden 단일 사용자 의존 | 3개월 후 피드백 기반 SaaS 전환 판단 |
+| Jayden 단일 사용자 의존 | Phase 4 완료 후 Phase 5.0 multi-tenant 전환 → 지인 베타 2~3명 실사용 피드백으로 Phase 5.5 (Billing) 진입 여부 판단 ([PRD v4.0](./PRD-phase5.md)) |
 | 랜딩 변경으로 기존 방문자 혼란 | 기존 톤 유지 + 요소 추가/수정만 |
 | /demo 데이터 부족으로 인상 약함 | 샘플 데이터 풍부하게 구성 (6개월치) |
 
