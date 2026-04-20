@@ -1,5 +1,34 @@
 # Dairect — 교훈 기록
 
+## 2026-04-21 — schema.ts `.notNull()` 도입은 전체 INSERT 경로 tsc 검증과 짝을 이뤄야 한다
+
+- **증상**: Task 5-1-4에서 schema.ts 13 도메인 테이블 `workspaceId`에 `.notNull()` replace_all 후 `pnpm tsc --noEmit`이 `briefings`/`weekly_reports`/`leads`(landing form)/portal seed 4곳에서 fail. Task 5-1-7은 12 Server Action만 migrate했고 AI/공개/fixture 경로는 누락된 상태였음. 또 local DB 쪽도 Phase 4 마이그레이션 0015/0016이 빠져 `user_settings.last_weekly_summary_sent_at`/`invoices.last_overdue_notified_at` 컬럼 부재로 첫 E2E 실행 실패.
+- **원인**: 
+  - `drizzle-kit push` 방식 프로젝트는 **DB에 마이그레이션 적용 이력이 없음**(`__drizzle_migrations` 같은 메타 테이블 없음). "어디까지 반영됐는지" 외부에서 알 방법 없이 drift 축적.
+  - NOT NULL 전환은 scheme-level 변경이지만 실질 영향은 **모든 INSERT 호출자의 type contract**를 바꿈. 일부 경로만 먼저 migrate하면 tsc가 엉킨 채 남음.
+  - `drizzle-kit push --force`는 destructive operation 자동 승인 — Task 5-1-4에서 추가한 12개 복합 인덱스 + UNIQUE 재조정을 DROP할 위험 있어 사용 금지.
+- **해결**: 
+  - 누락 마이그레이션은 개별 `docker exec psql`로 수동 ALTER 적용(0015, 0016). 
+  - tsc 에러 4경로는 Task 5-1-4 "후속 완결"로 한꺼번에 수정 — briefing/report actions에 `getCurrentWorkspaceId()` + upsert helper 시그니처 확장 / about/actions.ts는 landing form의 owner 조회 시 workspace도 innerJoin으로 함께 추출(SaaS 도메인 라우팅 도입 전 임시) / seed-portal은 workspace + member 시드 추가.
+- **규칙**:
+  1. **`.notNull()` 도입은 "모든 INSERT 호출자를 같은 커밋에서 고치는" 전제로 진행**. 단일 커밋에서 tsc PASS가 확인돼야 함. 쪼개면 중간 상태가 런타임 안전하지 않음.
+  2. `drizzle-kit push --force`와 **수동 SQL(psql/MCP apply_migration)을 혼용 금지**. 둘 다 schema 관리자 — 섞으면 drizzle은 자신이 모르는 인덱스/제약을 DROP할 수 있음. Task 수동 SQL을 쓰려면 그 구간은 push 금지.
+  3. Local DB drift 진단 절차: `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='X'`로 실제 컬럼 덤프 → schema.ts grep과 diff. 누락 컬럼만 `ALTER TABLE ADD COLUMN`으로 수동 적용. **전체 push는 stateless라 과거 누락 복원 불가**.
+  4. 공개 경로(비인증 Server Action) workspace 귀속 패턴: `users.createdAt ASC` 첫 row + 해당 user의 `workspace_members` 첫 row를 **한 쿼리 innerJoin**으로 동시 추출. `SaaS 도메인 라우팅` 도입 전까지 임시 전략. 코드에 명시 주석 필수.
+  5. 로컬 검증 플로우: `tsc --noEmit` → `lint` → E2E 순. tsc fail은 런타임엔 안 보이지만 CI/build 블로킹. E2E Playwright runner는 tsc 우회 가능하나 production build는 불가.
+
+## 2026-04-21 — Drizzle E2E는 `postgres://postgres@...` = superuser → RLS 우회. 격리 검증의 두 레이어 분리 필수
+
+- **상황**: Task 5-1-8 workspace-isolation E2E가 "RLS 정책 52개(0021) 유효성까지 같이 검증한다"고 오해할 수 있음. 실제로는 Drizzle이 `postgres://postgres:postgres@...` 연결 — **Postgres superuser 권한이라 모든 RLS 정책 bypass**. E2E spec에서 `workspace_scope(...)` 조건을 일부러 빼고 `SELECT`를 실행하면 RLS 안 막고 전체 결과 반환됨(시나리오 #14 canary가 이를 증명).
+- **원인**: Supabase `postgres` role은 `BYPASSRLS` 속성. RLS는 `authenticated`/`anon` role 연결에만 적용. Drizzle 기반 Server Action 경로도 마찬가지 — production에서도 현재 `postgres` 풀을 쓰므로 **앱 레이어 `workspace_scope`가 실질 격리**. RLS는 defense-in-depth 2차 방어선으로, Supabase `@supabase/ssr` anon client 또는 authenticated JWT 커넥션 도입 시점에만 실 효과.
+- **해결**: Task 5-1-8 spec.ts 헤더 주석에 "앱 레이어(workspace_scope helper + Server Action WHERE절) 격리 전용 검증. RLS 정책 자체는 Task 5-1-9 범위(supabase anon client 별도 커넥션 필요)"라고 명시. 15 시나리오는 JOIN 조건 누락·aggregate 오염·multi-membership·cross-FK 등 **앱 레이어 회귀**를 결정론적으로 방어.
+- **규칙**:
+  1. **Postgres superuser 연결은 RLS 우회**. "RLS 정책이 있다" ≠ "Drizzle 쿼리가 안전하다". 앱 레이어 방어(`workspace_scope` + `eq(userId, ...)`)가 **여전히 일차 방어선**.
+  2. RLS 정책 자체 검증은 **반드시 anon/authenticated role 커넥션**으로 별도 테스트. `@supabase/ssr` client + JWT 주입 + `execute_sql` 패턴. 이 범위는 Task 5-1-8과 섞지 말 것.
+  3. Drizzle 기반 E2E의 강점: JOIN 조건 누락, GROUP BY aggregate 오염, multi-tenant membership 경계를 **앱 레이어에서** 결정론적으로 방어. RLS는 이후 추가되는 2중 방어.
+  4. 연결 role 확인 습관: `SELECT current_user, session_user` 쿼리. `postgres`/`postgres.{ref}` = superuser → RLS 우회. `authenticated`/`anon` = RLS 적용. 모호할 때 이 쿼리로 먼저 확인.
+  5. Defense-in-depth 설계: 앱 레이어(Drizzle WHERE) + DB 레이어(RLS policy). 둘 중 하나라도 빠지면 누출 risk. E2E 테스트도 **각 레이어별로 분리된 spec 파일**로 관리.
+
 ## 2026-04-20 후반 4차 — React `cache()` 2단 합성: getUserId + getCurrentWorkspaceId 중첩 메모이제이션
 
 - **상황**: Task 5-1-6에서 `getCurrentWorkspaceId()` 구현 시 내부에서 `getUserId()` 호출. 두 함수 모두 request 스코프에서 여러 번 불릴 수 있음 (Server Component + 여러 Server Action 경로). 각 함수를 독립 구현하면 대시보드 홈 6 쿼리 × 2(uid+wsId) = 12회 DB 왕복 잠재.

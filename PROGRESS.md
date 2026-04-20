@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-20 후반 4차 (Phase 5 Epic 5-1 5/8 — Task 5-1-6 withWorkspace helper + Task 5-1-5 RLS 48 policy)
-> 현재 위치: **Phase 5 Epic 5-1 진행 중 (5/8 Task 정의 완료 — 스키마·RLS·helper·backfill 파일, Jayden DB push 대기 중)**. 다음은 Jayden DB push (0017→0018→0019→0020→0021 순차) → Task 5-1-4 NOT NULL 전환 / 또는 DB 무관 Task 5-1-7 (12 테이블 전면 withWorkspace migrate) 병행
+> 최종 업데이트: 2026-04-21 (Phase 5 Epic 5-1 **8/8 Task 완료** — Task 5-1-4 후속 완결 + 5-1-8 local E2E 22/22 PASS)
+> 현재 위치: **Phase 5 Epic 5-1 완료** (스키마·RLS·helper·backfill·migrate·E2E 전체 — local Supabase 검증 통과). 다음은 Jayden의 **production DB apply 판단 + Epic 5-2 (billing + workspace switcher UI) 착수**
 
 ## 전체 진행률
 
@@ -12,7 +12,7 @@
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | ✅ 완료 (W2/W3 cron 포함) | 100% (5/5 + cron 전체 완료) |
 | Phase 4 | 고객 포털 + /demo + PWA | ✅ 완료 | 100% (Task 4-1 ✅ / 4-2 M1~M8 ✅) |
-| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 5/8 (스키마·RLS·helper·backfill 파일, DB push 대기) |
+| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 ✅ 8/8 완료 (local 검증). Epic 5-2~5-5 대기 |
 
 ## Phase 0: 기반 설정 ✅
 
@@ -409,7 +409,49 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 
 ---
 
-## 이번 세션 (2026-04-20 후반 4차 — Phase 5 Epic 5-1 5/8 — Task 5-1-6 withWorkspace helper + Task 5-1-5 RLS 48 policy)
+## 이번 세션 (2026-04-21 — Phase 5 Epic 5-1 **8/8 완료 + local E2E 22/22 PASS**)
+
+### 현재 위치
+- Epic: **Phase 5 Epic 5-1 (Data Model)**
+- Task: 5-1-4 후속 완결 + 5-1-8 E2E 실전 검증
+- 상태: **완료** (Epic 5-1 전체 8/8 Task 모두 로컬 검증 통과)
+
+### 이번 세션 완료 내역
+
+1. **Local Supabase DB 마이그레이션 0015~0022 전체 적용** — docker exec psql로 `0017→0018→0019→0020→0022→0021` Jayden 지정 순서 + 누락 drift 0015/0016 수동 ADD. 최종 13 도메인 테이블 workspace_id NOT NULL + (workspace_id, number) UNIQUE 3건 + 12 복합 인덱스 + RLS 52 정책 적용.
+2. **Task 5-1-4 schema.ts 후속** — 13 컬럼 `.notNull()` replace_all + contracts/invoices UNIQUE 재조정 + estimates UNIQUE 신규 (0022 SQL과 정합).
+3. **Task 5-1-7 보완 4경로** — schema NOT NULL 전환이 tsc로 드러낸 누락 INSERT 경로:
+   - `src/lib/ai/briefing-actions.ts` (regenerateBriefingAction + upsertBriefing)
+   - `src/lib/ai/report-actions.ts` (regenerateWeeklyReportAction + upsertReport)
+   - `src/app/(public)/about/actions.ts` (landing form의 owner workspace 동시 추출)
+   - `e2e/fixtures/seed-portal.ts` (workspace + member 시드 추가)
+4. **sample-data.ts** — DEMO_WORKSPACE_ID 상수 신규 + 23곳 `workspaceId: null → DEMO_WORKSPACE_ID` 치환.
+5. **Task 5-1-8 E2E 실전 검증** — `pnpm test:e2e` 최종 결과: **22/22 PASS** (portal 7 + workspace-isolation 15, production smoke 9 skip) in 22초. qa-tester Critical 1 (UUID hex 포맷) + High 4 (multi-membership/aggregate/leftJoin/cross-FK) 전부 반영된 15 시나리오.
+
+### 커밋 (3건)
+- `4d073a4` feat(db): Task 5-1-4 NOT NULL + 채번 UNIQUE + 복합 인덱스 (0022)
+- `0db0fb2` test(e2e): Task 5-1-8 workspace isolation 15 시나리오 + 2 workspace seed
+- `45bcf34` feat(multi-tenant): Task 5-1-4 후속 완결 — schema NOT NULL + workspaceId 주입 4경로
+
+### 검증 결과
+- `pnpm tsc --noEmit` PASS (0 errors)
+- `pnpm lint` PASS (0 errors, 1 pre-existing warning)
+- `pnpm test:e2e` PASS 22/22 (5.4초 workspace-isolation + 추가 portal)
+
+### 다음 세션 할 일
+- **production DB apply 판단** — Jayden 확인 후 Supabase Studio에서 0017~0022 SQL 수동 실행 (0016까지는 기존 적용됨) 또는 MCP `apply_migration` (🟡 등급, Jayden 수동 검증 필수)
+- Epic 5-2 (workspace switcher UI + users.last_workspace_id + billing Stripe) 착수 — Task 분해 먼저
+- Task 5-1-9 (optional) — RLS 정책 자체 anon role 커넥션 검증 (이번 E2E는 superuser라 RLS bypass)
+
+### 차단 요소
+- 없음. local 검증 완료. production apply는 Jayden 판단 대기 (risk 🟡).
+
+### 마지막 업데이트
+- 날짜: 2026-04-21
+
+---
+
+## 이전 세션 (2026-04-20 후반 4차 — Phase 5 Epic 5-1 5/8 — Task 5-1-6 withWorkspace helper + Task 5-1-5 RLS 48 policy)
 
 ### 세션 스코프 (2 Task 순차, 각 Task 단위 6단계 사이클)
 
