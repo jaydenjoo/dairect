@@ -1,5 +1,21 @@
 # Dairect — 교훈 기록
 
+## 2026-04-21 오후 — Default workspace 자동 생성은 signup action이 아닌 `/dashboard/layout.tsx`에 배치
+
+- **상황**: Task 5-2-7(default workspace 자동 생성) 구현 위치 결정. 후보 2곳:
+  1. signup Server Action 내부 (가입 성공 직후 같은 트랜잭션)
+  2. `/dashboard/layout.tsx` (모든 인증 사용자가 통과하는 종착점)
+- **결정**: 2번(layout.tsx). 근거:
+  1. **모든 가입 경로 공통**: email 회원가입 / Google OAuth / 초대 수락(Task 5-2-5) / 기존 유저 최초 진입 — signup action에만 넣으면 OAuth 가입자는 workspace 없음.
+  2. **멱등 보장 쉬움**: layout은 매 /dashboard 진입마다 실행되나 "소속 workspace 있으면 early return"이면 SELECT 1회 비용뿐. signup action 트랜잭션에 넣으면 가입 실패 시 workspace만 덩그러니 남는 고아 row 발생 가능.
+  3. **enable_confirmations 무관**: local(false)은 즉시 /dashboard 진입, production(true)은 이메일 클릭 후 /auth/callback → /dashboard 진입. 어느 쪽이든 layout이 종착점.
+  4. **기존 `users.onConflictDoNothing` INSERT와 동일 패턴**: layout.tsx가 이미 public.users 동기화 담당. default workspace도 동일 계층의 "첫 진입 시 동기화" 책임.
+- **규칙**:
+  1. **사용자 생애주기 동기화(user ↔ public.users ↔ default workspace ↔ user_settings)는 "모든 진입 경로 공통 종착점"에 배치**. 종착점에서 멱등 upsert 반복 호출이 signup action 분기마다 중복 구현보다 안전.
+  2. "signup 성공 = workspace 소유" 보장은 **가입 직후 첫 /dashboard 진입**으로 달성. 가입 action 트랜잭션에 묶으면 실패 경로 분석 복잡도 ↑. auth 제공자(Supabase)의 success 정의와 애플리케이션 정의(workspace 소유)를 혼동 금지.
+  3. 이 패턴은 OAuth / email / magic link / SSO 어떤 인증 방식이 추가되어도 자동 지원. middleware → layout 체인만 통과하면 됨.
+  4. **반면 "첫 가입 직후 onboarding step" UI는 signup 흐름 일부 아님** — /dashboard 진입 후 workspace.onboarding_completed 같은 플래그로 별도 분기 (Task 5-2-1 범위).
+
 ## 2026-04-21 — schema.ts `.notNull()` 도입은 전체 INSERT 경로 tsc 검증과 짝을 이뤄야 한다
 
 - **증상**: Task 5-1-4에서 schema.ts 13 도메인 테이블 `workspaceId`에 `.notNull()` replace_all 후 `pnpm tsc --noEmit`이 `briefings`/`weekly_reports`/`leads`(landing form)/portal seed 4곳에서 fail. Task 5-1-7은 12 Server Action만 migrate했고 AI/공개/fixture 경로는 누락된 상태였음. 또 local DB 쪽도 Phase 4 마이그레이션 0015/0016이 빠져 `user_settings.last_weekly_summary_sent_at`/`invoices.last_overdue_notified_at` 컬럼 부재로 첫 E2E 실행 실패.

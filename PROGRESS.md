@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-21 (Phase 5 Epic 5-1 **8/8 Task 완료** — Task 5-1-4 후속 완결 + 5-1-8 local E2E 22/22 PASS)
-> 현재 위치: **Phase 5 Epic 5-1 완료** (스키마·RLS·helper·backfill·migrate·E2E 전체 — local Supabase 검증 통과). 다음은 Jayden의 **production DB apply 판단 + Epic 5-2 (billing + workspace switcher UI) 착수**
+> 최종 업데이트: 2026-04-21 오후 (Phase 5 Epic 5-2 **Phase A 2 Task 완료** — Task α 5-2-0/5-2-7 + Task β 5-2-3-A)
+> 현재 위치: **Phase 5 Epic 5-2 Phase A 완료** (회원가입 + default workspace 자동 생성 + last_workspace_id 1순위 전환). 다음은 Phase B (workspace picker UI 5-2-3-B / onboarding 5-2-1 / workspace 설정 5-2-2) 또는 Phase C (초대 5-2-4~5-2-5 — Resend 통합)
 
 ## 전체 진행률
 
@@ -12,7 +12,7 @@
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | ✅ 완료 (W2/W3 cron 포함) | 100% (5/5 + cron 전체 완료) |
 | Phase 4 | 고객 포털 + /demo + PWA | ✅ 완료 | 100% (Task 4-1 ✅ / 4-2 M1~M8 ✅) |
-| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 ✅ 8/8 완료 (local 검증). Epic 5-2~5-5 대기 |
+| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 ✅ 8/8 완료. Epic 5-2 🟡 Phase A 2/8 완료 (α 5-2-0/5-2-7 + β 5-2-3-A). Epic 5-3~5-5 대기 |
 
 ## Phase 0: 기반 설정 ✅
 
@@ -409,7 +409,57 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 
 ---
 
-## 이번 세션 (2026-04-21 — Phase 5 Epic 5-1 **8/8 완료 + local E2E 22/22 PASS**)
+## 이번 세션 (2026-04-21 오후 — Phase 5 Epic 5-2 Phase A: Task α + β 완료)
+
+### 현재 위치
+- Epic: **Phase 5 Epic 5-2 (Workspace + Onboarding)**
+- Task: α (5-2-0 + 5-2-7 회원가입 + default workspace) + β (5-2-3-A last_workspace_id)
+- 상태: **Phase A 완료** (2/8 Task, 기반 인프라 완성)
+
+### 이번 세션 완료 내역
+
+**Task α (5-2-0 회원가입 UI + 5-2-7 default workspace 자동 생성)** — 6 파일:
+- `src/lib/validation/auth.ts` 신규 — `signupFormSchema` (email + password + confirmPassword refine + name)
+- `src/app/(public)/signup/page.tsx` + `signup-form.tsx` 신규 — Client Component + Zod + Supabase auth.signUp. 세션 있으면 /dashboard redirect, 없으면 "확인 메일 발송" UI
+- `src/lib/auth/ensure-default-workspace.ts` 신규 — 소속 workspace 없으면 transaction(workspace + member(owner) + user_settings). slug 충돌 retry. 멱등.
+- `src/app/dashboard/layout.tsx` — users INSERT 뒤 ensureDefaultWorkspace 호출 추가 (Google OAuth 신규 가입도 동일 경로)
+- `src/app/(public)/login/page.tsx` — "회원가입" 링크 추가
+- `src/middleware.ts` — 로그인 상태에서 /signup 접근 시 /dashboard redirect
+
+**Task β (5-2-3-A last_workspace_id 컬럼 + getCurrentWorkspaceId 1순위 전환)** — 4 파일:
+- `src/lib/db/migrations/0023_users_last_workspace_id.sql` 신규 — ALTER users ADD last_workspace_id uuid + FK ON DELETE SET NULL
+- `src/lib/db/schema.ts` — users.lastWorkspaceId 필드 (forward reference `() => workspaces.id`)
+- `src/lib/auth/get-workspace-id.ts` — 1순위 = last_workspace_id (innerJoin members + workspaces 검증). 2순위 폴백 유지.
+- `src/lib/auth/update-last-workspace.ts` 신규 — updateLastWorkspaceId helper. 소속+soft-delete 재검증 후 UPDATE. 5-2-3-B picker UI에서 호출 예정.
+
+### 커밋 (2건)
+- `3883110` feat(auth): Task 5-2-0 + 5-2-7 — 회원가입 UI + default workspace 자동 생성
+- `eb86a12` feat(auth): Task 5-2-3-A — users.last_workspace_id + getCurrentWorkspaceId 1순위 전환
+
+### 검증 결과
+- `pnpm tsc --noEmit` PASS (0 errors)
+- `pnpm lint` PASS (0 errors, 1 pre-existing warning)
+- Local DB 0023 적용 ✓ (`\d+ users` last_workspace_id uuid nullable 확인)
+- `pnpm test:e2e --grep workspace-isolation` **15/15 PASS** (4.4초, Task β 회귀 없음)
+- 브라우저 /signup 렌더링 + /login 링크 + Zod confirmPassword refine 에러 "비밀번호가 일치하지 않습니다" 작동 확인
+
+### 다음 세션 할 일
+- **Phase B 선택지**:
+  - Task 5-2-3-B: Workspace picker UI (헤더 dropdown + 모바일 bottom sheet + updateLastWorkspaceId 호출 연결)
+  - Task 5-2-1: `/onboarding` 페이지 (신규 가입 workspace 이름/로고 설정)
+  - Task 5-2-2: Workspace 설정 페이지 (`user_settings` → `workspace_settings` 이관, 대규모)
+- **Phase C 준비**: Resend 통합 시작 전 API key 발급 + docs/pipeline-runbook.md 초안 (Jayden 수동)
+- **production DB apply 판단** — Epic 5-1+5-2 전체 SQL 누적(0017~0023) 한번에 Supabase Studio 수동 실행
+
+### 차단 요소
+- 없음. 실 가입 플로우 테스트는 production Supabase 건드리므로 E2E spec에 추가하는 Task를 Phase B 중 고려.
+
+### 마지막 업데이트
+- 날짜: 2026-04-21 오후
+
+---
+
+## 이전 세션 (2026-04-21 오전 — Phase 5 Epic 5-1 **8/8 완료 + local E2E 22/22 PASS**)
 
 ### 현재 위치
 - Epic: **Phase 5 Epic 5-1 (Data Model)**
