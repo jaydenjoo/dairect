@@ -8,17 +8,30 @@
  *   - 환경변수는 globalSetup에서 이미 로드됨.
  */
 import { cleanupPortalFixtures } from "./seed-portal";
+import { cleanupWorkspaceFixtures } from "./seed-workspaces";
 
 async function globalTeardown(): Promise<void> {
-  try {
-    await cleanupPortalFixtures();
-    console.log("✓ globalTeardown — e2e seed cleanup 완료");
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("⚠️ globalTeardown cleanup 실패 (수동 정리 필요):", message);
-    // 종료 코드 0 — 테스트 자체는 통과했어도 cleanup만 실패한 경우 CI를 빨갛게 만들지 않음.
-    // 잔류 row는 다음 e2e 실행의 seedPortalFixtures() → cleanup 먼저 단계에서 정리됨.
+  // portal + workspace 각각 독립 cleanup — 한쪽 실패해도 다른 쪽은 진행.
+  // allSettled로 실패 격리: 한 시드가 잔류해도 다른 시드는 정리 완료 보장.
+  const results = await Promise.allSettled([
+    cleanupPortalFixtures(),
+    cleanupWorkspaceFixtures(),
+  ]);
+
+  const labels = ["portal", "workspace"] as const;
+  let allOk = true;
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    if (r.status === "fulfilled") continue;
+    allOk = false;
+    const message = r.reason instanceof Error ? r.reason.message : String(r.reason);
+    console.error(`⚠️ globalTeardown ${labels[i]} cleanup 실패 (수동 정리 필요):`, message);
   }
+  if (allOk) {
+    console.log("✓ globalTeardown — e2e seed cleanup 완료 (portal + workspace)");
+  }
+  // 종료 코드 0 유지 — 테스트 통과 후 cleanup만 실패한 경우 CI red 방지.
+  // 잔류 row는 다음 seed* 호출의 cleanup 먼저 단계에서 정리됨.
 }
 
 export default globalTeardown;
