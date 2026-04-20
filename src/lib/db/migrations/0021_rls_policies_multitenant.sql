@@ -1,4 +1,5 @@
--- Phase 5 Epic 5-1 Task 5-1-5: 12 도메인 테이블 workspace 멤버십 기반 RLS 48 정책.
+-- Phase 5 Epic 5-1 Task 5-1-5: 13 도메인 테이블 workspace 멤버십 기반 RLS 52 정책.
+--   (weekly_reports 포함 — Task 5-1-4 db-engineer 리뷰 H-1 후속 반영)
 --
 -- 전제 (적용 순서):
 --   0017_modern_eternals.sql       — workspaces / workspace_members / workspace_invitations / workspace_settings 생성
@@ -226,12 +227,33 @@ CREATE POLICY "portal_tokens_update_members" ON "portal_tokens" FOR UPDATE TO au
 DROP POLICY IF EXISTS "portal_tokens_delete_members" ON "portal_tokens";--> statement-breakpoint
 CREATE POLICY "portal_tokens_delete_members" ON "portal_tokens" FOR DELETE TO authenticated USING (public.is_workspace_member(workspace_id));--> statement-breakpoint
 
+-- ─── weekly_reports (H-1 후속 추가: 12 → 13 도메인 테이블) ───
+ALTER TABLE "weekly_reports" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "weekly_reports_deny_anon" ON "weekly_reports";--> statement-breakpoint
+CREATE POLICY "weekly_reports_deny_anon" ON "weekly_reports" AS RESTRICTIVE FOR ALL TO anon USING (false);--> statement-breakpoint
+DROP POLICY IF EXISTS "weekly_reports_select_members" ON "weekly_reports";--> statement-breakpoint
+CREATE POLICY "weekly_reports_select_members" ON "weekly_reports" FOR SELECT TO authenticated USING (public.is_workspace_member(workspace_id));--> statement-breakpoint
+DROP POLICY IF EXISTS "weekly_reports_insert_members" ON "weekly_reports";--> statement-breakpoint
+CREATE POLICY "weekly_reports_insert_members" ON "weekly_reports" FOR INSERT TO authenticated WITH CHECK (public.is_workspace_member(workspace_id));--> statement-breakpoint
+DROP POLICY IF EXISTS "weekly_reports_update_members" ON "weekly_reports";--> statement-breakpoint
+CREATE POLICY "weekly_reports_update_members" ON "weekly_reports" FOR UPDATE TO authenticated USING (public.is_workspace_member(workspace_id)) WITH CHECK (public.is_workspace_member(workspace_id));--> statement-breakpoint
+DROP POLICY IF EXISTS "weekly_reports_delete_members" ON "weekly_reports";--> statement-breakpoint
+CREATE POLICY "weekly_reports_delete_members" ON "weekly_reports" FOR DELETE TO authenticated USING (public.is_workspace_member(workspace_id));--> statement-breakpoint
+
 COMMIT;
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 -- ROLLBACK (역순: authenticated 정책 → deny_anon → DISABLE → helper function)
 -- 주의: 전체 DO 블록 또는 수동 BEGIN/COMMIT 트랜잭션으로 묶어 실행 권장.
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+--
+-- -- weekly_reports (H-1 후속 추가)
+-- DROP POLICY IF EXISTS "weekly_reports_delete_members" ON "weekly_reports";
+-- DROP POLICY IF EXISTS "weekly_reports_update_members" ON "weekly_reports";
+-- DROP POLICY IF EXISTS "weekly_reports_insert_members" ON "weekly_reports";
+-- DROP POLICY IF EXISTS "weekly_reports_select_members" ON "weekly_reports";
+-- DROP POLICY IF EXISTS "weekly_reports_deny_anon" ON "weekly_reports";
+-- ALTER TABLE "weekly_reports" DISABLE ROW LEVEL SECURITY;
 --
 -- -- portal_tokens
 -- DROP POLICY IF EXISTS "portal_tokens_delete_members" ON "portal_tokens";

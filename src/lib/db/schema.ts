@@ -465,6 +465,9 @@ export const weeklyReports = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id),
+    // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). weekly_reports는
+    //   프로젝트별 고객 발송 보고서라 workspace 격리 대상. Task 5-1-4에서 NOT NULL 전환.
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
     projectId: uuid("project_id")
       .notNull()
       .references(() => projects.id),
