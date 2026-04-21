@@ -1,0 +1,44 @@
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+-- NOOP MARKER — Task 5-2-2h (drizzle journal/snapshot 재동기화)
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+--
+-- ⚠️ 절대 apply 금지. 이 파일은 DB 변경을 일으키지 않는 placeholder다.
+--
+-- 배경:
+--   0020~0030은 수동 작성 마이그레이션 (`mcp__supabase__apply_migration` 경유로
+--   cloud에 직접 적용). drizzle-kit이 관리하는 journal/snapshot 체계는 이 과정에
+--   참여하지 않아 `_journal.json` 마지막 entry가 0019_slim_gertrude_yorkes에 고정.
+--
+-- 문제:
+--   drizzle-kit generate 실행 시 snapshot 기준(0019) vs 현재 schema.ts 차이가
+--   0020~0030 누적 변경 전체로 산출 → 중복 DDL SQL이 새 파일로 생성 → 누군가
+--   apply 시 이미 적용된 UNIQUE/NOT NULL/컬럼이 `already exists` 에러를 내거나
+--   최악의 경우 중복 제약 충돌을 일으킴 (특히 Task 5-2-2g UNIQUE 재조정 역행
+--   가능 — security-reviewer MEDIUM 경고).
+--
+-- 해결:
+--   이 파일 + `meta/0031_snapshot.json` + `_journal.json` idx=31 entry는
+--   "현재 schema.ts 상태를 snapshot 체계에 기준선으로 등록"하는 마커다.
+--   drizzle-kit은 다음 generate 시 이 snapshot을 baseline으로 diff를 계산하므로
+--   0020~0030 누적 변경이 중복 생성되지 않는다.
+--
+-- 왜 SQL은 비어있는가:
+--   snapshot 기준선만 맞추면 목적 달성. 이 파일 안의 DDL은 이미 cloud에
+--   apply 완료 상태라 재실행 시 `relation already exists` / `duplicate_object`
+--   등으로 실패하거나 UNIQUE 제약이 역행한다 (Task 5-2-2g 취약점 재발).
+--   따라서 실행 가능한 SQL을 전부 제거하고 주석 + 안전한 SELECT 한 줄만 남김.
+--
+-- idx 점프 (19 → 31) 이유:
+--   journal의 idx 20~30은 수동 마이그레이션과 번호를 맞추기 위해 남겨둠.
+--   drizzle-kit이 다음 generate에서 idx=32부터 자동 할당할 것.
+--
+-- 생성 당시 변경 범위 (이미 apply 완료):
+--   • briefings/weekly_reports UNIQUE 워크스페이스 포함 재조정 (Task 5-2-2g, 0030)
+--   • contracts/invoices/estimates UNIQUE 워크스페이스 기반 재조정 (Task 5-1-4, 0022)
+--   • 12 테이블 workspace_id NOT NULL 전환 (0022)
+--   • weekly_reports.workspace_id 컬럼 + FK 추가 (0019)
+--   • users.last_workspace_id / users.onboarded_at (0023, 0024)
+--   • workspace_settings.ai_daily_call_count / ai_last_reset_at (0026)
+--   • workspaces.logo_url / logo_storage_path (0028)
+
+SELECT 'Task 5-2-2h noop marker' AS resync_marker;--> statement-breakpoint

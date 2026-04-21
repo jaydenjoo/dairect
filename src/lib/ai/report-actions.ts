@@ -81,6 +81,10 @@ export async function getCurrentWeeklyReport(
   const userId = await getUserId();
   if (!userId) return null;
 
+  // Task 5-2-2g: workspace 스위치 후 다른 workspace의 projectId로 조회 시 보고서 누출 차단
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return null;
+
   const idCheck = projectIdSchema.safeParse(projectId);
   if (!idCheck.success) return null;
 
@@ -97,6 +101,7 @@ export async function getCurrentWeeklyReport(
     .where(
       and(
         eq(weeklyReports.userId, userId),
+        eq(weeklyReports.workspaceId, workspaceId),
         eq(weeklyReports.projectId, idCheck.data),
         eq(weeklyReports.weekStartDate, weekStart),
       ),
@@ -506,7 +511,13 @@ async function upsertReport(
       generationType,
     })
     .onConflictDoUpdate({
-      target: [weeklyReports.userId, weeklyReports.projectId, weeklyReports.weekStartDate],
+      // Task 5-2-2g: UNIQUE (userId, workspaceId, projectId, weekStartDate)와 동기 — cross-workspace 덮어쓰기 차단
+      target: [
+        weeklyReports.userId,
+        weeklyReports.workspaceId,
+        weeklyReports.projectId,
+        weeklyReports.weekStartDate,
+      ],
       set: {
         contentJson: content,
         generationType,

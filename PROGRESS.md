@@ -1,7 +1,79 @@
 # Dairect v3.1 — 진행 현황
 
+> 최종 업데이트: 2026-04-21 심야 3 (Task 5-2-2h 완료 — drizzle journal/snapshot 재동기화 + NOOP marker + `drizzle-kit generate` noop 검증 PASS)
+> 현재 위치: **Phase 5 Epic 5-2 Phase A+B + 5-2-2b/c/d/e/f/g/h + C-H1/C-H2 완료**. 남은 것: Phase C(초대 5-2-4~5-2-5, Resend 필요). 멀티 멤버 workspace 진입 블로커 전부 해소 + supply chain regression 방어망 복구.
+
+## Task 5-2-2h ✅ 완료 (drizzle journal/snapshot 재동기화 + phase5_resync NOOP marker)
+
+**배경** (security-reviewer MEDIUM 지적, Task 5-2-2g 후속):
+- 0020~0030은 수동 작성 SQL + cloud `apply_migration`으로 직접 적용 → drizzle-kit journal/snapshot 체계에 미등록
+- `_journal.json` 마지막 entry가 0019에 고정 + snapshot도 0019까지만 존재
+- 다음 `drizzle-kit generate` 실행 시 baseline(0019) vs 현재 schema.ts 전체 diff가 SQL로 산출 → 누군가 무심결 apply 시 **Task 5-2-2g UNIQUE 재조정이 역행**되어 cross-workspace 덮어쓰기 취약점 재발 위험 (supply chain regression)
+
+**접근법 C (채택)**: drizzle-kit generate를 일부러 돌려 현재 schema.ts를 기준선 snapshot으로 등록하되, 생성된 SQL은 NOOP으로 중성화
+
+**변경 사항**
+- `src/lib/db/migrations/0031_phase5_resync_marker.sql` (신규, NOOP)
+  - drizzle이 생성한 누적 DDL을 삭제하고 `SELECT 'Task 5-2-2h noop marker'` 한 줄만 유지
+  - 헤더 주석에 "절대 apply 금지" 안내 + idx 점프(19→31) 이유 + 포함된 과거 변경 범위 7개 문서화
+- `src/lib/db/migrations/meta/0031_snapshot.json` (신규) — 현재 schema.ts 전체 반영된 baseline snapshot (drizzle-kit 자동 생성)
+- `src/lib/db/migrations/meta/_journal.json` — idx=31 entry 추가 (tag=`0031_phase5_resync_marker`, 파일명 충돌 피해 0020→0031로 리네임)
+
+**실행 스텝**
+1. `pnpm drizzle-kit generate --name=phase5_resync` → `0020_phase5_resync.sql` + `meta/0020_snapshot.json` + journal idx=20 entry 생성
+2. 기존 `0020_backfill_workspaces.sql`과 번호 충돌 → 수동으로 0020→0031 리네임 (파일 2개 + journal tag/idx 수정)
+3. 생성된 `.sql` 내용(누적 DDL 29줄)을 NOOP 주석 + 안전한 SELECT로 교체
+4. **검증**: `pnpm drizzle-kit generate --name=_verify_noop` → **"No schema changes, nothing to migrate 😴"** 로 응답 (임시 파일 생성 없음)
+
+**검증**
+- `pnpm tsc --noEmit` → 0 error
+- `pnpm drizzle-kit generate --name=_verify_noop` → 스냅샷 diff 0, 파일 미생성
+- git status: `0031_phase5_resync_marker.sql` + `meta/0031_snapshot.json` 신규 + `_journal.json` 수정만 Task 5-2-2h 스코프
+
+**이후 효과**
+- 다음 `drizzle-kit generate`는 0031_snapshot을 baseline으로 diff → 0020~0030 누적 변경 재생성 불가능
+- 수동 SQL 마이그레이션 관행은 유지 (cloud apply는 계속 `apply_migration` 경유)
+- 미래에 drizzle-kit으로 새 변경 생성 시 idx=32부터 자동 할당
+
+---
+
+## Task 5-2-2g ✅ 완료 (briefings/weekly_reports UNIQUE에 workspace_id 추가 — cross-workspace 덮어쓰기 차단)
+
+**배경**: Phase 5 multi-tenant 이관 당시 `workspace_id` 컬럼은 NOT NULL 전환했으나 UNIQUE 제약은 `(user_id, week_start_date)` / `(user_id, project_id, week_start_date)` 그대로 유지. 5-2-3-B workspace 스위치 도입 후 **동일 user가 A→B 전환 후 같은 주 Regenerate 시 `onConflict`가 workspace_id=A row에 매치 → contentJson만 덮어쓰고 workspace_id는 A 유지 → B 페이지 SSR에서도 그 row가 반환되어 B workspace에 A workspace 데이터 노출**하는 취약점. Task 5-2-2b 리뷰 H2 선제 기록.
+
+**신규 마이그레이션 1**
+- `0030_briefings_weekly_reports_workspace_unique.sql` — BEGIN/COMMIT + 중복 사전 검사 DO 블록 + DROP/ADD CONSTRAINT 2쌍 + 롤백 SQL 주석
+  - `briefings_user_week_unique` → `briefings_user_workspace_week_unique` UNIQUE `(user_id, workspace_id, week_start_date)`
+  - `weekly_reports_user_project_week_unique` → `weekly_reports_user_workspace_project_week_unique` UNIQUE `(user_id, workspace_id, project_id, week_start_date)`
+
+**수정 파일 3**
+- `src/lib/db/schema.ts` — briefings/weeklyReports UNIQUE 정의 `workspaceId` 추가
+- `src/lib/ai/briefing-actions.ts` — `getCurrentBriefing` WHERE에 `eq(briefings.workspaceId, workspaceId)` + `upsertBriefing` onConflict target `[userId, workspaceId, weekStartDate]`로 확장
+- `src/lib/ai/report-actions.ts` — `getCurrentWeeklyReport` WHERE에 `eq(weeklyReports.workspaceId, workspaceId)` + `upsertReport` onConflict target `[userId, workspaceId, projectId, weekStartDate]`로 확장
+
+**검증**
+- `pnpm tsc --noEmit` → 0 error
+- `pnpm lint` → 신규 경고 0 (기존 무관 1건만)
+- `pnpm build` → postbuild SW artifact 포함 성공
+- Cloud migration apply 완료 (`hybidqamgsfjmmllwszr`) — pg_constraint 조회로 신규 UNIQUE 2건 확인
+- **DB 격리 회귀 4건 PASS** (BEGIN/ROLLBACK 트랜잭션 내 임시 workspace 생성):
+  - T1 briefings: cross-workspace 동일 `(user, week)` insert → 성공 (기존엔 UNIQUE 위반) ✅
+  - T2 briefings: 동일 `(user, workspace, week)` insert → `ON CONFLICT ... DO NOTHING` 발동, 0 returning ✅
+  - T3 weekly_reports: cross-workspace insert → 성공 ✅
+  - T4 weekly_reports: 동일 `(user, workspace, project, week)` insert → conflict 발동 ✅
+- **전수 감사 grep 결과**: `briefings`/`weekly_reports` 외 workspace_id 누락 UNIQUE/onConflict 없음 (estimates/contracts/invoices는 Task 5-1-4에서 이미 workspace 기반 전환 완료, workspace_settings/user_settings/users는 자체 스코프 맞음)
+
+**남은 검증 (환경 의존)**
+- Playwright UI E2E는 **멀티 workspace 환경 필요** — 현재 Jayden 계정에 workspace 1개만 존재 + workspace 추가 기능(초대 5-2-4/5)은 Phase C 범위. Phase C 진입 시점에 2개 workspace 확보 후 실제 picker 스위치 → Regenerate → row 별도 생성 UI 회귀 수행.
+
+### 차기 Task 등록 (Phase 5 남은 것)
+- **Phase C (5-2-4 / 5-2-5 초대 시스템)** — Resend API key 발급 필요 (차단 상태)
+- **5-2-2b 잔여 이슈 C-H1 재점검**: AI_DAILY_LIMIT 상수 workspace plan 도입 설계 (멀티 멤버 진입 전 상향 또는 plan 분기)
+
+---
+
+## 이전 세션 진행 내역
 > 최종 업데이트: 2026-04-21 심야 (Task 5-2-2c/f Playwright E2E 13/13 통과 + C-H1/C-H2 해소 + 리뷰 H1 이원화 재수정 PASS)
-> 현재 위치: **Phase 5 Epic 5-2 Phase A+B + 5-2-2b/c/d/e/f + C-H1/C-H2 완료**. 남은 것: Task 5-2-2g(H2 cross-workspace UPSERT, 멀티멤버 진입 전 필수) / Phase C(초대 5-2-4~5-2-5, Resend 필요)
 
 ## 전체 진행률
 
@@ -12,7 +84,7 @@
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | ✅ 완료 (W2/W3 cron 포함) | 100% (5/5 + cron 전체 완료) |
 | Phase 4 | 고객 포털 + /demo + PWA | ✅ 완료 | 100% (Task 4-1 ✅ / 4-2 M1~M8 ✅) |
-| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 ✅ 8/8 완료. Epic 5-2 🟡 Phase A+B+서브 5건+C-H1/C-H2 ✅ (메인 6/8 + 서브 5 + 멀티 멤버 블로커 2건 해소). 남은 것: 5-2-2g(H2) → Phase C(5-2-4/5). Epic 5-3~5-5 대기 |
+| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 ✅ 8/8 완료. Epic 5-2 🟡 Phase A+B+서브 6건+C-H1/C-H2 ✅ (메인 6/8 + 서브 6 + 멀티 멤버 블로커 3건 해소). 남은 것: Phase C(5-2-4/5, Resend). Epic 5-3~5-5 대기 |
 
 ## Phase 0: 기반 설정 ✅
 

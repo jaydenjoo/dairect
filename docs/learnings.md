@@ -1,5 +1,32 @@
 # Dairect — 교훈 기록
 
+## 2026-04-21 심야 3 — 수동 SQL 마이그레이션 + drizzle journal 이중 체계는 "NOOP marker + 리네임" 패턴으로 재동기화한다 (Task 5-2-2h supply chain regression 방어)
+
+- **증상**: Task 5-2-2g 리뷰에서 security-reviewer가 MEDIUM으로 지적. `meta/_journal.json` 마지막 entry가 0019에 고정 + `meta/*_snapshot.json`도 0019까지만 존재. 0020~0030은 수동 SQL + `mcp__supabase__apply_migration`으로 cloud에 직접 적용해왔기 때문에 drizzle-kit이 모름. 차기 PR에서 누군가 `pnpm drizzle-kit generate`를 무심코 돌리면 baseline(0019) vs 현재 schema.ts 전체 diff를 SQL로 산출 → Task 5-2-2g UNIQUE 재조정 포함 누적 DDL이 새 파일로 생성 → 무심결 apply 시 이미 적용된 제약이 역행해 **cross-workspace 덮어쓰기 취약점 재발**.
+- **접근법 비교**:
+  - A) `drizzle-kit introspect`: DB state → TypeScript 스키마 역추출 도구. snapshot 파일을 만들지 않음 → 부적합.
+  - B) 수동 `_journal.json` append + `0030_snapshot.json` 수동 작성: 수천 줄 JSON 수작성 → 오류 가능성 높음.
+  - **C) `drizzle-kit generate --name=X` → 파일 리네임 → SQL NOOP 교체 (채택)**: drizzle 표준 경로로 journal/snapshot 자동 등록 + 파일명 충돌은 리네임으로 해결 + 생성된 누적 DDL은 NOOP 주석 + 안전한 SELECT로 교체해 실행 차단.
+- **규칙**:
+  1. **"수동 apply_migration 경유 + drizzle journal 미등록" 관행은 N개 모이면 drift 위험이 누적**된다. Phase 5처럼 다수 마이그레이션이 수동 SQL이면 **주기적으로 resync marker를 찍는 게 정석**. 기준: 수동 마이그레이션이 5개 이상 누적됐거나, 직전 resync 이후 6개월 경과.
+  2. **drizzle-kit generate는 기존 수동 SQL 파일명을 보지 않고 journal의 max idx + 1로 번호 할당**한다. 기존 수동 파일과 번호 충돌이 거의 필연 → **리네임을 단계에 포함** (파일 2개 + journal idx/tag 3필드). idx는 수동 파일 마지막 번호 + 1 이상으로 점프해 충돌 영구 방지.
+  3. **NOOP marker의 안전 장치 3종**: (a) 헤더 주석에 "절대 apply 금지" + 이유 + 이 파일이 가리키는 과거 변경 범위 열거, (b) 실행 가능 DDL을 전부 삭제하고 `SELECT 'marker'` 한 줄만 남김, (c) 파일명에 `_marker` 접미사로 일반 마이그레이션과 구분.
+  4. **검증은 재실행으로 한다**: `drizzle-kit generate --name=_verify_noop` 결과가 `"No schema changes, nothing to migrate"`이면 baseline 동기화 성공. 임시 파일이 실제로 안 만들어졌는지 `git status`로 교차 확인 필수 (drizzle이 빈 diff에서 파일 미생성을 보장).
+  5. **journal idx의 불연속은 허용된다**: 17 → 19 (0018 빠짐), 19 → 31 (0020~0030 빠짐) 모두 drizzle-kit이 정상 처리. 내부 lookup은 `{idx 4자리}_snapshot.json` 파일명 기반이며 idx 연속성은 강제하지 않는다.
+
+## 2026-04-21 심야 2 — 멀티 워크스페이스 환경이 없을 때는 BEGIN/ROLLBACK 격리 트랜잭션이 UI E2E의 강력한 대체재 (Task 5-2-2g UNIQUE 제약 회귀)
+
+- **상황**: Task 5-2-2g에서 `briefings`/`weekly_reports` UNIQUE에 `workspace_id`를 추가한 뒤 회귀 검증 단계에 막힘. Jayden 계정에는 workspace 1개만 존재 + workspace 추가 기능(초대 5-2-4/5)은 Phase C 범위라 아직 미구현 + 디자인상 workspace picker는 2개 이상일 때만 활성화. 즉 실제 workspace switch 시나리오를 UI로 재현할 환경 자체가 없는 상태.
+- **선택지**:
+  - A) Phase C까지 회귀 검증 연기. 문제: UNIQUE 변경이 실제 효과 있는지 증명 없이 Phase C로 진입 → 초대 기능 구현 중 또 다른 이슈가 겹치면 원인 추적 난이도 폭발.
+  - B) 수동 DB INSERT로 2번째 workspace 임시 생성해서 UI 로그인 후 picker 클릭 시뮬. 문제: dev DB 상태 오염 + 임시 workspace cleanup 스크립트 필요 + picker는 "1개 workspace = 정적 표시" 조건 분기가 있어 2개로 만들어도 UI 변화 관찰이 복잡.
+  - **C) BEGIN/ROLLBACK 격리 트랜잭션으로 DB 레벨 회귀 (채택)**: 임시 workspace + workspace_members + projects insert → 신규 UNIQUE 제약을 대상 `ON CONFLICT ON CONSTRAINT ... DO NOTHING` 2쌍으로 제약 발동 여부 직접 검증 → ROLLBACK으로 완전 원복. 4건 시나리오(cross-workspace 성공 / 같은 workspace conflict 발동) × (briefings / weekly_reports) 모두 일관 통과.
+- **규칙**:
+  1. **UI E2E 환경이 준비되지 않은 Task에서 DB 제약 변경만 완료한 경우, 격리 트랜잭션 회귀를 완료 판정 기준으로 인정**. "Playwright 없이 완료 못 한다"가 아니라 "제약의 직접 효과를 재현 가능한 가장 좁은 수단"이 기준. DB 제약은 격리 트랜잭션으로 충분, 애플리케이션 레이어 WHERE/onConflict target은 tsc가 보장, UI 시나리오는 Phase C 진입 시 합류.
+  2. **격리 트랜잭션 회귀의 표준 템플릿**: `BEGIN → 최소 픽스처(workspace/member/project) insert → INSERT 2건(기대: 성공 / 기대: conflict) → SELECT로 probe 결과 집계 → ROLLBACK`. 외부 효과 0, 재현 가능, CI에 옮기기 쉬움. 복수 시나리오는 쿼리 분할(postgres.js가 last statement만 반환하므로 T1/T2/T3/T4는 각각 별도 SQL로 실행).
+  3. **대신 "격리 트랜잭션으로 완료"는 반드시 PROGRESS.md에 "UI E2E 환경 의존 항목은 Phase X 진입 시 합류"를 명시**. 회귀 구멍을 방치하는 게 아니라 환경이 열리는 지점을 기록 — 차기 Task가 시작될 때 `grep "UI E2E" PROGRESS.md`로 점검.
+  4. **`ON CONFLICT ON CONSTRAINT <name> DO NOTHING` + `RETURNING id` + `WITH ... SELECT COUNT(*)` 패턴**이 제약 이름 매칭 동작을 가장 정확하게 검증. `DO UPDATE`는 UPSERT semantic을 확인하지만 "conflict가 발동했는가?"만 보려면 `DO NOTHING`의 0 rows가 명확한 신호. postgres.js는 `DO NOTHING` 시 `RETURNING`을 빈 배열로 돌려줌.
+
 ## 2026-04-21 심야 — workspace 단위 billing 이관 시 read/write path 대칭을 강제로 점검해야 한다 (단순 WHERE 교체가 권한 경계를 뚫는다)
 
 - **증상**: Task 5-2-2b에서 남긴 C-H2(workspace 공유 카운터 vs user 스코프 쿨다운 비대칭 DoS)를 해소하려 `tryCooldownReturn`의 WHERE를 `briefings.userId` → `briefings.workspaceId`로 단순 교체. tsc/lint/build 전부 통과 + 내 머릿속 모델로도 "카운터가 workspace니까 쿨다운도 workspace로" 자연스러워 보임. 실제로는 code-reviewer CRITICAL·security-reviewer HIGH 리뷰에서 **타 멤버의 briefing/weekly_report content가 요청자 화면에 렌더되는 권한 경계 침범**이 잡힘. 특히 weekly_report는 PDF로 고객 발송 경로가 있어 "B가 만든 보고서를 A가 자기 이름으로 고객에게 발송" 시나리오로 격상.

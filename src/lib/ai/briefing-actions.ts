@@ -83,9 +83,13 @@ export async function getCurrentBriefing(): Promise<CurrentBriefing | null> {
   const userId = await getUserId();
   if (!userId) return null;
 
+  // Task 5-2-2g: workspace 스위치 후 다른 workspace의 브리핑이 노출되지 않도록 workspaceId 필터 필수
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return null;
+
   const { weekStart } = getKstDateParts();
 
-  // UNIQUE (userId, weekStartDate)로 최대 1건 보장 — desc/limit은 방어적 표기
+  // UNIQUE (userId, workspaceId, weekStartDate)로 최대 1건 보장 — desc/limit은 방어적 표기
   const rows = await db
     .select({
       contentJson: briefings.contentJson,
@@ -94,7 +98,13 @@ export async function getCurrentBriefing(): Promise<CurrentBriefing | null> {
       generationType: briefings.generationType,
     })
     .from(briefings)
-    .where(and(eq(briefings.userId, userId), eq(briefings.weekStartDate, weekStart)))
+    .where(
+      and(
+        eq(briefings.userId, userId),
+        eq(briefings.workspaceId, workspaceId),
+        eq(briefings.weekStartDate, weekStart),
+      ),
+    )
     .orderBy(desc(briefings.aiGeneratedAt))
     .limit(1);
 
@@ -453,7 +463,8 @@ async function upsertBriefing(
       generationType,
     })
     .onConflictDoUpdate({
-      target: [briefings.userId, briefings.weekStartDate],
+      // Task 5-2-2g: UNIQUE (userId, workspaceId, weekStartDate)와 동기 — cross-workspace 덮어쓰기 차단
+      target: [briefings.userId, briefings.workspaceId, briefings.weekStartDate],
       set: {
         contentJson: content,
         generationType,

@@ -440,7 +440,7 @@ export const briefings = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id),
-    // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). briefings는 사용자 개인 브리핑 성격 유지, workspace 격리는 쿼리 시점 필터.
+    // workspace_id: Task 5-1-4에서 NOT NULL 전환 완료. Task 5-2-2g에서 UNIQUE에 포함 → cross-workspace 덮어쓰기 차단.
     workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
     // mode:"string": postgres.js가 Date 객체로 변환하지 않도록 명시 — UI/Zod 경로에서 ISO date string 일관 유지
     weekStartDate: date("week_start_date", { mode: "string" }).notNull(),
@@ -459,7 +459,8 @@ export const briefings = pgTable(
       .notNull(),
   },
   (table) => [
-    unique("briefings_user_week_unique").on(table.userId, table.weekStartDate),
+    // Task 5-2-2g: workspace_id 추가 — cross-workspace 덮어쓰기 차단 (workspace 스위치 후 Regenerate 시 다른 workspace row 덮어쓰기 방어)
+    unique("briefings_user_workspace_week_unique").on(table.userId, table.workspaceId, table.weekStartDate),
     check(
       "briefings_generation_type_check",
       sql`${table.generationType} IN ('ai', 'empty_fallback')`,
@@ -482,8 +483,7 @@ export const weeklyReports = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id),
-    // workspace_id NULLABLE (Task 5-1-2 backfill 전단계, RESTRICT). weekly_reports는
-    //   프로젝트별 고객 발송 보고서라 workspace 격리 대상. Task 5-1-4에서 NOT NULL 전환.
+    // workspace_id: Task 5-1-4에서 NOT NULL 전환 완료. Task 5-2-2g에서 UNIQUE에 포함 → cross-workspace 덮어쓰기 차단.
     workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
     projectId: uuid("project_id")
       .notNull()
@@ -503,8 +503,10 @@ export const weeklyReports = pgTable(
       .notNull(),
   },
   (table) => [
-    unique("weekly_reports_user_project_week_unique").on(
+    // Task 5-2-2g: workspace_id 추가 — cross-workspace 덮어쓰기 차단 (briefings와 동일 동기)
+    unique("weekly_reports_user_workspace_project_week_unique").on(
       table.userId,
+      table.workspaceId,
       table.projectId,
       table.weekStartDate,
     ),
