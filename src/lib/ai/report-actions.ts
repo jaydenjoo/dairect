@@ -17,7 +17,7 @@ import {
   isReportInputEmpty,
   type ReportContent,
 } from "@/lib/validation/report";
-import { AI_DAILY_LIMIT } from "@/lib/validation/ai-estimate";
+import { getAiDailyLimit } from "@/lib/validation/ai-estimate";
 
 // 쿨다운: 같은 주 재호출이 10초 내면 AI/DB write 생략 (Task 3-2 패턴).
 const REPORT_COOLDOWN_MS = 10_000;
@@ -152,10 +152,19 @@ export async function regenerateWeeklyReportAction(
     };
   }
 
+  // Task 5-2-2b 잔여 C-H1 (마이그레이션 0032): plan 기반 분기로 dailyLimit 확보.
+  // workspace_settings default 'free' NOT NULL — 정상 경로에서 planRow 항상 존재.
+  const [planRow] = await db
+    .select({ plan: workspaceSettings.plan })
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.workspaceId, workspaceId))
+    .limit(1);
+  const dailyLimit = getAiDailyLimit(planRow?.plan);
+
   const { weekStart } = getKstDateParts();
 
   // 1) 쿨다운: 같은 주 재생성이 10초 내면 기존 row 그대로 반환
-  const cooldownHit = await tryCooldownReturn(userId, workspaceId, idCheck.data, weekStart);
+  const cooldownHit = await tryCooldownReturn(userId, workspaceId, idCheck.data, weekStart, dailyLimit);
   if (cooldownHit) return cooldownHit;
 
   // 2) 주간 데이터 집계 (userId + workspaceId 2중 필터로 소유권 자동 검증). null이면 NOT_FOUND.
@@ -201,7 +210,7 @@ export async function regenerateWeeklyReportAction(
       aiGeneratedAt: saved.aiGeneratedAt.toISOString(),
       generationType: "empty_fallback",
       dailyCount,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -231,7 +240,7 @@ export async function regenerateWeeklyReportAction(
         .where(
           and(
             eq(workspaceSettings.workspaceId, workspaceId),
-            sql`(COALESCE(${workspaceSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE OR COALESCE(${workspaceSettings.aiDailyCallCount}, 0) < ${AI_DAILY_LIMIT})`,
+            sql`(COALESCE(${workspaceSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE OR COALESCE(${workspaceSettings.aiDailyCallCount}, 0) < ${dailyLimit})`,
           ),
         )
         .returning({ count: workspaceSettings.aiDailyCallCount });
@@ -243,10 +252,10 @@ export async function regenerateWeeklyReportAction(
     if (err instanceof Error && err.message === "DAILY_LIMIT_EXCEEDED") {
       return {
         success: false,
-        error: `일일 AI 호출 한도(${AI_DAILY_LIMIT}회)를 초과했습니다. 약 24시간 후 다시 시도해주세요.`,
+        error: `일일 AI 호출 한도(${dailyLimit}회)를 초과했습니다. 약 24시간 후 다시 시도해주세요.`,
         code: "LIMIT_EXCEEDED",
-        dailyCount: AI_DAILY_LIMIT,
-        dailyLimit: AI_DAILY_LIMIT,
+        dailyCount: dailyLimit,
+        dailyLimit: dailyLimit,
       };
     }
     console.error("[regenerateWeeklyReportAction] counter error", {
@@ -289,7 +298,7 @@ export async function regenerateWeeklyReportAction(
         error: "AI 응답이 지연됩니다. 잠시 후 다시 시도해주세요.",
         code: "TIMEOUT",
         dailyCount,
-        dailyLimit: AI_DAILY_LIMIT,
+        dailyLimit: dailyLimit,
       };
     }
     if (err instanceof RateLimitError) {
@@ -298,7 +307,7 @@ export async function regenerateWeeklyReportAction(
         error: "AI 서비스가 일시적으로 혼잡합니다. 잠시 후 다시 시도해주세요.",
         code: "UNKNOWN",
         dailyCount,
-        dailyLimit: AI_DAILY_LIMIT,
+        dailyLimit: dailyLimit,
       };
     }
     return {
@@ -306,7 +315,7 @@ export async function regenerateWeeklyReportAction(
       error: "AI 서비스 호출 중 오류가 발생했습니다",
       code: "UNKNOWN",
       dailyCount,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -322,7 +331,7 @@ export async function regenerateWeeklyReportAction(
       error: "AI 응답이 너무 길어 완성되지 못했습니다. 잠시 후 다시 시도해주세요.",
       code: "PARSE_ERROR",
       dailyCount: rolled,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -338,7 +347,7 @@ export async function regenerateWeeklyReportAction(
       error: "AI 응답 형식 오류. 다시 시도해주세요.",
       code: "PARSE_ERROR",
       dailyCount: rolled,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -353,7 +362,7 @@ export async function regenerateWeeklyReportAction(
       error: "AI 응답 형식 오류. 다시 시도해주세요.",
       code: "PARSE_ERROR",
       dailyCount: rolled,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -374,7 +383,7 @@ export async function regenerateWeeklyReportAction(
       aiGeneratedAt: saved.aiGeneratedAt.toISOString(),
       generationType: "ai",
       dailyCount,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   } catch (err) {
     console.error("[regenerateWeeklyReportAction] upsert error", {
@@ -386,7 +395,7 @@ export async function regenerateWeeklyReportAction(
       error: "보고서 저장 중 오류가 발생했습니다. 한도가 1회 소모되었습니다.",
       code: "UNKNOWN",
       dailyCount,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 }
@@ -407,6 +416,7 @@ async function tryCooldownReturn(
   workspaceId: string,
   projectId: string,
   weekStart: string,
+  dailyLimit: number,
 ): Promise<RegenerateResult | null> {
   const rows = await db
     .select({
@@ -441,7 +451,7 @@ async function tryCooldownReturn(
       error: "워크스페이스에서 방금 AI 호출이 있었어요. 10초 후 다시 시도해주세요.",
       code: "COOLDOWN",
       dailyCount,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -456,7 +466,7 @@ async function tryCooldownReturn(
     aiGeneratedAt: rows[0].aiGeneratedAt.toISOString(),
     generationType: rows[0].generationType,
     dailyCount,
-    dailyLimit: AI_DAILY_LIMIT,
+    dailyLimit: dailyLimit,
   };
 }
 

@@ -1,5 +1,27 @@
 # Dairect — 교훈 기록
 
+## 2026-04-21 심야 4 — "빈 분기 뼈대"만으로도 Phase 전환 블로커는 즉시 해소된다 (Task 5-2-2i workspace plan 분기)
+
+- **상황**: C-H1(AI_DAILY_LIMIT 상수 → workspace plan 분기)은 Phase 5.5 billing에 딸린 과제로 미뤄져 있었음. Phase C(5-2-4/5 초대) 진입 직전에야 "멤버 N명 체감 200/N 희석"이 실제 블로커로 드러남. 선택지:
+  - A) Phase 5.5 billing + Stripe 통합을 모두 끝낸 뒤 C-H1 해소 → Phase C 대기 수 주.
+  - B) 단순 상향(`AI_DAILY_LIMIT=500`)으로 체감 완화만 → 근본적 plan 분기는 또 다시 Phase 5.5에서 재수정 (이중 투자).
+  - **C) plan 분기 뼈대만 먼저 도입 (채택)**: `workspace_settings.plan text NOT NULL default 'free' + CHECK IN ('free','pro','team')` + TS 맵 + Server Action 3경로에 주입. plan 변경 UI/Stripe는 Phase 5.5에 그대로 남음. 현재 모든 workspace는 'free'=200으로 시작해 기존 상수와 동일 동작.
+- **규칙**:
+  1. **Phase 전환 블로커가 "미래 Task의 부분집합"이면 부분집합을 분리해 즉시 해소**. 전체 Phase 5.5(plan UI + billing + Stripe + 감사 로그 + 단일 소스)를 끌어오지 말고, Phase C 진입에 필요한 "DB 컬럼 + TS 분기 + Server Action 반영"만 빼서 선행. 이로써 Phase C 3주를 기다리지 않고 바로 여는 게 가능.
+  2. **"빈 분기"도 빈 분기가 아니다**: `PLAN_AI_DAILY_LIMITS = { free: 200, pro: 1000, team: 3000 }`는 당장 free만 쓰지만 **Phase 5.5에서 plan 이름만 UPDATE하면 즉시 enforcement**. 컬럼 재생성/데이터 이관 불필요. 호환 레이어 = 미래 Task의 마이그레이션 비용 0.
+  3. **기본값 선택이 중요**: NOT NULL + default 'free'는 기존 row를 자동 백필 + 차기 INSERT에서 누락 불가. enum 대신 text+CHECK는 plan 집합 변경 시 `ALTER TYPE` 비용 회피 — enum은 ROLLBACK 시 비싸다.
+  4. **"Phase 5.5 ToDo 3건 별도 기록"이 뼈대 도입의 대가**: security-reviewer가 TOCTOU / plan_changed 감사 로그 / `plans.ts` 단일 소스를 Phase 5.5에 넘김. 뼈대는 얇게 → 미래 Task의 범위를 정확히 정의해 "지금 해결"과 "미래 해결"을 문서로 고정. 이게 없으면 Phase 5.5에서 "이 얘기 했던가?" 드리프트.
+  5. **UI 표시용 값과 서버 enforcement 이원화 패턴**: `defaults.dailyLimit`(getEstimateDefaults에 포함) → UI 표시. 서버 UPDATE WHERE는 `< ${dailyLimit}` 매 호출마다 DB plan SELECT → 이중 방어. 클라이언트가 defaults를 10,000으로 조작해도 서버는 DB plan 기준으로 재검증. payload에 dailyLimit이 포함되지 않는지 code-review에서 확인.
+
+## 2026-04-21 심야 4 — "use server" 파일에 getAiDailyLimit 같은 순수 TS 함수 import는 Turbopack Server Action 변환을 깨지 않는다 (10패턴 1 상세 적용)
+
+- **상황**: Task 5-2-2i에서 4개 server action 파일(briefing-actions, report-actions, estimates/ai-actions, estimates/actions)에 `getAiDailyLimit`을 import해 사용. 이전 Task 5-2-2e에서 "`"use server"` 파일은 async function만 export" 규칙은 확정됐지만 **import는 어떻게 되는가?** 규칙 명시 부족.
+- **검증**: code-reviewer가 `grep -nE '^export (type|interface|const|...)' 4 파일` → 0건 확인 + 기존 패턴(`z.infer`, `schema` import)에 문제 없었음을 짚음. `getAiDailyLimit`은 `src/lib/validation/ai-estimate.ts`에 있는 **순수 TS 함수 (zod 의존만)** — Turbopack이 이 파일을 일반 module로 트랜스파일하고 server action 파일은 import만 하므로 변환 체인이 건드려지지 않음.
+- **규칙**:
+  1. **"use server" 파일의 import는 자유** — 다만 import한 심볼이 server runtime에서 작동해야 함(DB client, env var 쓰는 함수는 import OK, 브라우저 전용 API는 금지).
+  2. **클라이언트 컴포넌트에서도 import 가능한 "순수 validation/utility" 모듈**을 유지하면 이원 활용: server action이 DB 호출 + 검증 / 클라이언트 UI가 같은 타입/맵 표시. `src/lib/validation/*`이 경계 역할. DB 접근 함수는 "use server" 파일에 인라인 또는 `src/lib/*/actions.ts` 전용 파일에 분리.
+  3. **규칙 재확인 루틴**: 새 Task에서 server action에 신규 import가 생기면 `grep -n "\"use server\"" <file>` + import 대상 파일이 async function + 순수 함수만 포함하는지 교차 확인. `default export`, `const instance`, `enum` 등 non-async-function export가 있으면 Server Action 변환 무력화 경로 재발.
+
 ## 2026-04-21 심야 3 — 수동 SQL 마이그레이션 + drizzle journal 이중 체계는 "NOOP marker + 리네임" 패턴으로 재동기화한다 (Task 5-2-2h supply chain regression 방어)
 
 - **증상**: Task 5-2-2g 리뷰에서 security-reviewer가 MEDIUM으로 지적. `meta/_journal.json` 마지막 entry가 0019에 고정 + `meta/*_snapshot.json`도 0019까지만 존재. 0020~0030은 수동 SQL + `mcp__supabase__apply_migration`으로 cloud에 직접 적용해왔기 때문에 drizzle-kit이 모름. 차기 PR에서 누군가 `pnpm drizzle-kit generate`를 무심코 돌리면 baseline(0019) vs 현재 schema.ts 전체 diff를 SQL로 산출 → Task 5-2-2g UNIQUE 재조정 포함 누적 DDL이 새 파일로 생성 → 무심결 apply 시 이미 적용된 제약이 역행해 **cross-workspace 덮어쓰기 취약점 재발**.

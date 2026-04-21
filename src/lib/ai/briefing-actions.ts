@@ -15,7 +15,7 @@ import {
   isWeeklyDataEmpty,
   type BriefingContent,
 } from "@/lib/validation/briefing";
-import { AI_DAILY_LIMIT } from "@/lib/validation/ai-estimate";
+import { getAiDailyLimit } from "@/lib/validation/ai-estimate";
 
 // 쿨다운: 같은 주 재호출이 10초 내면 AI/DB write 생략하고 기존 row 반환.
 // 더블클릭·빈 데이터 flooding 등으로 DB/Claude 비용 중복 발생 방어 (리뷰 H2 + M1).
@@ -140,10 +140,19 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
     return { success: false, error: "워크스페이스를 확인할 수 없습니다", code: "AUTH" };
   }
 
+  // Task 5-2-2b 잔여 C-H1 (마이그레이션 0032): plan 기반 분기로 dailyLimit 확보.
+  // workspace_settings default 'free' NOT NULL — 정상 경로에서 planRow 항상 존재.
+  const [planRow] = await db
+    .select({ plan: workspaceSettings.plan })
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.workspaceId, workspaceId))
+    .limit(1);
+  const dailyLimit = getAiDailyLimit(planRow?.plan);
+
   const { weekStart } = getKstDateParts();
 
   // 1) 쿨다운: 10초 내 생성된 row 있으면 그대로 반환 (DB/Claude write 생략)
-  const cooldownHit = await tryCooldownReturn(userId, workspaceId, weekStart);
+  const cooldownHit = await tryCooldownReturn(userId, workspaceId, weekStart, dailyLimit);
   if (cooldownHit) return cooldownHit;
 
   // 2) 주간 데이터 집계 (카운터 차감 전 — 빈 데이터면 AI 생략)
@@ -162,7 +171,7 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
       aiGeneratedAt: saved.aiGeneratedAt.toISOString(),
       generationType: "empty_fallback",
       dailyCount,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -192,7 +201,7 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
         .where(
           and(
             eq(workspaceSettings.workspaceId, workspaceId),
-            sql`(COALESCE(${workspaceSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE OR COALESCE(${workspaceSettings.aiDailyCallCount}, 0) < ${AI_DAILY_LIMIT})`,
+            sql`(COALESCE(${workspaceSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE OR COALESCE(${workspaceSettings.aiDailyCallCount}, 0) < ${dailyLimit})`,
           ),
         )
         .returning({ count: workspaceSettings.aiDailyCallCount });
@@ -204,10 +213,10 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
     if (err instanceof Error && err.message === "DAILY_LIMIT_EXCEEDED") {
       return {
         success: false,
-        error: `일일 AI 호출 한도(${AI_DAILY_LIMIT}회)를 초과했습니다. 약 24시간 후 다시 시도해주세요.`,
+        error: `일일 AI 호출 한도(${dailyLimit}회)를 초과했습니다. 약 24시간 후 다시 시도해주세요.`,
         code: "LIMIT_EXCEEDED",
-        dailyCount: AI_DAILY_LIMIT,
-        dailyLimit: AI_DAILY_LIMIT,
+        dailyCount: dailyLimit,
+        dailyLimit: dailyLimit,
       };
     }
     console.error("[regenerateBriefingAction] counter error", {
@@ -251,7 +260,7 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
         error: "AI 응답이 지연됩니다. 잠시 후 다시 시도해주세요.",
         code: "TIMEOUT",
         dailyCount,
-        dailyLimit: AI_DAILY_LIMIT,
+        dailyLimit: dailyLimit,
       };
     }
     if (err instanceof RateLimitError) {
@@ -260,7 +269,7 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
         error: "AI 서비스가 일시적으로 혼잡합니다. 잠시 후 다시 시도해주세요.",
         code: "UNKNOWN",
         dailyCount,
-        dailyLimit: AI_DAILY_LIMIT,
+        dailyLimit: dailyLimit,
       };
     }
     return {
@@ -268,7 +277,7 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
       error: "AI 서비스 호출 중 오류가 발생했습니다",
       code: "UNKNOWN",
       dailyCount,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -284,7 +293,7 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
       error: "AI 응답이 너무 길어 완성되지 못했습니다. 잠시 후 다시 시도해주세요.",
       code: "PARSE_ERROR",
       dailyCount: rolled,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -300,7 +309,7 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
       error: "AI 응답 형식 오류. 다시 시도해주세요.",
       code: "PARSE_ERROR",
       dailyCount: rolled,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -315,7 +324,7 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
       error: "AI 응답 형식 오류. 다시 시도해주세요.",
       code: "PARSE_ERROR",
       dailyCount: rolled,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -329,7 +338,7 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
       aiGeneratedAt: saved.aiGeneratedAt.toISOString(),
       generationType: "ai",
       dailyCount,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   } catch (err) {
     console.error("[regenerateBriefingAction] upsert error", {
@@ -341,7 +350,7 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
       error: "브리핑 저장 중 오류가 발생했습니다. 한도가 1회 소모되었습니다.",
       code: "UNKNOWN",
       dailyCount,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 }
@@ -361,6 +370,7 @@ async function tryCooldownReturn(
   userId: string,
   workspaceId: string,
   weekStart: string,
+  dailyLimit: number,
 ): Promise<RegenerateResult | null> {
   const rows = await db
     .select({
@@ -394,7 +404,7 @@ async function tryCooldownReturn(
       error: "워크스페이스에서 방금 AI 호출이 있었어요. 10초 후 다시 시도해주세요.",
       code: "COOLDOWN",
       dailyCount,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -409,7 +419,7 @@ async function tryCooldownReturn(
     aiGeneratedAt: rows[0].aiGeneratedAt.toISOString(),
     generationType: rows[0].generationType,
     dailyCount,
-    dailyLimit: AI_DAILY_LIMIT,
+    dailyLimit: dailyLimit,
   };
 }
 

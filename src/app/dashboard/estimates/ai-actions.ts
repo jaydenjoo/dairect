@@ -12,7 +12,7 @@ import {
   ESTIMATE_DRAFT_TOOL,
 } from "@/lib/ai/estimate-prompt";
 import {
-  AI_DAILY_LIMIT,
+  getAiDailyLimit,
   aiEstimateInputSchema,
   aiEstimateResponseSchema,
   type AiEstimateItem,
@@ -71,6 +71,15 @@ export async function generateEstimateDraftAction(
     };
   }
 
+  // Task 5-2-2b 잔여 C-H1 (마이그레이션 0032): plan 기반 분기로 dailyLimit 확보.
+  // workspace_settings default 'free' NOT NULL — 정상 경로에서 planRow 항상 존재.
+  const [planRow] = await db
+    .select({ plan: workspaceSettings.plan })
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.workspaceId, workspaceId))
+    .limit(1);
+  const dailyLimit = getAiDailyLimit(planRow?.plan);
+
   // 한도 체크 + race-safe 증가 (하나의 조건부 UPDATE로 직렬화)
   // Task 5-2-2b: workspace_settings 기반으로 전환 (workspace 단위 공유 한도).
   let dailyCount: number;
@@ -99,7 +108,7 @@ export async function generateEstimateDraftAction(
         .where(
           and(
             eq(workspaceSettings.workspaceId, workspaceId),
-            sql`(COALESCE(${workspaceSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE OR COALESCE(${workspaceSettings.aiDailyCallCount}, 0) < ${AI_DAILY_LIMIT})`,
+            sql`(COALESCE(${workspaceSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE OR COALESCE(${workspaceSettings.aiDailyCallCount}, 0) < ${dailyLimit})`,
           ),
         )
         .returning({ count: workspaceSettings.aiDailyCallCount });
@@ -112,10 +121,10 @@ export async function generateEstimateDraftAction(
       return {
         success: false,
         // 리셋 기준은 UTC 자정이므로 "내일"이 한국 사용자 기대와 최대 9시간 어긋남 → 문구 순화
-        error: `일일 AI 호출 한도(${AI_DAILY_LIMIT}회)를 초과했습니다. 약 24시간 후 다시 시도해주세요.`,
+        error: `일일 AI 호출 한도(${dailyLimit}회)를 초과했습니다. 약 24시간 후 다시 시도해주세요.`,
         code: "LIMIT_EXCEEDED",
-        dailyCount: AI_DAILY_LIMIT,
-        dailyLimit: AI_DAILY_LIMIT,
+        dailyCount: dailyLimit,
+        dailyLimit: dailyLimit,
       };
     }
     console.error("[generateEstimateDraftAction] counter error", {
@@ -161,7 +170,7 @@ export async function generateEstimateDraftAction(
         error: "AI 응답이 지연됩니다. 잠시 후 다시 시도하거나 수동 입력을 이용해주세요.",
         code: "TIMEOUT",
         dailyCount,
-        dailyLimit: AI_DAILY_LIMIT,
+        dailyLimit: dailyLimit,
       };
     }
     if (err instanceof RateLimitError) {
@@ -170,7 +179,7 @@ export async function generateEstimateDraftAction(
         error: "AI 서비스가 일시적으로 혼잡합니다. 잠시 후 다시 시도해주세요.",
         code: "UNKNOWN",
         dailyCount,
-        dailyLimit: AI_DAILY_LIMIT,
+        dailyLimit: dailyLimit,
       };
     }
     return {
@@ -178,7 +187,7 @@ export async function generateEstimateDraftAction(
       error: "AI 서비스 호출 중 오류가 발생했습니다",
       code: "UNKNOWN",
       dailyCount,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -198,7 +207,7 @@ export async function generateEstimateDraftAction(
       error: "AI 응답이 너무 길어 완성되지 못했습니다. 요구사항을 더 간결하게 작성해주세요.",
       code: "PARSE_ERROR",
       dailyCount,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -214,7 +223,7 @@ export async function generateEstimateDraftAction(
       error: "AI 응답 형식 오류. 다시 시도해주세요.",
       code: "PARSE_ERROR",
       dailyCount,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -230,7 +239,7 @@ export async function generateEstimateDraftAction(
       error: "AI 응답 형식 오류. 다시 시도해주세요.",
       code: "PARSE_ERROR",
       dailyCount,
-      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimit: dailyLimit,
     };
   }
 
@@ -238,6 +247,6 @@ export async function generateEstimateDraftAction(
     success: true,
     items: responseParsed.data.items,
     dailyCount,
-    dailyLimit: AI_DAILY_LIMIT,
+    dailyLimit: dailyLimit,
   };
 }

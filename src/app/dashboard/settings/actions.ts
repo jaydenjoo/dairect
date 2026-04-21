@@ -114,6 +114,14 @@ export async function saveSettings(
 
   try {
     // upsert — 0020 backfill로 row가 있어야 정상이지만, 신규 workspace 케이스 방어.
+    //
+    // Task 5-2-2b 잔여 C-H1 (마이그레이션 0032): workspace_settings.plan 컬럼은
+    // 이 UPSERT의 insert/set 어디에도 포함하지 않음 (의도적 누락).
+    // 근거:
+    //   - insert 경로: 신규 row 생성 시 DB default 'free' 자동 적용 (ADD COLUMN DEFAULT).
+    //   - set 경로: 설정 폼은 AI 한도 변경 수단이 아님 → plan을 건드리지 않고 기존 값 보존.
+    // Phase 5.5 billing 도입 시 plan은 별도 billing webhook/action에서만 write하도록 유지.
+    // 이 UPSERT에 plan을 추가하면 폼 제출 시마다 plan이 덮어쓰여 billing 경로가 무력화됨.
     await db
       .insert(workspaceSettings)
       .values({

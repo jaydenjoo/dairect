@@ -733,6 +733,11 @@ export const workspaceSettings = pgTable("workspace_settings", {
     .default(sql`now()`)
     .notNull(),
 
+  // 플랜 (Task 5-2-2b 잔여 C-H1 해소, 마이그레이션 0032).
+  // 허용 값: 'free' | 'pro' | 'team' — DB CHECK 제약으로 강제, TS 레이어는 PLAN_AI_DAILY_LIMITS 맵에 매핑.
+  // Phase 5.5 billing에서 plan 변경 UI/Stripe 연동 예정. 현재는 수동 SQL update만 가능.
+  plan: text("plan").notNull().default("free"),
+
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .default(sql`now()`)
     .notNull(),

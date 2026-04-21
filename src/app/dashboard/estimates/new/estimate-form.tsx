@@ -6,7 +6,6 @@ import { createEstimateAction } from "../actions";
 import { generateEstimateDraftAction } from "../ai-actions";
 import type { EstimateFormData, EstimateItemFormData } from "@/lib/validation/estimates";
 import {
-  AI_DAILY_LIMIT,
   AI_REQUIREMENTS_MAX,
   AI_REQUIREMENTS_MIN,
   aiCategoryLabels,
@@ -41,6 +40,9 @@ interface Props {
   defaults: {
     dailyRate: number;
     paymentSplit: PaymentSplitItem[];
+    // Task 5-2-2b 잔여 C-H1 (마이그레이션 0032): workspace plan별 AI 일일 한도.
+    // 표시 전용 — 실제 enforcement는 ai-actions.ts 내부에서 race-safe UPDATE로 재검증.
+    dailyLimit: number;
   };
 }
 
@@ -290,7 +292,7 @@ export function EstimateForm({ clientOptions, projectOptions, defaults }: Props)
                   <span className="font-medium tabular-nums text-foreground">
                     {aiDailyCount}
                   </span>
-                  /{AI_DAILY_LIMIT}
+                  /{defaults.dailyLimit}
                 </span>
               )}
               <button

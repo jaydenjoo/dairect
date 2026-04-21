@@ -18,6 +18,7 @@ import {
   type EstimateFormData,
   type EstimateStatus,
 } from "@/lib/validation/estimates";
+import { getAiDailyLimit } from "@/lib/validation/ai-estimate";
 import { paymentSplitItemSchema } from "@/lib/validation/settings";
 import { eq, and, desc, sql, like } from "drizzle-orm";
 import { z } from "zod";
@@ -101,39 +102,47 @@ type CompanyInfo = {
   businessEmail: string | null;
 };
 
-// ─── 설정 기본값 (일 단가, 수금 비율) ───
+// ─── 설정 기본값 (일 단가, 수금 비율, AI 일일 한도) ───
+//
+// Task 5-2-2b 잔여 C-H1 (마이그레이션 0032): dailyLimit 필드 추가.
+// UI 표시용(estimate-form.tsx)과 Server Action(ai-actions.ts)이 같은 workspace_settings 조회를
+// 각각 수행하지 않도록 기본값 조회 경로에 합류. 서버 액션의 실제 enforcement는 여전히
+// ai-actions.ts 내부에서 race-safe UPDATE로 재검증(UI 변조 방어).
 
 export async function getEstimateDefaults() {
-  const workspaceId = await getCurrentWorkspaceId();
-  if (!workspaceId) return { dailyRate: 700000, paymentSplit: [
+  const defaultSplit = [
     { label: "착수금", percentage: 30 },
     { label: "중도금", percentage: 40 },
     { label: "잔금", percentage: 30 },
-  ] };
+  ];
+  const defaultLimit = getAiDailyLimit("free");
+
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) {
+    return { dailyRate: 700000, paymentSplit: defaultSplit, dailyLimit: defaultLimit };
+  }
 
   const rows = await db
     .select({
       dailyRate: workspaceSettings.dailyRate,
       defaultPaymentSplit: workspaceSettings.defaultPaymentSplit,
+      plan: workspaceSettings.plan,
     })
     .from(workspaceSettings)
     .where(eq(workspaceSettings.workspaceId, workspaceId))
     .limit(1);
 
   const row = rows[0];
-  const defaultSplit = [
-    { label: "착수금", percentage: 30 },
-    { label: "중도금", percentage: 40 },
-    { label: "잔금", percentage: 30 },
-  ];
-
-  if (!row) return { dailyRate: 700000, paymentSplit: defaultSplit };
+  if (!row) {
+    return { dailyRate: 700000, paymentSplit: defaultSplit, dailyLimit: defaultLimit };
+  }
 
   const parsedSplit = z.array(paymentSplitItemSchema).safeParse(row.defaultPaymentSplit);
 
   return {
     dailyRate: row.dailyRate ?? 700000,
     paymentSplit: parsedSplit.success ? parsedSplit.data : defaultSplit,
+    dailyLimit: getAiDailyLimit(row.plan),
   };
 }
 

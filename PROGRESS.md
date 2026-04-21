@@ -1,7 +1,66 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-21 심야 3 (Task 5-2-2h 완료 — drizzle journal/snapshot 재동기화 + NOOP marker + `drizzle-kit generate` noop 검증 PASS)
-> 현재 위치: **Phase 5 Epic 5-2 Phase A+B + 5-2-2b/c/d/e/f/g/h + C-H1/C-H2 완료**. 남은 것: Phase C(초대 5-2-4~5-2-5, Resend 필요). 멀티 멤버 workspace 진입 블로커 전부 해소 + supply chain regression 방어망 복구.
+> 최종 업데이트: 2026-04-21 심야 4 (Task 5-2-2i 완료 — workspace_settings.plan 도입 + AI 한도 plan 분기 설계 + code/security 리뷰 PASS)
+> 현재 위치: **Phase 5 Epic 5-2 Phase A+B + 5-2-2b/c/d/e/f/g/h/i + C-H1 plan 분기/C-H2 완료**. 남은 것: Phase C(초대 5-2-4~5-2-5, Resend 필요). 멀티 멤버 workspace 진입 블로커 전부 해소 + Phase 5.5 billing 호환 레이어 확보.
+
+## Task 5-2-2i ✅ 완료 (workspace_settings.plan 도입 — C-H1 해소 + AI 한도 plan 분기 설계)
+
+**배경** (learnings.md 2026-04-21 밤 "workspace 공유 카운터 vs user 쿨다운 비대칭" + C-H1 주석):
+- AI_DAILY_LIMIT=200 고정 상수가 workspace 공유 카운터로 쓰여 멤버 N명 진입 시 체감 한도 200/N로 희석 — Phase C(5-2-4/5 초대) 진입 직전 마지막 블로커.
+- Phase 5.5 billing 없이 plan 변경 UI를 만들 수는 없지만, "뼈대 + free 고정"이라도 도입해야 Phase C가 열림 + Phase 5.5에서 컬럼 재생성/데이터 이관 없이 plan 이름만 확장 가능.
+
+**접근법 비교**:
+- A) 단일 text 컬럼 + TS 상수 맵 (**채택**): plan 추가/이름 변경 시 DROP/ADD CONSTRAINT + TS 맵 수정만 필요. Phase 5.5에서 `plan_limits` 별도 테이블로 분리해도 컬럼 그대로 유지.
+- B) `plan_limits` 별도 테이블 + FK: Phase 5.5 billing 때 분리해도 충분 — 지금은 과잉.
+- C) 환경변수 override: workspace별 차등 불가 — 기각.
+
+**신규 마이그레이션 1**
+- `0032_workspace_plan.sql` — BEGIN/COMMIT + `ADD COLUMN plan text NOT NULL DEFAULT 'free'` + `ADD CONSTRAINT workspace_settings_plan_check CHECK (plan IN ('free','pro','team'))` + 롤백 SQL 주석.
+
+**신규 TS 정의** (`src/lib/validation/ai-estimate.ts`)
+- `workspacePlans = ['free','pro','team'] as const` + `WorkspacePlan` 타입
+- `PLAN_AI_DAILY_LIMITS = { free: 200, pro: 1000, team: 3000 }`
+- `getAiDailyLimit(plan: string | null | undefined): number` — unknown/null → free fallback
+- 기존 `AI_DAILY_LIMIT=200` 상수 제거 (7 참조 경로 일괄 이관)
+
+**수정 파일 8**
+- `src/lib/db/schema.ts` — `workspaceSettings.plan: text("plan").notNull().default("free")` 컬럼 추가
+- `src/lib/ai/briefing-actions.ts` — regenerate 초반 `const [planRow] = db.select({plan})` + `dailyLimit = getAiDailyLimit(planRow?.plan)` 지역 변수. 기존 `AI_DAILY_LIMIT` 13 참조 모두 `dailyLimit`으로 교체. `tryCooldownReturn` 시그니처에 `dailyLimit: number` 파라미터 추가.
+- `src/lib/ai/report-actions.ts` — 동일 패턴 (13 참조 + 시그니처 확장)
+- `src/app/dashboard/estimates/ai-actions.ts` — 동일 패턴 (8 참조, cooldown 없음)
+- `src/app/dashboard/estimates/actions.ts` — `getEstimateDefaults` 반환에 `dailyLimit` 추가, SELECT에 `plan` 컬럼 포함
+- `src/app/dashboard/estimates/new/estimate-form.tsx` — `AI_DAILY_LIMIT` import 제거, `Props.defaults.dailyLimit: number` 추가, `/{AI_DAILY_LIMIT}` → `/{defaults.dailyLimit}`
+- `src/app/dashboard/settings/actions.ts` — saveSettings UPSERT 직전에 "plan은 이 UPSERT가 건드리지 않음 (billing webhook 전용)" 주석 추가 (security-reviewer MEDIUM-1 반영)
+
+**검증**
+- `pnpm tsc --noEmit` → 0 error
+- `pnpm lint` → 신규 경고 0 (기존 무관 warning 1건만)
+- `pnpm build` → postbuild SW artifact 포함 성공
+- Cloud migration apply 완료 (`hybidqamgsfjmmllwszr`)
+  - `information_schema.columns`: `plan text NOT NULL default 'free'::text` ✅
+  - `pg_constraint`: `CHECK (plan = ANY(ARRAY['free','pro','team']))` ✅
+  - 기존 2 workspace row 모두 `plan='free'` 자동 백필 ✅
+- **격리 트랜잭션 회귀 2건 PASS** (DO $$ 블록 + RAISE EXCEPTION 자동 롤백):
+  - T1 plan=free, count=200, UPDATE WHERE count < 200 → 0 rows (LIMIT_EXCEEDED 경로) ✅
+  - T2 plan=pro, count=200, UPDATE WHERE count < 1000 → 1 row, count=201 (pass 경로) ✅
+  - 원본 workspace_settings 완전 복구 확인(post-probe SELECT)
+- **code-reviewer**: Ship as-is, CRITICAL/HIGH 0건, nit 2건(M1 UI 런타임 sync / M2 shorthand)
+- **security-reviewer**: Ship as-is, CRITICAL/HIGH 0건, MEDIUM 2 / LOW 2 / INFO 2. Phase 5.5 billing ToDo 3건 별도 기록
+
+**리뷰 findings 반영**
+- security-reviewer MEDIUM-1: `saveSettings` UPSERT 주석 추가 (plan은 billing 전용, 이 경로가 건드리지 않음 명시).
+- 나머지 nit은 Phase 5.5 billing Task에서 자연스럽게 해소 (plan 변경 UI / FOR UPDATE TOCTOU / plan_changed activity_log / `src/lib/plans.ts` 단일 소스).
+
+**이후 효과**
+- Phase C 진입 블로커 해소 완료 — 멀티 멤버 workspace가 free 200 한도 공유하는 상태로 초대 수락 가능.
+- Phase 5.5 billing: `workspace_settings.plan` 컬럼을 billing webhook에서 UPDATE → `PLAN_AI_DAILY_LIMITS` 맵에 plan 이름만 추가하면 즉시 차등 한도 enforcement.
+- UI 변조 방어 이중 구조: `defaults.dailyLimit`은 표시 전용, 서버 UPDATE WHERE가 DB plan 기반 독립 재검증.
+
+### 차기 Task 등록 (Phase 5 남은 것)
+- **Phase C (5-2-4 / 5-2-5 초대 시스템)** — Resend API key 발급 필요 (차단 상태)
+- **Phase 5.5 billing 진입 시**: plans.ts 단일 소스 / plan 변경 감사 로그 / FOR UPDATE TOCTOU 완화 / saveSettings 시점 plan 건드림 방지 테스트
+
+---
 
 ## Task 5-2-2h ✅ 완료 (drizzle journal/snapshot 재동기화 + phase5_resync NOOP marker)
 
