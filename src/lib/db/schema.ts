@@ -598,6 +598,11 @@ export const workspaces = pgTable(
     // Phase 5.5 Stripe 도입 전까지는 'free' 유지. CHECK로 enum 고정.
     subscriptionStatus: text("subscription_status").default("free").notNull(),
     stripeCustomerId: text("stripe_customer_id"),
+    // Task 5-2-2c: 로고 업로드 — Supabase Storage 버킷 'workspace-logos' 참조.
+    //   logoUrl: 공개 URL (PDF/UI에 직접 삽입). 제거 시 NULL.
+    //   logoStoragePath: Storage 내부 경로 ({workspaceId}/{timestamp}.{ext}). 제거 시 실제 파일 삭제 + NULL.
+    logoUrl: text("logo_url"),
+    logoStoragePath: text("logo_storage_path"),
     // Workspace soft delete — R7 완화 (30일 유예 복구 가능).
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -717,6 +722,14 @@ export const workspaceSettings = pgTable("workspace_settings", {
 
   // 기능 프리셋 — user_settings에서 이전
   featurePresets: jsonb("feature_presets").default(sql`'[]'::jsonb`),
+
+  // AI 호출 한도 (Task 5-2-2b: user_settings → workspace_settings 이관, Phase 5.5 billing 대비).
+  // Parallel Change: user_settings 동일 필드는 DROP하지 않고 stop writing만. 1~2 릴리스 후 DROP Task로 처리.
+  // NOT NULL + default로 NULL 잠김 방지 (user_settings와 동일 방어).
+  aiDailyCallCount: integer("ai_daily_call_count").default(0).notNull(),
+  aiLastResetAt: timestamp("ai_last_reset_at", { withTimezone: true })
+    .default(sql`now()`)
+    .notNull(),
 
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .default(sql`now()`)

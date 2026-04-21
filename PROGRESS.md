@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-21 저녁 (Phase 5 Epic 5-2 **Phase B 3 Task 완료** — 5-2-3-B / 5-2-1 / 5-2-2 + cloud DB 동기화 0017~0025)
-> 현재 위치: **Phase 5 Epic 5-2 Phase A + B 완료** (회원가입 / default workspace / last_workspace_id / workspace picker / onboarding / workspace settings 이관). 다음은 Phase C (초대 5-2-4~5-2-5 — Resend 통합) 또는 5-2-2b/c (AI 한도 이관 + 로고 업로드)
+> 최종 업데이트: 2026-04-21 밤 (Phase 5 Epic 5-2 **5-2-2b/d/e/c/f 코드 완료** — AI 한도 + 설정 저장 + actions export 정리 + 로고 업로드 + middleware→proxy 리네임)
+> 현재 위치: **Phase 5 Epic 5-2 Phase A+B + 5-2-2b/d/e/c/f 완료** + 0016/0026/0027/0028/0029 cloud apply. 남은 것: ⑤ Phase C (초대 5-2-4~5-2-5, Resend 필요) / 5-2-2c·f Jayden 수동 확인
 
 ## 전체 진행률
 
@@ -12,7 +12,7 @@
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | ✅ 완료 (W2/W3 cron 포함) | 100% (5/5 + cron 전체 완료) |
 | Phase 4 | 고객 포털 + /demo + PWA | ✅ 완료 | 100% (Task 4-1 ✅ / 4-2 M1~M8 ✅) |
-| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 ✅ 8/8 완료. Epic 5-2 🟡 Phase A+B 5/8 완료 (α 5-2-0/5-2-7 + β 5-2-3-A + 5-2-3-B + 5-2-1 + 5-2-2 주 이관). Epic 5-3~5-5 대기 |
+| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 ✅ 8/8 완료. Epic 5-2 🟡 Phase A+B+5-2-2b 6/8 완료 (α 5-2-0/5-2-7 + β 5-2-3-A + 5-2-3-B + 5-2-1 + 5-2-2 주 이관 + 5-2-2b AI 한도). Epic 5-3~5-5 대기 |
 
 ## Phase 0: 기반 설정 ✅
 
@@ -409,7 +409,174 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 
 ---
 
-## 이번 세션 (2026-04-21 저녁 — Phase 5 Epic 5-2 Phase B: 3 Task + cloud DB 동기화)
+## 이번 세션 (2026-04-21 밤 — Task 5-2-2b: AI 한도 workspace_settings 이관 + 리뷰 일괄 수정)
+
+### 완료 내역
+- Task: **5-2-2b** (AI 한도 2필드 user_settings → workspace_settings 이관, Phase 5.5 billing 대비)
+- 상태: 로컬 검증 완료 (tsc 0 error, lint 기존 무관 경고 1건만). cloud DB 마이그레이션 0026/0027 적용 완료.
+
+### 주요 변경 (신규 2 + 수정 6)
+
+**신규 마이그레이션 2**:
+- `src/lib/db/migrations/0026_workspace_settings_ai_limit.sql` — ALTER ADD COLUMN + DISTINCT ON 백필 (owner user_settings 기반) + DO 블록 assertion
+- `src/lib/db/migrations/0027_rls_workspace_settings_members.sql` — workspace_settings authenticated RLS 3 정책 (SELECT/INSERT/UPDATE members)
+
+**수정 6 파일**:
+- `src/lib/db/schema.ts` — workspaceSettings에 aiDailyCallCount/aiLastResetAt 2 필드 추가 (NOT NULL + default)
+- `src/app/dashboard/estimates/ai-actions.ts` — userSettings → workspaceSettings + getCurrentWorkspaceId 추가 + rollback 비대칭 주석
+- `src/lib/ai/briefing-actions.ts` — userSettings → workspaceSettings + tryCooldownReturn 시그니처 확장 + rollback 자정 가드
+- `src/lib/ai/report-actions.ts` — 동일 패턴
+- `src/lib/ai/briefing-data.ts` — **workspaceId 파라미터 추가 + 4 쿼리 모두 invoices/projects workspace_id cross-check (S-H1)**
+- `src/lib/ai/report-data.ts` — **workspaceId 파라미터 추가 + projects.workspaceId / activityLogs.workspaceId cross-check (S-H1)**
+- `src/app/dashboard/settings/actions.ts` — 코멘트 이관 완료로 갱신
+- `src/lib/db/migrations/0025_backfill_workspace_settings.sql` — AI 한도 유지 주석을 "0026에서 번복됨" 표시로 업데이트 (S-H3)
+
+### 독립 리뷰 결과 (code-reviewer + security-reviewer 병렬)
+- **CRITICAL 0건** — Parallel Change 패턴 정석 구현
+- **HIGH 5건** 모두 처리 (일괄 수정 ③ 풀세트):
+  - S-H1 (Cross-workspace 카운터 오염) — briefing-data/report-data에 workspaceId cross-check 전파
+  - S-H2 (workspace_settings authenticated RLS 부재) — 0027 마이그레이션으로 3 정책 추가
+  - S-H3 (0025 주석 stale) — "번복 표시" 형태로 원본 주석 정합성 복원
+  - C-H1/C-H2 (멀티 멤버 진입 블로커) — PROGRESS.md 블로커 기재 + learnings.md 기록 (Task로 미룸)
+- **MEDIUM 2건 처리**:
+  - M-1: rollbackCounter에 자정 경계 가드 (`aiLastResetAt >= CURRENT_DATE AND count > 0`)
+  - M-2: ai-actions rollback 미수행 정책(10패턴 10) 비대칭 주석 명시
+
+### 검증 결과
+- `pnpm tsc --noEmit` → 0 error
+- `pnpm lint` → 기존 무관 경고 1건(estimate-form.tsx `_id` unused) 외 신규 이슈 0
+- cloud DB (Supabase MCP `apply_migration`):
+  - 0026 적용 + 백필 검증: ws_count(8) == us_count(8) 일치, 신규 workspace default(0, now()) 초기화
+  - 0027 적용 + pg_policies 확인: workspace_settings 4 정책 등록 (deny_anon + 3 members)
+
+### learnings.md 기록 (3건)
+1. Workspace 단위 billing 이관은 "카운터 + 카운터 증가 쿼리 + 소스 데이터" 3중 세트 이관 필수 (S-H1)
+2. Parallel Change 중 원본 주석은 "번복 표시"로 업데이트 (stale plan 드리프트 방지, S-H3)
+3. workspace 공유 카운터 vs user 스코프 쿨다운 비대칭은 DoS 가속 경로 (C-H2, 멀티 멤버 진입 전 해소)
+
+### 🚧 차단 요소 (멀티 멤버 workspace 진입 전 해소 필수)
+- **AI_DAILY_LIMIT 재산정**: 현재 상수는 "1인 기준". workspace 공유로 의미 전환 → 멤버 증가 시 체감 한도 1/n. 2 이상 멤버 가입 전 상수 상향 또는 workspace 단위 plan 도입 필요 (C-H1).
+- **쿨다운 스코프 정합**: briefings/weekly_reports 쿨다운을 workspaceId 기반으로 확장 (현재 userId만) — 다른 멤버 재요청이 쿨다운 우회하는 DoS 가속 경로 (C-H2).
+
+### E2E 검증 (Playwright, 동일 세션 연속 수행)
+- ✅ (1) 로그인 세션 유지 확인
+- ✅ (2) Workspace picker — 1개 workspace 상태라 정적 표시 (dropdown은 2개 이상에서 활성화 설계)
+- ✅ (3) 사이드바 설정 메뉴 진입 — workspace_settings 로드 정상
+- ❌ (4) **설정 저장 roundtrip 실패** — form submit이 POST 요청 자체 미발생, 콘솔 에러 0, 토스트 0. `onSubmit`→Server Action 바인딩 실패 추정. **Task 5-2-2 스코프 별도 이슈** → **Task 5-2-2d**로 차기 등록
+- ✅ (5) **Task 5-2-2b 본체 검증** — AI 브리핑 생성 → `workspace_settings.ai_daily_call_count` 8→1 자정 리셋 + `ai_last_reset_at` 갱신 + Claude API 응답 렌더링 정상
+- ✅ (7) 신규 signup → "확인 메일 발송" UI → `auth.users.email_confirmed_at` 강제 세팅 → login → `/onboarding` 리다이렉트 → "이대로 시작할게요" → `/dashboard` 진입. `users.onboarded_at` 정상 갱신. workspace + workspace_members(owner) + workspace_settings(ai_daily_call_count=0 default 포함) 자동 생성.
+
+### 🔴 Cloud 핫픽스 (E2E 중 추가 발견)
+- **0016 마이그레이션 cloud 누락 발견** — `user_settings.last_weekly_summary_sent_at` 컬럼 없음 → 신규 가입자 전원 /dashboard 첫 진입 시 Runtime Error. 즉시 `apply_migration`으로 apply. **신규 가입 플로우 release blocker였음**. (learnings.md에 drift 검증 루틴 고정 교훈 추가.)
+
+### 🧹 Cleanup 권장
+- E2E 테스트 계정 cleanup (cloud DB): `auth.users` + `public.users` + `workspaces` + `workspace_members` + `workspace_settings` + `user_settings` 일괄 삭제 필요. email: `e2e-onboarding-1761010000@dairect.kr`, user_id: `30584155-042f-4b65-8c47-9387dc1db690`.
+
+### Task 5-2-2d ✅ 완료 (설정 저장 Server Action 바인딩 실패 수정)
+
+**원인**: `src/app/dashboard/settings/actions.ts:22`의 `export type SettingsActionResult` — Next.js 16 Turbopack이 `"use server"` 파일의 async function을 Server Action reference로 변환하지 못해 클라이언트 호출이 네트워크 요청을 만들지 않는 silent no-op 상태 (10패턴 1 위반).
+
+**수정**: export 제거 + 로컬 type으로 변환 + 주석 보강.
+
+**검증**: Playwright E2E — company_name/business_phone 설정 저장 → DB roundtrip + `POST /dashboard/settings 200 OK` 확인 (이전 0건).
+
+**Task 5-2-2 이관과 무관**: settings-form.tsx의 `handleSubmit + useTransition` 패턴은 Phase 5 이전부터 존재. Task 5-2-2 이관은 DB 스키마 경로만 전환했고 export type은 그대로 계승. 즉 레거시 타이밍 버그.
+
+### 🚨 파급 — Task 5-2-2e 신규 등록 필요
+같은 10패턴 1 위반 **11개 파일 추가 발견** (`grep -rE '^export (type|interface|const)' src/**/*actions.ts`). 이 중 `onboarding/actions.ts`는 동일 세션 E2E에서 작동 확인됐으나, Next.js 16 Turbopack의 파일별 동작 차이(union type vs 평탄 object, z.infer 포함 여부 등)로 언제 끊길지 모르는 **잠재 폭탄**. 5-2-2e에서 dry-run 조사 → 분해 → 일괄 수정.
+
+### Task 5-2-2e ✅ 완료 (11개 `"use server"` 파일 export 위반 일괄 정리)
+
+**Pattern B — 타입 별도 파일 이관 (client/server import 대상 4개 타입)**
+- 신규 `src/types/project-feedback.ts` — `ProjectFeedbackItem`, `ProjectFeedbackSummary`
+- 신규 `src/types/portal-token.ts` — `ActivePortalTokenSummary`
+- 신규 `src/lib/validation/portal-feedback.ts` — `PortalFeedbackActionResult`
+- `src/lib/validation/inquiry.ts`에 `InquirySubmission` 추가
+
+**Pattern B — 4개 actions.ts에서 export 제거 + types import**
+- `projects/[id]/feedback-actions.ts` — ProjectFeedbackItem/Summary 이관, MarkFeedbackReadInput/Result는 로컬 type
+- `projects/[id]/portal-actions.ts` — ActivePortalTokenSummary 이관, IssuePortalTokenResult/RevokePortalTokenResult는 로컬 type
+- `(public)/about/actions.ts` — InquirySubmission 이관, InquiryActionResult는 로컬 type
+- `lib/portal/feedback-actions.ts` — PortalFeedbackActionResult 이관, PortalFeedbackSubmission은 로컬 type
+
+**Pattern B — client/server 4곳 import 경로 수정**
+- `components/dashboard/portal-link-card.tsx`
+- `components/portal/portal-feedback-form.tsx`
+- `components/dashboard/project-feedback-section.tsx`
+- `components/about/contact-form.tsx`
+- `app/dashboard/projects/[id]/page.tsx` (server component, 추가 1곳 — 총 5곳)
+
+**Pattern A — 7개 actions.ts에서 export type → 로컬 type**
+- `clients/actions.ts` (ActionResult)
+- `estimates/actions.ts` (ActionResult, CompanyInfo)
+- `contracts/actions.ts` (ActionResult)
+- `invoices/actions.ts` (ActionResult, BillingInfo, InvoiceListItem)
+- `projects/actions.ts` (ActionResult, PublicFieldsFormData)
+- `workspace-actions.ts` (SwitchWorkspaceResult)
+- `onboarding/actions.ts` (OnboardingResult)
+
+**검증**
+- `pnpm tsc --noEmit` → 0 error
+- `pnpm lint` → 신규 경고 0건 (기존 무관 1건만)
+- Playwright E2E spot check — 6개 페이지(대시보드 목록 5개 + /projects 공개) + 설정 저장 roundtrip 모두 정상, 콘솔 에러 0
+
+### Task 5-2-2c ✅ 코드 완료 (로고 업로드) — Jayden 수동 E2E 대기
+
+**신규 마이그레이션 2**
+- `0028_workspaces_logo_url.sql` — `workspaces.logo_url` + `logo_storage_path` NULL 컬럼 추가 (cloud apply 완료)
+- `0029_storage_workspace_logos.sql` — Supabase Storage 버킷 `workspace-logos` 생성 (public read, 5MB, PNG/JPG/WEBP whitelist) + 4 RLS 정책 (SELECT public / INSERT/UPDATE/DELETE authenticated + is_workspace_member)
+
+**신규 4 + 수정 2 파일**
+- `src/lib/validation/workspace-logo.ts` (신규) — Zod (File instance, 5MB, MIME whitelist) + MIME→ext 매핑
+- `src/app/dashboard/settings/logo-actions.ts` (신규) — `uploadWorkspaceLogoAction(FormData)` + `removeWorkspaceLogoAction()` + owner/admin 가드 + orphan 방지 롤백 (DB fail 시 Storage 삭제)
+- `src/app/dashboard/settings/logo-upload.tsx` (신규 Client) — 파일 input + 미리보기 + 제거 버튼 + 클라이언트 측 즉시 검증
+- `src/lib/db/schema.ts` — workspaces에 logoUrl/logoStoragePath 2 필드 추가
+- `src/app/dashboard/settings/page.tsx` — 로고 섹션 통합 + 현재 workspace logoUrl SELECT 쿼리
+
+**검증**
+- `pnpm tsc --noEmit` → 0 error
+- `pnpm lint` → 신규 경고 0건 (기존 무관 1건만)
+- cloud migration 0028/0029 apply 성공, pg_policies 4건 등록 확인 (`workspace_logos_*`)
+
+**⚠️ Playwright E2E 미수행 (MCP 불안정)**
+- 브라우저 세션 닫힌 후 재시작 불가 (`browserBackend.callTool: Target page, context or browser has been closed`)
+- 차선책: **Jayden 수동 E2E 체크리스트** (아래) — 다음 세션 또는 즉시 수행 권장
+
+**🧪 Jayden 수동 E2E 체크리스트**
+1. `/dashboard/settings` 진입 → "워크스페이스 로고" 섹션 보임 (최상단, SettingsForm 위)
+2. 초기 상태: "로고 없음" placeholder
+3. PNG/JPG/WEBP 파일(5MB 이하) 선택 → 즉시 업로드 → "로고가 업로드되었습니다" 토스트 + 미리보기 업데이트
+4. 새로고침 → 미리보기 유지 (DB persist 확인)
+5. "로고 제거" 버튼 클릭 → confirm 후 토스트 + placeholder 복귀
+6. **거부 케이스**: 10MB 파일 선택 → 토스트 에러 "5MB 초과"
+7. **거부 케이스**: .txt 파일 선택 → 토스트 에러 "PNG, JPG, WEBP만 가능"
+8. Supabase Dashboard → Storage → `workspace-logos` 버킷 → 업로드된 파일 경로 `{workspace_id}/{timestamp}.{ext}` 확인
+9. `SELECT logo_url, logo_storage_path FROM workspaces WHERE id='...'` 로 DB 반영 확인
+
+### Task 5-2-2f ✅ middleware → proxy 리네임 (Next.js 16 컨벤션)
+
+**배경**: Next.js 16부터 `middleware.ts`가 deprecated → `proxy.ts` 권고. 공식 codemod(`@next/codemod middleware-to-proxy`)와 동등한 수동 변경.
+
+**변경**
+- `src/middleware.ts` 삭제 + `src/proxy.ts` 신규 (동일 로직)
+- `export async function middleware` → `export async function proxy`
+- `config.matcher` 동일 유지
+- next.config / src 내부 `middleware` 참조 없음 확인
+
+**검증**
+- `pnpm tsc --noEmit` → 0 error
+- `pnpm lint` → 신규 경고 0
+- 로직/matcher 동일하여 동작 차이 없음 (Supabase session refresh + /dashboard 보호 + /login|/signup 로그인 상태 redirect)
+
+**⚠️ Jayden 수동 확인 권장**: dev server 재시작 후 터미널 로그에 "middleware deprecated" 경고가 사라지는지 + 로그인 시 /dashboard redirect, 로그아웃 시 /login redirect 정상 동작.
+
+### 차기 Task 등록
+- ④ **middleware → proxy 리네임** — Next.js 16.2 경고 해소 잔업 (30분)
+- ⑤ **Phase C (5-2-4 / 5-2-5 초대 시스템)** — Resend API key 발급 필요 (차단 상태)
+
+---
+
+## 이전 세션 (2026-04-21 저녁 — Phase 5 Epic 5-2 Phase B: 3 Task + cloud DB 동기화)
 
 ### 완료 내역
 - Epic: **Phase 5 Epic 5-2 Phase B**

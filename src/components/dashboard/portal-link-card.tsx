@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import {
   issuePortalTokenAction,
   revokePortalTokenAction,
-  type ActivePortalTokenSummary,
 } from "@/app/dashboard/projects/[id]/portal-actions";
+import type { ActivePortalTokenSummary } from "@/types/portal-token";
 
 // "만료 임박" 기준 30일 — PRD v3.1 고객 포털 토큰 1년 TTL 전제.
 const EXPIRING_SOON_DAYS = 30;

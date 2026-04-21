@@ -15,11 +15,14 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
-// Phase 5 Task 5-2-2: user_settings → workspace_settings 이관 완료.
-// AI 한도 2필드(aiDailyCallCount/aiLastResetAt)는 여전히 user_settings (Phase 5.5 billing 이관 대상).
+// Phase 5 Task 5-2-2 + 5-2-2b: user_settings → workspace_settings 이관 완료 (AI 한도 2필드 포함).
+// user_settings 13+2 컬럼은 Parallel Change로 유지 중 — Phase 5.5 billing 이관 후 별도 Task에서 일괄 DROP.
 // 권한 정책: 조회+편집 모두 owner/admin만 — 사업자번호/은행계좌 민감정보 방어.
 
-export type SettingsActionResult = {
+// 로컬 타입 — "use server" 파일에서는 export 금지 (Next.js 16 번들러 제약, 10패턴 1).
+// Task 5-2-2d: export type을 남겨두면 Turbopack이 saveSettings를 Server Action reference로 변환 실패
+// → 클라이언트에서 호출해도 fetch 요청 발생 안 함(silent no-op). export 제거로 해결.
+type SettingsActionResult = {
   success: boolean;
   error?: string;
 };

@@ -17,7 +17,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { emitN8nEvent } from "@/lib/n8n/client";
 
-export type ActionResult = { success: boolean; error?: string; id?: string };
+// Task 5-2-2e: "use server" 파일 export 규칙(10패턴 1) 준수 — 외부 import 없음.
+type ActionResult = { success: boolean; error?: string; id?: string };
 
 const projectIdSchema = z.string().uuid();
 const TAGS_RAW_MAX = 500;
@@ -294,7 +295,8 @@ export async function updateProjectStatusAction(
 
 // ─── 공개 프로필 필드 업데이트 ───
 
-export type PublicFieldsFormData = {
+// Task 5-2-2e: "use server" 파일 export 규칙(10패턴 1) 준수 — 외부 import 없음.
+type PublicFieldsFormData = {
   isPublic: boolean;
   publicAlias: string;
   publicDescription: string;

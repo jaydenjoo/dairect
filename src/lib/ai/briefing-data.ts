@@ -59,8 +59,15 @@ export function daysBetween(earlier: string, later: string): number {
 // ─── 주간 데이터 집계 ───
 //
 // 4종 쿼리를 Promise.all로 병렬 실행. 각 섹션은 BRIEFING_LIST_LIMIT로 상한 (토큰 낭비 방지).
+//
+// Task 5-2-2b 리뷰 S-H1 반영: workspaceId cross-check 필수.
+// 카운터는 workspace_settings 단위로 차감되므로, 집계 대상 데이터도 현재 workspace 스코프로 제한.
+// 없으면 "내가 소유한 다른 workspace의 프로젝트"가 현재 workspace 카운터에 과금되는 billing 오염 발생.
 
-export async function getWeeklyBriefingData(userId: string): Promise<WeeklyBriefingData> {
+export async function getWeeklyBriefingData(
+  userId: string,
+  workspaceId: string,
+): Promise<WeeklyBriefingData> {
   const parts = getKstDateParts();
 
   const [paymentRows, overdueRows, deadlineRows, milestoneRows] = await Promise.all([
@@ -79,6 +86,7 @@ export async function getWeeklyBriefingData(userId: string): Promise<WeeklyBrief
       .where(
         and(
           eq(invoices.userId, userId),
+          eq(invoices.workspaceId, workspaceId),
           eq(invoices.status, "sent"),
           gte(invoices.dueDate, parts.weekStart),
           lte(invoices.dueDate, parts.weekEnd),
@@ -102,6 +110,7 @@ export async function getWeeklyBriefingData(userId: string): Promise<WeeklyBrief
       .where(
         and(
           eq(invoices.userId, userId),
+          eq(invoices.workspaceId, workspaceId),
           or(
             eq(invoices.status, "overdue"),
             and(eq(invoices.status, "sent"), lt(invoices.dueDate, parts.today)),
@@ -123,6 +132,7 @@ export async function getWeeklyBriefingData(userId: string): Promise<WeeklyBrief
       .where(
         and(
           eq(projects.userId, userId),
+          eq(projects.workspaceId, workspaceId),
           isNull(projects.deletedAt),
           eq(projects.status, "in_progress"),
           gte(projects.endDate, parts.today),
@@ -145,6 +155,7 @@ export async function getWeeklyBriefingData(userId: string): Promise<WeeklyBrief
       .where(
         and(
           eq(projects.userId, userId),
+          eq(projects.workspaceId, workspaceId),
           isNull(projects.deletedAt),
           gte(milestones.dueDate, parts.weekStart),
           lte(milestones.dueDate, parts.weekEnd),

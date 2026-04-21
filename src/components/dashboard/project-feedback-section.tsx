@@ -5,10 +5,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check, MessageSquare, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  markFeedbackReadAction,
-  type ProjectFeedbackItem,
-} from "@/app/dashboard/projects/[id]/feedback-actions";
+import { markFeedbackReadAction } from "@/app/dashboard/projects/[id]/feedback-actions";
+import type { ProjectFeedbackItem } from "@/types/project-feedback";
 
 // KST(+9h) 표시 — PM 대시보드는 한국 내부 사용자 전용이라 로컬 시간이 자연스러움.
 // UTC 타임스탬프에 9시간 오프셋을 수동 가산해 Intl.DateTimeFormat 없이 SSR/CSR 일치 보장.

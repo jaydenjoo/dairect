@@ -3,8 +3,9 @@
 import Anthropic, { APIConnectionTimeoutError, RateLimitError } from "@anthropic-ai/sdk";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { userSettings } from "@/lib/db/schema";
+import { workspaceSettings } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
 import { CLAUDE_MODEL, getClaudeClient } from "@/lib/ai/claude-client";
 import {
   ESTIMATE_DRAFT_SYSTEM_PROMPT,
@@ -37,9 +38,9 @@ type GenerateDraftResult =
 //
 // 10패턴 준수:
 //  1) "use server" 지시어 + async function만 export
-//  2) getUserId 인증
+//  2) getUserId + getCurrentWorkspaceId 인증 (Task 5-2-2b: 한도 workspace 단위)
 //  3) Zod .strict() 입력 검증 + unrecognized_keys 필터
-//  4) user_settings row 존재 보장 (onConflictDoNothing)
+//  4) workspace_settings row 존재 보장 (ensureDefaultWorkspace가 INSERT하지만 멱등 가드)
 //  5) race-safe 카운터 증가 (UPDATE WHERE 조건에 현재 상태 포함)
 //  6) Claude API 호출 (트랜잭션 밖, 커넥션 점유 방지)
 //  7) tool_use 블록 강제 — tool_choice로 포맷 보장
@@ -54,6 +55,11 @@ export async function generateEstimateDraftAction(
     return { success: false, error: "인증 정보를 확인할 수 없습니다", code: "AUTH" };
   }
 
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) {
+    return { success: false, error: "워크스페이스를 확인할 수 없습니다", code: "AUTH" };
+  }
+
   const parsed = aiEstimateInputSchema.safeParse({ requirements });
   if (!parsed.success) {
     const userIssue = parsed.error.issues.find((i) => i.code !== "unrecognized_keys");
@@ -66,36 +72,37 @@ export async function generateEstimateDraftAction(
   }
 
   // 한도 체크 + race-safe 증가 (하나의 조건부 UPDATE로 직렬화)
+  // Task 5-2-2b: workspace_settings 기반으로 전환 (workspace 단위 공유 한도).
   let dailyCount: number;
   try {
     dailyCount = await db.transaction(async (tx) => {
       await tx
-        .insert(userSettings)
-        .values({ userId, aiDailyCallCount: 0 })
-        .onConflictDoNothing({ target: userSettings.userId });
+        .insert(workspaceSettings)
+        .values({ workspaceId, aiDailyCallCount: 0 })
+        .onConflictDoNothing({ target: workspaceSettings.workspaceId });
 
       // COALESCE 방어 2중화: schema notNull + default 적용 이후에도, 혹시 NULL이 섞일 경우
       // `NULL < CURRENT_DATE`가 NULL(false)로 판정되어 한도 영구 잠김 되는 상황 원천 차단.
       const result = await tx
-        .update(userSettings)
+        .update(workspaceSettings)
         .set({
           aiDailyCallCount: sql`CASE
-            WHEN COALESCE(${userSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE THEN 1
-            ELSE COALESCE(${userSettings.aiDailyCallCount}, 0) + 1
+            WHEN COALESCE(${workspaceSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE THEN 1
+            ELSE COALESCE(${workspaceSettings.aiDailyCallCount}, 0) + 1
           END`,
           aiLastResetAt: sql`CASE
-            WHEN COALESCE(${userSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE THEN NOW()
-            ELSE ${userSettings.aiLastResetAt}
+            WHEN COALESCE(${workspaceSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE THEN NOW()
+            ELSE ${workspaceSettings.aiLastResetAt}
           END`,
           updatedAt: sql`NOW()`,
         })
         .where(
           and(
-            eq(userSettings.userId, userId),
-            sql`(COALESCE(${userSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE OR COALESCE(${userSettings.aiDailyCallCount}, 0) < ${AI_DAILY_LIMIT})`,
+            eq(workspaceSettings.workspaceId, workspaceId),
+            sql`(COALESCE(${workspaceSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE OR COALESCE(${workspaceSettings.aiDailyCallCount}, 0) < ${AI_DAILY_LIMIT})`,
           ),
         )
-        .returning({ count: userSettings.aiDailyCallCount });
+        .returning({ count: workspaceSettings.aiDailyCallCount });
 
       if (result.length === 0) throw new Error("DAILY_LIMIT_EXCEEDED");
       return result[0].count ?? 0;
@@ -174,6 +181,11 @@ export async function generateEstimateDraftAction(
       dailyLimit: AI_DAILY_LIMIT,
     };
   }
+
+  // max_tokens/PARSE_ERROR 경로: 카운터 rollback 안 함 (10패턴 10).
+  // 근거: 견적 생성은 Anthropic API 과금이 이미 발생 → "실패도 비용 처리"가 정책.
+  // briefing/report는 주간 워크플로의 자동 재시도 UX 우선이라 rollback 수행 — 의도적 비대칭.
+  // 참고: briefing-actions.ts / report-actions.ts rollbackCounter()
 
   // max_tokens 한도 도달 → tool_use.input이 잘린 JSON일 가능성
   if (message.stop_reason === "max_tokens") {

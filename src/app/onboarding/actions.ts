@@ -27,7 +27,8 @@ const SaveSchema = z.object({
     .refine(isValidSlug, "영문 소문자, 숫자, 하이픈만 허용됩니다"),
 });
 
-export type OnboardingResult = { ok: true } | { ok: false; error: string };
+// Task 5-2-2e: "use server" 파일 export 규칙(10패턴 1) 준수 — client(onboarding-form.tsx)는 함수만 import.
+type OnboardingResult = { ok: true } | { ok: false; error: string };
 
 export async function saveOnboardingAction(
   input: z.infer<typeof SaveSchema>,

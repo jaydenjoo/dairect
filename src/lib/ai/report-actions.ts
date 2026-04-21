@@ -4,7 +4,7 @@ import Anthropic, { APIConnectionTimeoutError, RateLimitError } from "@anthropic
 import { z } from "zod";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { userSettings, weeklyReports } from "@/lib/db/schema";
+import { weeklyReports, workspaceSettings } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
 import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
 import { CLAUDE_MODEL, getClaudeClient } from "@/lib/ai/claude-client";
@@ -147,11 +147,12 @@ export async function regenerateWeeklyReportAction(
   const { weekStart } = getKstDateParts();
 
   // 1) 쿨다운: 같은 주 재생성이 10초 내면 기존 row 그대로 반환
-  const cooldownHit = await tryCooldownReturn(userId, idCheck.data, weekStart);
+  const cooldownHit = await tryCooldownReturn(userId, workspaceId, idCheck.data, weekStart);
   if (cooldownHit) return cooldownHit;
 
-  // 2) 주간 데이터 집계 (userId 필터로 소유권 자동 검증). null이면 NOT_FOUND.
-  const reportInput = await getWeeklyReportData(userId, idCheck.data);
+  // 2) 주간 데이터 집계 (userId + workspaceId 2중 필터로 소유권 자동 검증). null이면 NOT_FOUND.
+  // Task 5-2-2b 리뷰 S-H1: workspaceId cross-check — 다른 workspace의 프로젝트로 현재 workspace 카운터 오염 방어
+  const reportInput = await getWeeklyReportData(userId, workspaceId, idCheck.data);
   if (!reportInput) {
     return {
       success: false,
@@ -184,7 +185,7 @@ export async function regenerateWeeklyReportAction(
       emptyParsed.data,
       "empty_fallback",
     );
-    const dailyCount = await readDailyCount(userId);
+    const dailyCount = await readDailyCount(workspaceId);
     return {
       success: true,
       content: emptyParsed.data,
@@ -197,34 +198,35 @@ export async function regenerateWeeklyReportAction(
   }
 
   // 4) 한도 체크 + race-safe 카운터 pre-increment (Task 3-1/3-2와 동일 패턴)
+  // Task 5-2-2b: workspace_settings 기반으로 전환 (workspace 단위 공유 한도, Phase 5.5 billing 대비).
   let dailyCount: number;
   try {
     dailyCount = await db.transaction(async (tx) => {
       await tx
-        .insert(userSettings)
-        .values({ userId, aiDailyCallCount: 0 })
-        .onConflictDoNothing({ target: userSettings.userId });
+        .insert(workspaceSettings)
+        .values({ workspaceId, aiDailyCallCount: 0 })
+        .onConflictDoNothing({ target: workspaceSettings.workspaceId });
 
       const result = await tx
-        .update(userSettings)
+        .update(workspaceSettings)
         .set({
           aiDailyCallCount: sql`CASE
-            WHEN COALESCE(${userSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE THEN 1
-            ELSE COALESCE(${userSettings.aiDailyCallCount}, 0) + 1
+            WHEN COALESCE(${workspaceSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE THEN 1
+            ELSE COALESCE(${workspaceSettings.aiDailyCallCount}, 0) + 1
           END`,
           aiLastResetAt: sql`CASE
-            WHEN COALESCE(${userSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE THEN NOW()
-            ELSE ${userSettings.aiLastResetAt}
+            WHEN COALESCE(${workspaceSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE THEN NOW()
+            ELSE ${workspaceSettings.aiLastResetAt}
           END`,
           updatedAt: sql`NOW()`,
         })
         .where(
           and(
-            eq(userSettings.userId, userId),
-            sql`(COALESCE(${userSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE OR COALESCE(${userSettings.aiDailyCallCount}, 0) < ${AI_DAILY_LIMIT})`,
+            eq(workspaceSettings.workspaceId, workspaceId),
+            sql`(COALESCE(${workspaceSettings.aiLastResetAt}, '-infinity'::timestamptz) < CURRENT_DATE OR COALESCE(${workspaceSettings.aiDailyCallCount}, 0) < ${AI_DAILY_LIMIT})`,
           ),
         )
-        .returning({ count: userSettings.aiDailyCallCount });
+        .returning({ count: workspaceSettings.aiDailyCallCount });
 
       if (result.length === 0) throw new Error("DAILY_LIMIT_EXCEEDED");
       return result[0].count ?? 0;
@@ -306,7 +308,7 @@ export async function regenerateWeeklyReportAction(
       stopReason: message.stop_reason,
       contentBlocks: message.content.length,
     });
-    const rolled = await rollbackCounter(userId);
+    const rolled = await rollbackCounter(workspaceId);
     return {
       success: false,
       error: "AI 응답이 너무 길어 완성되지 못했습니다. 잠시 후 다시 시도해주세요.",
@@ -322,7 +324,7 @@ export async function regenerateWeeklyReportAction(
       stopReason: message.stop_reason,
       blockTypes: message.content.map((b) => b.type),
     });
-    const rolled = await rollbackCounter(userId);
+    const rolled = await rollbackCounter(workspaceId);
     return {
       success: false,
       error: "AI 응답 형식 오류. 다시 시도해주세요.",
@@ -337,7 +339,7 @@ export async function regenerateWeeklyReportAction(
     console.error("[regenerateWeeklyReportAction] invalid ai response", {
       issues: responseParsed.error.issues.map((i) => ({ path: i.path, code: i.code })),
     });
-    const rolled = await rollbackCounter(userId);
+    const rolled = await rollbackCounter(workspaceId);
     return {
       success: false,
       error: "AI 응답 형식 오류. 다시 시도해주세요.",
@@ -383,8 +385,10 @@ export async function regenerateWeeklyReportAction(
 
 // ─── 내부 헬퍼 ───
 
+// 쿨다운 조회는 여전히 userId 기반 (weekly_reports 테이블 소유 검증). 카운터만 workspace로 이관.
 async function tryCooldownReturn(
   userId: string,
+  workspaceId: string,
   projectId: string,
   weekStart: string,
 ): Promise<RegenerateResult | null> {
@@ -413,7 +417,7 @@ async function tryCooldownReturn(
   const parsed = reportContentSchema.safeParse(rows[0].contentJson);
   if (!parsed.success) return null;
 
-  const dailyCount = await readDailyCount(userId);
+  const dailyCount = await readDailyCount(workspaceId);
   return {
     success: true,
     content: parsed.data,
@@ -425,25 +429,36 @@ async function tryCooldownReturn(
   };
 }
 
-async function readDailyCount(userId: string): Promise<number> {
+async function readDailyCount(workspaceId: string): Promise<number> {
   const [row] = await db
-    .select({ count: userSettings.aiDailyCallCount })
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId))
+    .select({ count: workspaceSettings.aiDailyCallCount })
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.workspaceId, workspaceId))
     .limit(1);
   return row?.count ?? 0;
 }
 
-async function rollbackCounter(userId: string): Promise<number> {
+// Task 5-2-2b 리뷰 M-1: 자정 경계 가드 — briefing-actions.ts와 동일 패턴.
+// AI 호출 중 UTC 자정 넘어가면 다른 트랜잭션이 리셋했을 수 있음. rollback이 새 카운트 1을 0으로
+// 잘못 되돌리는 걸 방지하기 위해 "오늘 리셋 + 카운트 양수" 조건 필수.
+async function rollbackCounter(workspaceId: string): Promise<number> {
   const [row] = await db
-    .update(userSettings)
+    .update(workspaceSettings)
     .set({
-      aiDailyCallCount: sql`GREATEST(${userSettings.aiDailyCallCount} - 1, 0)`,
+      aiDailyCallCount: sql`GREATEST(${workspaceSettings.aiDailyCallCount} - 1, 0)`,
       updatedAt: sql`NOW()`,
     })
-    .where(eq(userSettings.userId, userId))
-    .returning({ count: userSettings.aiDailyCallCount });
-  return row?.count ?? 0;
+    .where(
+      and(
+        eq(workspaceSettings.workspaceId, workspaceId),
+        sql`${workspaceSettings.aiLastResetAt} >= CURRENT_DATE`,
+        sql`${workspaceSettings.aiDailyCallCount} > 0`,
+      ),
+    )
+    .returning({ count: workspaceSettings.aiDailyCallCount });
+
+  if (!row) return await readDailyCount(workspaceId);
+  return row.count ?? 0;
 }
 
 async function upsertReport(

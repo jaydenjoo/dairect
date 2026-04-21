@@ -8,12 +8,10 @@ import {
   type PackageId,
   type BudgetId,
   type ScheduleId,
+  type InquirySubmission,
   packageLabel,
 } from "@/lib/validation/inquiry";
-import {
-  submitInquiryAction,
-  type InquirySubmission,
-} from "@/app/(public)/about/actions";
+import { submitInquiryAction } from "@/app/(public)/about/actions";
 import { HoneypotField } from "@/components/security/honeypot-field";
 
 const budgetOptions: { id: BudgetId; label: string }[] = [

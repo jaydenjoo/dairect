@@ -2,10 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { CheckCircle2, Send } from "lucide-react";
-import {
-  submitPortalFeedbackAction,
-  type PortalFeedbackActionResult,
-} from "@/lib/portal/feedback-actions";
+import { submitPortalFeedbackAction } from "@/lib/portal/feedback-actions";
+import type { PortalFeedbackActionResult } from "@/lib/validation/portal-feedback";
 import { FEEDBACK_MESSAGE_MAX } from "@/lib/validation/portal";
 import { HoneypotField } from "@/components/security/honeypot-field";
 

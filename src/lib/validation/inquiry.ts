@@ -37,6 +37,13 @@ export const inquiryFormSchema = z
 
 export type InquiryFormData = z.infer<typeof inquiryFormSchema>;
 
+// Task 5-2-2e: "use server" 파일(about/actions.ts)에서 export type 금지(10패턴 1) 준수 —
+// client(contact-form.tsx)에서 import하는 타입을 여기로 이관.
+export type InquirySubmission = InquiryFormData & {
+  website?: string;
+  startedAt?: number;
+};
+
 export type PackageId = NonNullable<InquiryFormData["package"]>;
 export type BudgetId = NonNullable<InquiryFormData["budgetRange"]>;
 export type ScheduleId = NonNullable<InquiryFormData["schedule"]>;

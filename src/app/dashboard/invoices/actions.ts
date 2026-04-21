@@ -31,7 +31,8 @@ import { eq, and, desc, sql, like } from "drizzle-orm";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
-export type ActionResult = {
+// Task 5-2-2e: "use server" 파일 export 규칙(10패턴 1) 준수 — 외부 import 없음.
+type ActionResult = {
   success: boolean;
   error?: string;
   id?: string;
@@ -98,7 +99,8 @@ async function generateInvoiceNumber(
 
 // ─── 청구서 PDF용 사업자 정보 + 송금계좌 ───
 
-export type BillingInfo = {
+// Task 5-2-2e: "use server" 파일 export 규칙(10패턴 1) 준수 — 외부 import 없음.
+type BillingInfo = {
   companyName: string | null;
   representativeName: string | null;
   businessNumber: string | null;
@@ -143,7 +145,8 @@ export async function getUserBillingInfo(): Promise<BillingInfo | null> {
 
 // ─── 목록 (overdue는 쿼리 시점 계산) ───
 
-export type InvoiceListItem = {
+// Task 5-2-2e: "use server" 파일 export 규칙(10패턴 1) 준수 — 외부 import 없음.
+type InvoiceListItem = {
   id: string;
   invoiceNumber: string;
   type: InvoiceType;

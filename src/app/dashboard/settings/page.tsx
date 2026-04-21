@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { workspaces } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
 import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
 import { getCurrentWorkspaceRole } from "@/lib/auth/get-workspace-role";
 import { getSettings } from "./actions";
 import { SettingsForm } from "./settings-form";
+import { LogoUpload } from "./logo-upload";
 import type { SettingsFormData } from "@/lib/validation/settings";
 
 export const metadata: Metadata = {
@@ -41,6 +45,14 @@ export default async function SettingsPage() {
 
   const settings = await getSettings();
 
+  // Task 5-2-2c: 현재 workspace의 로고 URL 조회 (LogoUpload 컴포넌트 초기값).
+  const [ws] = await db
+    .select({ logoUrl: workspaces.logoUrl })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+  const initialLogoUrl = ws?.logoUrl ?? null;
+
   return (
     <div className="py-10">
       <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
@@ -50,7 +62,19 @@ export default async function SettingsPage() {
         사업자 정보와 견적서 기본값을 관리합니다
       </p>
 
-      <div className="mt-8 max-w-2xl">
+      <div className="mt-8 max-w-2xl space-y-10">
+        <section>
+          <h2 className="font-heading text-lg font-semibold text-foreground">
+            워크스페이스 로고
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            견적서·계약서·청구서 PDF와 대시보드에 표시됩니다
+          </p>
+          <div className="mt-4">
+            <LogoUpload initialLogoUrl={initialLogoUrl} />
+          </div>
+        </section>
+
         <SettingsForm initialData={settings ?? defaultSettings} />
       </div>
     </div>

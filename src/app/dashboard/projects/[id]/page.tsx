@@ -11,11 +11,8 @@ import { PublicProfileForm } from "./public-profile-form";
 import { PortalLinkCard } from "@/components/dashboard/portal-link-card";
 import { ProjectFeedbackSection } from "@/components/dashboard/project-feedback-section";
 import { getActivePortalToken } from "./portal-actions";
-import {
-  getProjectFeedbacks,
-  getUnreadFeedbackCount,
-  type ProjectFeedbackSummary,
-} from "./feedback-actions";
+import { getProjectFeedbacks, getUnreadFeedbackCount } from "./feedback-actions";
+import type { ProjectFeedbackSummary } from "@/types/project-feedback";
 import { WeeklyReportCard } from "@/components/dashboard/weekly-report-card";
 import { getCurrentWeeklyReport } from "@/lib/ai/report-actions";
 import { getUserCompanyInfo } from "../../estimates/actions";

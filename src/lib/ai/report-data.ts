@@ -28,10 +28,13 @@ function kstMidnightToUtc(kstDate: string): Date {
 //  3) 최근 활동 로그 (createdAt ∈ KST 이번 주, 최대 20건)
 //  4) 전체 마일스톤 진행률 (count + isCompleted)
 //
-// 프로젝트 조회 시 `user_id` 필터 포함 — 소유권 불일치 시 null 반환 (Server Action에서 500 → 404 처리).
+// 프로젝트 조회 시 `user_id` + `workspace_id` 2중 필터 — 소유권 불일치 시 null 반환 (Server Action 500 → 404).
+// Task 5-2-2b 리뷰 S-H1: workspaceId cross-check — 카운터는 workspace_settings 단위라
+// "내가 소유한 다른 workspace의 프로젝트" 호출로 현재 workspace 카운터 오염되는 billing 오염 방어.
 
 export async function getWeeklyReportData(
   userId: string,
+  workspaceId: string,
   projectId: string,
 ): Promise<WeeklyReportInput | null> {
   const parts = getKstDateParts();
@@ -54,7 +57,13 @@ export async function getWeeklyReportData(
       clients,
       and(eq(projects.clientId, clients.id), eq(clients.userId, userId)),
     )
-    .where(and(eq(projects.id, projectId), eq(projects.userId, userId)))
+    .where(
+      and(
+        eq(projects.id, projectId),
+        eq(projects.userId, userId),
+        eq(projects.workspaceId, workspaceId),
+      ),
+    )
     .limit(1);
 
   if (!projectRow) return null;
@@ -107,6 +116,7 @@ export async function getWeeklyReportData(
         and(
           eq(activityLogs.projectId, projectId),
           eq(activityLogs.userId, userId),
+          eq(activityLogs.workspaceId, workspaceId),
           gte(activityLogs.createdAt, weekStartUtc),
           lt(activityLogs.createdAt, nextMondayUtc),
         ),

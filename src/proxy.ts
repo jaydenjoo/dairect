@@ -1,7 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+// Task 5-2-2f: Next.js 16 proxy 컨벤션 — 기존 middleware.ts는 deprecated.
+// 파일명(middleware.ts → proxy.ts) + export 함수명(middleware → proxy)만 변경.
+// config.matcher는 동일 유지. 기능/로직 차이 없음.
+// 공식 codemod: `npx @next/codemod@latest middleware-to-proxy .` 와 동등한 수동 반영.
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(

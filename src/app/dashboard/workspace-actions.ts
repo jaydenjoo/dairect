@@ -19,7 +19,8 @@ const SwitchSchema = z.object({
   workspaceId: z.string().uuid(),
 });
 
-export type SwitchWorkspaceResult =
+// Task 5-2-2e: "use server" 파일 export 규칙(10패턴 1) 준수 — client(workspace-picker.tsx)는 함수만 import.
+type SwitchWorkspaceResult =
   | { ok: true }
   | { ok: false; error: string };
 

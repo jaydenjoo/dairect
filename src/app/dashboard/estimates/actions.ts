@@ -23,7 +23,8 @@ import { eq, and, desc, sql, like } from "drizzle-orm";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
-export type ActionResult = { success: boolean; error?: string; id?: string };
+// Task 5-2-2e: "use server" 파일 export 규칙(10패턴 1) 준수 — client import 없어 로컬 type으로 강등.
+type ActionResult = { success: boolean; error?: string; id?: string };
 
 const uuidSchema = z.string().uuid();
 
@@ -90,7 +91,8 @@ export async function getUserCompanyInfo(): Promise<CompanyInfo | null> {
   }
 }
 
-export type CompanyInfo = {
+// Task 5-2-2e: "use server" 파일 export 규칙(10패턴 1) 준수 — 외부 import 없음.
+type CompanyInfo = {
   companyName: string | null;
   representativeName: string | null;
   businessNumber: string | null;

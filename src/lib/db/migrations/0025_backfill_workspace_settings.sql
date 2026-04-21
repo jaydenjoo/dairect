@@ -12,8 +12,10 @@
 --                daily_rate, default_payment_split
 --   기능 프리셋 1: feature_presets
 --
--- AI 한도 2필드(ai_daily_call_count, ai_last_reset_at)는 user_settings 유지 — user-level state.
--- Phase 5.5 billing 전환 시 별도 Task에서 workspace 단위로 재설계.
+-- AI 한도 2필드(ai_daily_call_count, ai_last_reset_at)는 이 시점에 user_settings 유지로 계획됨 — user-level state.
+-- ❗ 번복 (2026-04-21 저녁): 0026_workspace_settings_ai_limit.sql에서 workspace 단위로 재이관됨.
+--    근거: Phase 5.5 billing이 workspace 단위 과금이므로 AI 사용량도 workspace 범위가 자연스러움.
+--    user_settings 원본 컬럼은 Parallel Change로 유지 (1~2 릴리스 후 DROP).
 --
 -- 멱등성:
 --   여러 owner 동시 소유 시나리오는 현재 없음 (1 user = 1 workspace).

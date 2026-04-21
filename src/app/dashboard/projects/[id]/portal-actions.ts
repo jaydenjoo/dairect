@@ -9,6 +9,10 @@ import { and, eq, gte, isNull, desc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+// Task 5-2-2e: client(portal-link-card.tsx)에서 import하는 ActivePortalTokenSummary는
+// types/portal-token.ts로 이관. IssuePortalTokenResult/RevokePortalTokenResult는 로컬 type만.
+import type { ActivePortalTokenSummary } from "@/types/portal-token";
+
 const projectIdSchema = z.string().uuid();
 
 // 토큰 만료 기본값: 발급 시점 + 365일. 앱 레이어에서 명시 저장해 정책 변경 유연성 확보.
@@ -20,20 +24,14 @@ const TOKEN_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 const ISSUE_RATE_WINDOW_MS = 60 * 1000;
 const ISSUE_RATE_MAX = 5;
 
-export type IssuePortalTokenResult =
+// 로컬 type — "use server" 파일 export 규칙(10패턴 1) 준수. client import 없음.
+type IssuePortalTokenResult =
   | { success: true; token: string; expiresAt: string }
   | { success: false; error: string };
 
-export type RevokePortalTokenResult =
+type RevokePortalTokenResult =
   | { success: true }
   | { success: false; error: string };
-
-export type ActivePortalTokenSummary = {
-  token: string;
-  issuedAt: string;
-  expiresAt: string;
-  lastAccessedAt: string | null;
-};
 
 // ─── 조회: 프로젝트의 활성 토큰 1건 (있으면 가장 최근 발급) ───
 

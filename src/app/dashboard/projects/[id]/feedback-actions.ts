@@ -12,6 +12,9 @@ import { db } from "@/lib/db";
 import { getUserId } from "@/lib/auth/get-user-id";
 import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
 import { workspaceScope } from "@/lib/db/workspace-scope";
+// Task 5-2-2e: "use server" 파일에서 export type 금지(10패턴 1). client/server component가
+// 사용하는 ProjectFeedbackItem/Summary는 types/project-feedback.ts로 이관.
+import type { ProjectFeedbackSummary } from "@/types/project-feedback";
 
 // 정책: portal_feedbacks 테이블은 workspace_id 컬럼 없음 (Task 5-1-2 범위 외).
 //   projects 경유 간접 격리 — 소유권 체크 시 projects.workspace_id 조건 추가.
@@ -25,22 +28,6 @@ const FEEDBACKS_LIMIT = 50;
 // 정책 주석: soft-delete된 프로젝트(projects.deletedAt IS NOT NULL)의 피드백은 M6에서
 // 관리 불가 (조회/읽음 처리 모두 소유권 JOIN에서 차단). 복구 전까지는 감사 로그로만 추적.
 // M5 validatePortalToken과 일관된 정책.
-
-export type ProjectFeedbackItem = {
-  id: string;
-  message: string;
-  clientIp: string | null;
-  userAgent: string | null;
-  isRead: boolean;
-  readAt: string | null;
-  createdAt: string;
-};
-
-export type ProjectFeedbackSummary = {
-  items: ProjectFeedbackItem[];
-  total: number;
-  unread: number;
-};
 
 // ─── 조회: 프로젝트 피드백 목록 + 미확인 카운트 ───
 //
@@ -211,9 +198,10 @@ const markActionSchema = z
   })
   .strict();
 
-export type MarkFeedbackReadInput = z.infer<typeof markActionSchema>;
+// Task 5-2-2e: 로컬 type (client/server 외부 import 없음). "use server" 파일 export 규칙 준수.
+type MarkFeedbackReadInput = z.infer<typeof markActionSchema>;
 
-export type MarkFeedbackReadResult =
+type MarkFeedbackReadResult =
   | { success: true }
   | { success: false; error: string };
 

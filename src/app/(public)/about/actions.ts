@@ -6,8 +6,8 @@ import { db } from "@/lib/db";
 import { inquiries, leads, users, workspaceMembers, workspaces } from "@/lib/db/schema";
 import {
   inquiryFormSchema,
-  type InquiryFormData,
   budgetLabel,
+  type InquirySubmission,
 } from "@/lib/validation/inquiry";
 import {
   extractClientIp,
@@ -16,12 +16,9 @@ import {
 import { stripFormulaTriggers } from "@/lib/security/csv-protection";
 import { isValidElapsed } from "@/lib/security/timing-oracle";
 
-export type InquiryActionResult = { success: boolean; error?: string };
-
-export type InquirySubmission = InquiryFormData & {
-  website?: string;
-  startedAt?: number;
-};
+// Task 5-2-2e: "use server" 파일 export 규칙(10패턴 1) 준수 — InquirySubmission은
+// lib/validation/inquiry.ts로 이관(client contact-form.tsx가 import). InquiryActionResult는 로컬 type.
+type InquiryActionResult = { success: boolean; error?: string };
 
 export async function submitInquiryAction(
   payload: InquirySubmission,

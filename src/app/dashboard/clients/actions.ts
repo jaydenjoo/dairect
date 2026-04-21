@@ -9,7 +9,8 @@ import { clientFormSchema, clientNoteSchema, type ClientFormData, type ClientNot
 import { eq, and, desc, isNull, sql, asc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
-export type ActionResult = { success: boolean; error?: string; id?: string };
+// Task 5-2-2e: "use server" 파일 export 규칙(10패턴 1) 준수 — client import 없어 로컬 type으로 강등.
+type ActionResult = { success: boolean; error?: string; id?: string };
 
 /** clientId가 현재 workspace + user의 고객인지 검증 (defense-in-depth: userId + workspaceId) */
 async function verifyClientOwnership(

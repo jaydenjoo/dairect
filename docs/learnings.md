@@ -1,5 +1,58 @@
 # Dairect — 교훈 기록
 
+## 2026-04-21 밤 — "use server" 파일에서 export type/interface/const는 Turbopack Server Action 변환을 silent 무력화 (10패턴 1 재학습)
+
+- **증상**: `/dashboard/settings` 저장 버튼 클릭 시 `onSubmit` → `saveSettings(formData)` 호출되지만 **네트워크 POST 요청 0건** + 콘솔 에러 0 + 토스트 0. DB 미반영 + dev server 로그에도 흔적 없음. 완전 silent no-op.
+- **원인**: `src/app/dashboard/settings/actions.ts` 최상단 `"use server"` 지시어 있는데 파일 내부에 `export type SettingsActionResult = { success: boolean; error?: string }` 존재. Next.js 16 Turbopack이 `"use server"` 파일을 Server Action 파일로 인식하려면 **해당 파일이 async function만 export**해야 함. 타입 export가 있으면 Turbopack이 해당 파일을 "일반 module"로 처리 → import한 saveSettings가 Server Action reference가 아닌 일반 module export를 받음 → 호출 시 fetch 발생 안 함.
+- **해결**: `export type` → 로컬 `type` 으로 변환 (export 제거). 호출 환경은 동일한 타입 inference로 복구. Playwright E2E 재검증: `POST /dashboard/settings 200 OK` + DB roundtrip 정상.
+- **규칙**:
+  1. **"use server" 파일은 async function만 export**. type/interface/const/enum은 전부 파일 안에서 로컬로 쓰거나 별도 파일(`lib/validation/*`, `types/*`)로 이관. briefing-actions.ts / report-actions.ts / estimates/ai-actions.ts의 "로컬 타입 + 주석" 패턴이 정답.
+  2. **에러가 silent해서 놓치기 쉬운 버그**: tsc pass, lint pass, dev server 에러 0, console error 0, 모든 정적 검증 통과. 유일한 증상은 "버튼 눌러도 아무 일도 안 일어남". QA/E2E에서 Network POST 확인 + DB roundtrip 검증 없으면 발견 불가.
+  3. **동일 패턴 다른 파일에서는 "아직" 작동하는 함정**: 같은 레포의 11개 `actions.ts` 파일이 동일 위반하고 있었지만 onboarding/clients/invoices 등 다수가 정상 작동 중(운 좋게도). Turbopack 버전 업, 타입 복잡도 변경, import 체인 변화 중 하나로 언제든 폭발 가능. **발견 즉시 전수 정리가 원칙**. (후속: Task 5-2-2e에서 11개 전수 정리 완료. 타입 4개는 `types/*` / `lib/validation/*`로 분리, 나머지 10+는 로컬 type으로 강등. 5개 client + 1개 server component import 경로 동반 수정. E2E spot check 6경로 + 설정 저장 roundtrip 모두 통과.)
+  4. **lint rule로 방어 가능**: ESLint 커스텀 rule 혹은 기존 Next.js plugin 업데이트 체크 — `"use server"` directive 있는 파일에서 `export Declaration !== FunctionDeclaration`이면 error. 미래 Task로 rule 추가 고려.
+  5. **type export가 client에서 필요한 경우**: 클라이언트 컴포넌트가 `import type { Foo } from "./actions"` 패턴이면 Server Action 파일에서 export할 수밖에 없어 보이지만, 실제로는 **타입을 별도 파일**(`lib/validation/*` 또는 `types/*`)로 이관해 client/server 모두 그곳에서 import하는 구조가 정답. Server Action 파일에서 re-export 금지.
+
+## 2026-04-21 밤 — Cloud schema drift 재발(0016 누락) — 매 세션 drift 검증을 start protocol에 고정해야 한다
+
+- **증상**: Task 5-2-2b 완료 후 E2E 검증 단계에서 신규 계정(e2e-onboarding-...@dairect.kr) signup → /dashboard 첫 진입 시 Next.js Runtime Error: `column "last_weekly_summary_sent_at" of relation "user_settings" does not exist` (ensure-default-workspace.ts:104 INSERT user_settings 실패). 로컬 schema.ts에는 이 컬럼 있고, 마이그레이션 0016에도 있음. cloud에는 컬럼 자체가 없음 → **0016 마이그레이션이 cloud에 한 번도 apply된 적 없음**.
+- **원인**: 0016은 W3 cron weekly_summary Task 진행 당시 drizzle-kit generate로 만든 마이그레이션. 로컬 supabase DB에는 push됐으나 cloud로는 반영 안 됨. 2026-04-21 저녁 세션에서 "drift 발견 후 0017~0025 일괄 apply" 핫픽스 시 0016까지는 포함 안 됨(phase 5 마이그레이션만 주목). **drift 검증 루틴이 여전히 세션 시작 프로토콜에 없기 때문에 재발**.
+- **해결**: `apply_migration`으로 `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS last_weekly_summary_sent_at timestamptz` 즉시 적용. 재검증: signup → login → /onboarding 진입 정상.
+- **규칙**:
+  1. **매 세션 시작 시 drift 자동 검증 쿼리 1회 필수** (PROGRESS.md 기본 확인과 동일 레벨 루틴). 스크립트화: 로컬 schema.ts에서 예상 컬럼 목록 추출 + cloud `information_schema.columns` 비교 + diff 출력. 예) `pnpm drift:check`.
+  2. **drift 핫픽스 시 "당시 의심 범위"만 보는 누락 패턴**: 이번에 0017~0025만 훑었고 0016은 "훨씬 이전 작업"으로 배제됨. 실제로는 **마이그레이션 파일 번호 전체 범위 vs cloud apply 이력 전체** diff가 정답. `SELECT version FROM supabase_migrations.schema_migrations` vs `ls src/lib/db/migrations/*.sql` 단순 비교.
+  3. **E2E는 drift 발견의 가장 강력한 수단**: 로컬 supabase는 매번 맞으니까 이 문제를 잡을 방법은 cloud로 직접 Server Action 호출 경로 타는 것뿐. Playwright E2E를 cloud 기반으로 돌리면 drift를 매번 필터링 가능. Task 완료 판정에 "cloud E2E 1회 통과"를 넣는 것이 learnings.md 첫 번째 교훈의 강화판.
+  4. **dev overlay Runtime Error의 신호로서 가치**: Next.js 16.2 dev server는 server error를 dialog로 overlay. Playwright snapshot이 이 dialog 내용(Drizzle query + PostgresError message)을 그대로 캡쳐 → E2E 자동화에서 drift를 "텍스트 문자열"로 잡을 수 있음. QA pipeline에 `browser_console_messages error count > 0` 체크 포함.
+
+## 2026-04-21 밤 — Workspace 단위 billing 이관 시 집계 소스 쿼리에도 workspace cross-check 전파 필수 (cross-workspace 카운터 오염)
+
+- **증상**: Task 5-2-2b에서 AI 한도 2필드를 user_settings → workspace_settings로 이관. 카운터 테이블은 정상 전환됐으나 security-reviewer가 **실제 취약점 HIGH-1** 발견: `getWeeklyReportData(userId, projectId)`가 `eq(projects.userId, userId)`만 검증. Alice가 workspaceA 프로젝트를 생성 후 workspacePicker로 B 전환 → `last_workspace_id=B` 상태에서 projectA의 `regenerateWeeklyReport(projectA.id)` 호출 시 → `getCurrentWorkspaceId()=B` + projects 쿼리는 userId로 통과 → **workspaceB의 ai_daily_call_count 차감**. 정당 사용자도 workspace 전환 후 실수 호출로 다른 workspace 한도 소모. Phase 5.5 billing에서 **과금 분쟁 직결**.
+- **원인**: "카운터 테이블 하나만 이관하면 끝"이라는 멘탈 모델의 함정. workspace 단위 billing은 카운터만 workspace 스코프가 아니라 **카운터를 증가시키는 모든 쿼리의 소스 데이터**도 동일 workspace 스코프여야 함. userId 격리만으로는 "내가 소유한 다른 workspace의 리소스로 현재 workspace 카운터 오염" 경로 차단 불가.
+- **해결**:
+  1. `briefing-data.ts`, `report-data.ts`에 `workspaceId` 파라미터 추가.
+  2. 집계 쿼리 전체에 `eq(projects.workspaceId, workspaceId)`, `eq(invoices.workspaceId, workspaceId)`, `eq(activityLogs.workspaceId, workspaceId)` 추가 (defense-in-depth: project JOIN으로 간접 격리되는 경로에도 직접 체크).
+  3. 호출부 `briefing-actions.ts`, `report-actions.ts`에서 `getCurrentWorkspaceId()` 값 전달.
+- **규칙**:
+  1. **카운터 이관 = "카운터 + 카운터 증가 트리거 쿼리 + 소스 데이터 3중 세트"로 이관**. 카운터 테이블만 workspace 단위로 옮기면 cross-workspace 오염 경로가 열림. Server Action의 카운터 차감 직전 `getCurrentWorkspaceId()`와 소스 데이터 조회의 workspace_id가 **반드시 같은 값**이어야 함.
+  2. **projects.workspaceId 같은 FK는 defense-in-depth로 직접 WHERE 추가**. `eq(milestones.projectId, projectId)` 다음에 바로 `eq(projects.workspaceId, workspaceId)` JOIN 조건 붙이는 게 간접 격리보다 안전. 쿼리 옵티마이저도 인덱스 활용 좋음.
+  3. **billing 이관 Task 체크리스트**: 카운터 차감 로직 → 카운터 소스 쿼리(전체) → UI 표시 경로 → cron/배치 작업 → 로그/감사 경로. 이 5가지 모두 workspace cross-check 통과해야 Task 완료.
+  4. **security-reviewer는 "블로킹 아님" 평가여도 실제 취약점을 놓칠 수 있음**. "현재 환경에서 영향 없음"(Drizzle superuser)이라는 이유로 HIGH 등급이 낮아 보여도, Phase 전환 시점에 폭발할 시한폭탄. 환경 가정이 바뀌는 Task에선 "현재 vs Phase 5.5" 분리 평가 필수.
+
+## 2026-04-21 밤 — Parallel Change 중 원본 테이블 주석은 "번복" 표시로 업데이트 (stale plan 드리프트 방지)
+
+- **상황**: 0025 백필 마이그레이션 주석에 "AI 한도 2필드는 user_settings 유지 — Phase 5.5에서 재설계" 기록. 같은 세션 후속 Task 5-2-2b에서 이를 번복하고 0026에서 workspace_settings로 재이관. 0025 주석을 그대로 두면 향후 운영자가 "언제 DROP 가능한가" 판단 시 혼선 발생.
+- **규칙**:
+  1. **계획이 번복되면 원본 파일에 "번복 표시"를 남긴다**. 기존 문장 삭제 금지. "❗ 번복 (YYYY-MM-DD): 이후 XXXX.sql에서 ~~로 재이관됨. 근거: ~~" 형식.
+  2. 후속 마이그레이션 파일 헤더에도 "선행 N번 전략 번복" 1줄 추가 — 시간순 독자가 양방향으로 컨텍스트 연결 가능.
+  3. Parallel Change의 "contract 시점"은 원본 주석의 전체 스토리(최초 계획 + 번복 + 현재 상태)를 봐야 결정 가능 — 주석 정합성은 DROP 안전성의 전제 조건.
+
+## 2026-04-21 밤 — workspace 공유 카운터와 user 스코프 쿨다운 비대칭은 DoS 가속 경로 (멀티 멤버 진입 전 해소 필요)
+
+- **상황**: Task 5-2-2b에서 AI 한도 카운터는 `workspace_settings` 단위(공유)로 이관했으나, briefing/report 쿨다운은 여전히 `briefings.userId`/`weeklyReports.userId` 기반. 멀티 멤버 workspace에서 멤버 B가 같은 주 재요청하면 B의 userId row 없음 → 쿨다운 미적용 → 본 흐름 진입 → workspace 공유 카운터 +1. 공격자 아니어도 정상 사용만으로 한도 소진 가속.
+- **규칙**:
+  1. **동일 quota 정책 리소스는 동일 스코프 키를 써야 함**. 카운터가 workspace 단위면 쿨다운 검색키도 workspace + 주차여야 함 (또는 workspace + 프로젝트 + 주차).
+  2. **"격리 계층이 다른 상태들의 결합"은 항상 DoS 확인** — 공유 자원과 개별 자원 간의 비대칭은 한 쪽이 다른 쪽을 소모하는 악성 경로가 되기 쉬움.
+  3. **현재 영향도는 0(단일 멤버 workspace)이라도 차기 Task(5-2-4 초대 수락)에서 즉시 폭발** — 차단 요소로 PROGRESS.md에 명시하고 멀티 멤버 진입 전 해소.
+
 ## 2026-04-21 저녁 — Local Supabase vs Cloud Supabase schema drift (Phase 5 전체 미반영 발견)
 
 - **증상**: Task 5-2-1 구현 후 Supabase MCP `apply_migration`으로 `ALTER TABLE users ADD COLUMN onboarded_at` 실행 → `ERROR: 42P01: relation "workspace_members" does not exist`. 재시도도 동일. cloud `dairect` 프로젝트 DB의 public schema 조회 → **workspaces/workspace_members/workspace_invitations/workspace_settings 4 테이블이 모두 없음**. Phase 5 Epic 5-1 (8/8 완료) + Epic 5-2 Phase A (2/8 완료) 전체가 cloud에는 미반영 상태. 기존 12 Phase 4 테이블만 존재.

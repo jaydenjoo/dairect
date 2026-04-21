@@ -18,13 +18,13 @@ import { stripFormulaTriggers } from "@/lib/security/csv-protection";
 import { isValidElapsed, normalizeTiming } from "@/lib/security/timing-oracle";
 import { validatePortalToken } from "./token";
 
-// 성공/실패를 discriminated union으로 분리 — 호출측 narrowing 명확화.
-export type PortalFeedbackActionResult =
-  | { success: true }
-  | { success: false; error: string };
+// Task 5-2-2e: "use server" 파일 export 규칙(10패턴 1) 준수 —
+// PortalFeedbackActionResult는 client(portal-feedback-form.tsx)가 import하므로
+// lib/validation/portal-feedback.ts로 이관. PortalFeedbackSubmission은 로컬 type.
+import type { PortalFeedbackActionResult } from "@/lib/validation/portal-feedback";
 
 // 클라이언트가 보내는 payload. token은 path param이라 여기엔 포함 금지.
-export type PortalFeedbackSubmission = {
+type PortalFeedbackSubmission = {
   message: string;
   website?: string;
   startedAt: number;
