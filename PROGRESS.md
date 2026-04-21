@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-21 오후 (Phase 5 Epic 5-2 **Phase A 2 Task 완료** — Task α 5-2-0/5-2-7 + Task β 5-2-3-A)
-> 현재 위치: **Phase 5 Epic 5-2 Phase A 완료** (회원가입 + default workspace 자동 생성 + last_workspace_id 1순위 전환). 다음은 Phase B (workspace picker UI 5-2-3-B / onboarding 5-2-1 / workspace 설정 5-2-2) 또는 Phase C (초대 5-2-4~5-2-5 — Resend 통합)
+> 최종 업데이트: 2026-04-21 저녁 (Phase 5 Epic 5-2 **Phase B 3 Task 완료** — 5-2-3-B / 5-2-1 / 5-2-2 + cloud DB 동기화 0017~0025)
+> 현재 위치: **Phase 5 Epic 5-2 Phase A + B 완료** (회원가입 / default workspace / last_workspace_id / workspace picker / onboarding / workspace settings 이관). 다음은 Phase C (초대 5-2-4~5-2-5 — Resend 통합) 또는 5-2-2b/c (AI 한도 이관 + 로고 업로드)
 
 ## 전체 진행률
 
@@ -12,7 +12,7 @@
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | ✅ 완료 (W2/W3 cron 포함) | 100% (5/5 + cron 전체 완료) |
 | Phase 4 | 고객 포털 + /demo + PWA | ✅ 완료 | 100% (Task 4-1 ✅ / 4-2 M1~M8 ✅) |
-| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 ✅ 8/8 완료. Epic 5-2 🟡 Phase A 2/8 완료 (α 5-2-0/5-2-7 + β 5-2-3-A). Epic 5-3~5-5 대기 |
+| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 ✅ 8/8 완료. Epic 5-2 🟡 Phase A+B 5/8 완료 (α 5-2-0/5-2-7 + β 5-2-3-A + 5-2-3-B + 5-2-1 + 5-2-2 주 이관). Epic 5-3~5-5 대기 |
 
 ## Phase 0: 기반 설정 ✅
 
@@ -409,7 +409,70 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 
 ---
 
-## 이번 세션 (2026-04-21 오후 — Phase 5 Epic 5-2 Phase A: Task α + β 완료)
+## 이번 세션 (2026-04-21 저녁 — Phase 5 Epic 5-2 Phase B: 3 Task + cloud DB 동기화)
+
+### 완료 내역
+- Epic: **Phase 5 Epic 5-2 Phase B**
+- 완료 Task 3개: **5-2-3-B** (workspace picker UI), **5-2-1** (/onboarding), **5-2-2** (workspace settings 이관)
+- 부가 작업: **cloud Supabase dairect 프로젝트 DB 동기화** — Phase 5 migration 0017~0025 전체 apply (drift 해결)
+- 상태: 로컬 검증 완료 (tsc/lint/dev server 컴파일 무에러). Jayden 수동 E2E는 다음 세션 시작 시.
+
+### 주요 파일 (신규 9 + 수정 14 + DB migration 2)
+
+**신규 (9 파일)**:
+- `src/app/dashboard/workspace-actions.ts` — `switchWorkspaceAction`
+- `src/components/dashboard/workspace-picker.tsx` — 헤더 dropdown + 모바일 bottom sheet
+- `src/lib/auth/list-user-workspaces.ts` — 소속 workspace + role 조회 헬퍼
+- `src/app/onboarding/layout.tsx` + `page.tsx` + `onboarding-form.tsx` + `actions.ts`
+- `src/lib/utils/slug.ts` — 공유 slug util (toSlug/isValidSlug)
+- `src/lib/db/migrations/0024_users_onboarded_at.sql`
+- `src/lib/db/migrations/0025_backfill_workspace_settings.sql`
+
+**수정 (14 파일)**:
+- `src/lib/db/schema.ts` — users.onboardedAt 컬럼 추가
+- `src/app/dashboard/layout.tsx` — onboarding 가드 + role 조회 후 sidebar 전달
+- `src/components/dashboard/header.tsx` — WorkspacePicker 좌측 통합
+- `src/components/dashboard/sidebar.tsx` — `canSeeSettings` prop (member 설정 메뉴 숨김)
+- `src/lib/auth/ensure-default-workspace.ts` — workspace_settings INSERT 추가
+- `src/app/dashboard/settings/actions.ts` — workspace_settings 기반 + owner/admin 가드
+- `src/app/dashboard/settings/page.tsx` — member 접근 시 redirect
+- `src/app/dashboard/estimates/actions.ts` — 채번/사업자/default 3함수 전환
+- `src/app/dashboard/contracts/actions.ts` — 채번 전환
+- `src/app/dashboard/invoices/actions.ts` — 채번 + BillingInfo 전환
+- `src/lib/portal/queries.ts` + `feedback-actions.ts` — JOIN 전환
+- `src/app/api/cron/invoice-overdue/route.ts` — JOIN 전환
+- `src/app/api/cron/weekly-summary/route.ts` — businessEmail만 workspace_settings (특수 혼합)
+
+**DB migration (cloud apply)**:
+- 0017~0023 Phase 5 Epic 5-1 전체 일괄 apply (기존 drift 해결)
+- 0024 users.onboarded_at + 기존 owner 백필
+- 0025 user_settings 13필드 → workspace_settings 복사 + assertion
+
+### 검증 결과
+- `pnpm tsc --noEmit && pnpm lint` 통과 (기존 경고 1건만, 무관)
+- dev server 컴파일 에러 0건
+- cloud DB 상태: users 2/2 onboarded, workspaces 2개, workspace_members 2 owners, workspace_id NULL 0건
+
+### 이관 결정 정책 (learnings.md에 상세)
+- 권한: workspace_settings는 **owner+admin만 조회/편집** (Linear/Stripe 패턴 — 사업자번호/은행계좌 민감정보 방어). member는 사이드바 "설정" 메뉴 자체 숨김.
+- 백필: owner user의 user_settings → 해당 workspace_settings로 복사 + assertion.
+- user_settings 13 필드: **컬럼 보존** (Parallel Change). 코드에서는 미사용. Phase 5.5 + AI 한도 이관 후 일괄 drop.
+- AI 한도(aiDailyCallCount/aiLastResetAt): user_settings 유지. Phase 5.5 billing 전환 시 별도 Task.
+- 로고 업로드: Supabase Storage 설계 필요 → 별도 Task 5-2-2c.
+
+### 다음 세션 선택지
+- **Phase C**: 5-2-4 초대 발송 + 5-2-5 초대 수락 UI (Resend 통합, Jayden이 사전에 API key 발급 필요)
+- **5-2-2b**: AI 한도 2필드 → workspace_settings 이관 (cron/briefing/report 3곳 경로 전환 + Phase 5.5 빌링 인프라 대비)
+- **5-2-2c**: Workspace 로고 업로드 (Supabase Storage 버킷 + workspaces.logo_url 컬럼)
+- **middleware → proxy**: Next.js 16.2 경고 해소 (리네임 작업, 30분)
+
+### 차단 요소
+- Resend API key 발급 필요 (Phase C 진입 전)
+- Jayden 수동 E2E 확인 필요 (로그인 후 /dashboard + 설정 저장 + 견적/청구서 PDF 생성 시 사업자 정보 로드 확인)
+
+---
+
+## 이전 세션 (2026-04-21 오후 — Phase 5 Epic 5-2 Phase A: Task α + β 완료)
 
 ### 현재 위치
 - Epic: **Phase 5 Epic 5-2 (Workspace + Onboarding)**

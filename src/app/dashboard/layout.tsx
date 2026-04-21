@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { ensureDefaultWorkspace } from "@/lib/auth/ensure-default-workspace";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
+import { getCurrentWorkspaceRole } from "@/lib/auth/get-workspace-role";
 import { getTotalUnreadFeedbackForUser } from "./projects/[id]/feedback-actions";
 
 export const metadata: Metadata = {
@@ -52,13 +55,32 @@ export default async function DashboardLayout({
   // /signup 직후 진입 / Google OAuth 신규 가입 / 기존 유저 재진입 모두 같은 경로.
   await ensureDefaultWorkspace(user.id, resolvedName, user.email);
 
+  // Phase 5 Task 5-2-1: 온보딩 미완료 시 /onboarding으로 리다이렉트.
+  // 마이그레이션 0024 백필로 기존 사용자는 이미 NOT NULL — 신규 가입자만 진입.
+  const [userRow] = await db
+    .select({ onboardedAt: users.onboardedAt })
+    .from(users)
+    .where(eq(users.id, user.id))
+    .limit(1);
+  if (!userRow?.onboardedAt) redirect("/onboarding");
+
   // 사이드바 "프로젝트" 메뉴 뱃지 — 사용자 전체 미확인 피드백 합계.
   // layout 레벨에서 1회만 계산, 자식 페이지에 prop으로 전파.
   const unreadFeedbackTotal = await getTotalUnreadFeedbackForUser();
 
+  // Phase 5 Task 5-2-2: owner/admin만 사이드바에 "설정" 메뉴 노출.
+  const workspaceId = await getCurrentWorkspaceId();
+  const role = workspaceId
+    ? await getCurrentWorkspaceRole(user.id, workspaceId)
+    : null;
+  const canSeeSettings = role === "owner" || role === "admin";
+
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar unreadProjectCount={unreadFeedbackTotal} />
+      <Sidebar
+        unreadProjectCount={unreadFeedbackTotal}
+        canSeeSettings={canSeeSettings}
+      />
 
       {/* Main content area */}
       <div className="flex flex-1 flex-col md:ml-60">

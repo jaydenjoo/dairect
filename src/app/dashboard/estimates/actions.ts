@@ -6,7 +6,7 @@ import {
   estimateItems,
   clients,
   projects,
-  userSettings,
+  workspaceSettings,
   contracts,
 } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
@@ -35,9 +35,9 @@ async function generateEstimateNumber(
   workspaceId: string,
 ): Promise<string> {
   const settingsRows = await tx
-    .select({ estimateNumberPrefix: userSettings.estimateNumberPrefix })
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId))
+    .select({ estimateNumberPrefix: workspaceSettings.estimateNumberPrefix })
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.workspaceId, workspaceId))
     .limit(1);
 
   const prefix = settingsRows[0]?.estimateNumberPrefix ?? "EST";
@@ -67,20 +67,20 @@ async function generateEstimateNumber(
 
 export async function getUserCompanyInfo(): Promise<CompanyInfo | null> {
   try {
-    const userId = await getUserId();
-    if (!userId) return null;
+    const workspaceId = await getCurrentWorkspaceId();
+    if (!workspaceId) return null;
 
     const rows = await db
       .select({
-        companyName: userSettings.companyName,
-        representativeName: userSettings.representativeName,
-        businessNumber: userSettings.businessNumber,
-        businessAddress: userSettings.businessAddress,
-        businessPhone: userSettings.businessPhone,
-        businessEmail: userSettings.businessEmail,
+        companyName: workspaceSettings.companyName,
+        representativeName: workspaceSettings.representativeName,
+        businessNumber: workspaceSettings.businessNumber,
+        businessAddress: workspaceSettings.businessAddress,
+        businessPhone: workspaceSettings.businessPhone,
+        businessEmail: workspaceSettings.businessEmail,
       })
-      .from(userSettings)
-      .where(eq(userSettings.userId, userId))
+      .from(workspaceSettings)
+      .where(eq(workspaceSettings.workspaceId, workspaceId))
       .limit(1);
 
     return rows[0] ?? null;
@@ -102,8 +102,8 @@ export type CompanyInfo = {
 // ─── 설정 기본값 (일 단가, 수금 비율) ───
 
 export async function getEstimateDefaults() {
-  const userId = await getUserId();
-  if (!userId) return { dailyRate: 700000, paymentSplit: [
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return { dailyRate: 700000, paymentSplit: [
     { label: "착수금", percentage: 30 },
     { label: "중도금", percentage: 40 },
     { label: "잔금", percentage: 30 },
@@ -111,11 +111,11 @@ export async function getEstimateDefaults() {
 
   const rows = await db
     .select({
-      dailyRate: userSettings.dailyRate,
-      defaultPaymentSplit: userSettings.defaultPaymentSplit,
+      dailyRate: workspaceSettings.dailyRate,
+      defaultPaymentSplit: workspaceSettings.defaultPaymentSplit,
     })
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId))
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.workspaceId, workspaceId))
     .limit(1);
 
   const row = rows[0];

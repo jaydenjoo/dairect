@@ -1,4 +1,8 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getUserId } from "@/lib/auth/get-user-id";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
+import { getCurrentWorkspaceRole } from "@/lib/auth/get-workspace-role";
 import { getSettings } from "./actions";
 import { SettingsForm } from "./settings-form";
 import type { SettingsFormData } from "@/lib/validation/settings";
@@ -27,6 +31,14 @@ const defaultSettings: SettingsFormData = {
 };
 
 export default async function SettingsPage() {
+  // Phase 5 Task 5-2-2: owner/admin만 접근. member는 대시보드로 리다이렉트.
+  const userId = await getUserId();
+  if (!userId) redirect("/login");
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) redirect("/dashboard");
+  const role = await getCurrentWorkspaceRole(userId, workspaceId);
+  if (role !== "owner" && role !== "admin") redirect("/dashboard");
+
   const settings = await getSettings();
 
   return (

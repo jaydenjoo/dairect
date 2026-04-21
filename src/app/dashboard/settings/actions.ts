@@ -1,8 +1,10 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { userSettings } from "@/lib/db/schema";
-import { createClient } from "@/lib/supabase/server";
+import { workspaceSettings } from "@/lib/db/schema";
+import { getUserId } from "@/lib/auth/get-user-id";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
+import { getCurrentWorkspaceRole } from "@/lib/auth/get-workspace-role";
 import {
   settingsFormSchema,
   bankInfoSchema,
@@ -12,6 +14,10 @@ import {
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+
+// Phase 5 Task 5-2-2: user_settings → workspace_settings 이관 완료.
+// AI 한도 2필드(aiDailyCallCount/aiLastResetAt)는 여전히 user_settings (Phase 5.5 billing 이관 대상).
+// 권한 정책: 조회+편집 모두 owner/admin만 — 사업자번호/은행계좌 민감정보 방어.
 
 export type SettingsActionResult = {
   success: boolean;
@@ -26,26 +32,30 @@ const defaultPaymentSplit = [
 ];
 
 export async function getSettings(): Promise<SettingsFormData | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = await getUserId();
+  if (!userId) return null;
 
-  if (!user) return null;
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return null;
+
+  // 권한 가드: member는 설정 조회 불가 (민감정보 차단)
+  const role = await getCurrentWorkspaceRole(userId, workspaceId);
+  if (role !== "owner" && role !== "admin") return null;
 
   const rows = await db
     .select()
-    .from(userSettings)
-    .where(eq(userSettings.userId, user.id))
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.workspaceId, workspaceId))
     .limit(1);
 
   if (rows.length === 0) return null;
 
   const row = rows[0];
 
-  // [HIGH 3] Zod 파싱으로 JSONB 안전 변환
   const parsedBank = bankInfoSchema.safeParse(row.bankInfo);
-  const parsedSplit = z.array(paymentSplitItemSchema).safeParse(row.defaultPaymentSplit);
+  const parsedSplit = z
+    .array(paymentSplitItemSchema)
+    .safeParse(row.defaultPaymentSplit);
 
   return {
     companyName: row.companyName ?? "",
@@ -63,14 +73,22 @@ export async function getSettings(): Promise<SettingsFormData | null> {
   };
 }
 
-export async function saveSettings(data: SettingsFormData): Promise<SettingsActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+export async function saveSettings(
+  data: SettingsFormData,
+): Promise<SettingsActionResult> {
+  const userId = await getUserId();
+  if (!userId) {
     return { success: false, error: "인증 정보를 확인할 수 없습니다" };
+  }
+
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) {
+    return { success: false, error: "워크스페이스를 찾을 수 없습니다" };
+  }
+
+  const role = await getCurrentWorkspaceRole(userId, workspaceId);
+  if (role !== "owner" && role !== "admin") {
+    return { success: false, error: "설정을 변경할 권한이 없습니다" };
   }
 
   const parsed = settingsFormSchema.safeParse(data);
@@ -80,20 +98,23 @@ export async function saveSettings(data: SettingsFormData): Promise<SettingsActi
 
   const values = parsed.data;
 
-  // 수금 비율 합계 검증
   const totalPercentage = values.defaultPaymentSplit.reduce(
     (sum, item) => sum + item.percentage,
     0,
   );
   if (totalPercentage !== 100) {
-    return { success: false, error: `수금 비율 합계가 ${totalPercentage}%입니다. 100%여야 합니다.` };
+    return {
+      success: false,
+      error: `수금 비율 합계가 ${totalPercentage}%입니다. 100%여야 합니다.`,
+    };
   }
 
   try {
+    // upsert — 0020 backfill로 row가 있어야 정상이지만, 신규 workspace 케이스 방어.
     await db
-      .insert(userSettings)
+      .insert(workspaceSettings)
       .values({
-        userId: user.id,
+        workspaceId,
         companyName: values.companyName || null,
         representativeName: values.representativeName || null,
         businessNumber: values.businessNumber || null,
@@ -109,7 +130,7 @@ export async function saveSettings(data: SettingsFormData): Promise<SettingsActi
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
-        target: userSettings.userId,
+        target: workspaceSettings.workspaceId,
         set: {
           companyName: values.companyName || null,
           representativeName: values.representativeName || null,

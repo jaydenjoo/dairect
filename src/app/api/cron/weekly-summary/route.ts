@@ -20,6 +20,8 @@ import {
   portalFeedbacks,
   projects,
   userSettings,
+  workspaceMembers,
+  workspaceSettings,
 } from "@/lib/db/schema";
 import { emitN8nEvent } from "@/lib/n8n/client";
 import { sanitizeHeader } from "@/lib/security/sanitize-headers";
@@ -216,16 +218,30 @@ export async function GET(request: Request): Promise<NextResponse> {
   const weekAgo = new Date(now.getTime() - WEEK_MS);
   const sixDaysAgo = new Date(now.getTime() - SIX_DAYS_MS);
 
+  // Phase 5 Task 5-2-2: businessEmail은 workspace_settings로 이관.
+  // lastWeeklySummarySentAt는 user-level state라 user_settings 유지.
+  // owner 역할 기준으로 user → workspace → workspace_settings JOIN.
   const activeUsers = await db
     .select({
       userId: userSettings.userId,
-      businessEmail: userSettings.businessEmail,
+      businessEmail: workspaceSettings.businessEmail,
     })
     .from(userSettings)
+    .innerJoin(
+      workspaceMembers,
+      and(
+        eq(workspaceMembers.userId, userSettings.userId),
+        eq(workspaceMembers.role, "owner"),
+      ),
+    )
+    .innerJoin(
+      workspaceSettings,
+      eq(workspaceSettings.workspaceId, workspaceMembers.workspaceId),
+    )
     .where(
       and(
-        sql`${userSettings.businessEmail} IS NOT NULL`,
-        sql`${userSettings.businessEmail} != ''`,
+        sql`${workspaceSettings.businessEmail} IS NOT NULL`,
+        sql`${workspaceSettings.businessEmail} != ''`,
         or(
           isNull(userSettings.lastWeeklySummarySentAt),
           lt(userSettings.lastWeeklySummarySentAt, sixDaysAgo),

@@ -6,7 +6,7 @@ import {
   invoices,
   milestones,
   projects,
-  userSettings,
+  workspaceSettings,
 } from "@/lib/db/schema";
 
 // ─── 포털 전용 bundle 조회 ───
@@ -94,13 +94,16 @@ export async function getPortalProjectBundle(
       deletedAt: projects.deletedAt,
       clientCompanyName: clients.companyName,
       clientContactName: clients.contactName,
-      pmCompanyName: userSettings.companyName,
-      pmRepresentativeName: userSettings.representativeName,
-      pmBusinessEmail: userSettings.businessEmail,
+      pmCompanyName: workspaceSettings.companyName,
+      pmRepresentativeName: workspaceSettings.representativeName,
+      pmBusinessEmail: workspaceSettings.businessEmail,
     })
     .from(projects)
     .leftJoin(clients, eq(clients.id, projects.clientId))
-    .leftJoin(userSettings, eq(userSettings.userId, projects.userId))
+    .leftJoin(
+      workspaceSettings,
+      eq(workspaceSettings.workspaceId, projects.workspaceId),
+    )
     .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
     .limit(1);
 

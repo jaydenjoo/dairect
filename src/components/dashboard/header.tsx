@@ -1,6 +1,9 @@
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "./logout-button";
+import { WorkspacePicker } from "./workspace-picker";
+import { listUserWorkspaces } from "@/lib/auth/list-user-workspaces";
+import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
 
 export async function Header() {
   const supabase = await createClient();
@@ -11,9 +14,17 @@ export async function Header() {
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
   const name = (user?.user_metadata?.full_name as string) ?? user?.email ?? "";
 
+  const [userWorkspaces, currentWorkspaceId] = await Promise.all([
+    listUserWorkspaces(),
+    getCurrentWorkspaceId(),
+  ]);
+
   return (
     <header className="flex h-16 items-center justify-between px-8">
-      <div>{/* Page title rendered by each page */}</div>
+      <WorkspacePicker
+        workspaces={userWorkspaces}
+        currentWorkspaceId={currentWorkspaceId}
+      />
 
       <div className="flex items-center gap-3">
         {avatarUrl ? (

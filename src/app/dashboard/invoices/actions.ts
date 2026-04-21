@@ -6,7 +6,7 @@ import {
   estimates,
   projects,
   clients,
-  userSettings,
+  workspaceSettings,
 } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
 import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
@@ -67,9 +67,9 @@ async function generateInvoiceNumber(
   offset: number = 0,
 ): Promise<string> {
   const settingsRows = await tx
-    .select({ invoiceNumberPrefix: userSettings.invoiceNumberPrefix })
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId))
+    .select({ invoiceNumberPrefix: workspaceSettings.invoiceNumberPrefix })
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.workspaceId, workspaceId))
     .limit(1);
 
   const prefix = settingsRows[0]?.invoiceNumberPrefix ?? "INV";
@@ -109,21 +109,21 @@ export type BillingInfo = {
 };
 
 export async function getUserBillingInfo(): Promise<BillingInfo | null> {
-  const userId = await getUserId();
-  if (!userId) return null;
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return null;
 
   const rows = await db
     .select({
-      companyName: userSettings.companyName,
-      representativeName: userSettings.representativeName,
-      businessNumber: userSettings.businessNumber,
-      businessAddress: userSettings.businessAddress,
-      businessPhone: userSettings.businessPhone,
-      businessEmail: userSettings.businessEmail,
-      bankInfo: userSettings.bankInfo,
+      companyName: workspaceSettings.companyName,
+      representativeName: workspaceSettings.representativeName,
+      businessNumber: workspaceSettings.businessNumber,
+      businessAddress: workspaceSettings.businessAddress,
+      businessPhone: workspaceSettings.businessPhone,
+      businessEmail: workspaceSettings.businessEmail,
+      bankInfo: workspaceSettings.bankInfo,
     })
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId))
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.workspaceId, workspaceId))
     .limit(1);
 
   if (!rows[0]) return null;

@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import {
   portalFeedbacks,
   projects,
-  userSettings,
+  workspaceSettings,
 } from "@/lib/db/schema";
 import { emitN8nEvent } from "@/lib/n8n/client";
 import { portalFeedbackSchema } from "@/lib/validation/portal";
@@ -133,10 +133,13 @@ export async function submitPortalFeedbackAction(
       const [proj] = await db
         .select({
           projectName: projects.name,
-          pmEmail: userSettings.businessEmail,
+          pmEmail: workspaceSettings.businessEmail,
         })
         .from(projects)
-        .leftJoin(userSettings, eq(userSettings.userId, projects.userId))
+        .leftJoin(
+          workspaceSettings,
+          eq(workspaceSettings.workspaceId, projects.workspaceId),
+        )
         .where(eq(projects.id, payload.projectId))
         .limit(1);
 

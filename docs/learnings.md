@@ -1,5 +1,37 @@
 # Dairect — 교훈 기록
 
+## 2026-04-21 저녁 — Local Supabase vs Cloud Supabase schema drift (Phase 5 전체 미반영 발견)
+
+- **증상**: Task 5-2-1 구현 후 Supabase MCP `apply_migration`으로 `ALTER TABLE users ADD COLUMN onboarded_at` 실행 → `ERROR: 42P01: relation "workspace_members" does not exist`. 재시도도 동일. cloud `dairect` 프로젝트 DB의 public schema 조회 → **workspaces/workspace_members/workspace_invitations/workspace_settings 4 테이블이 모두 없음**. Phase 5 Epic 5-1 (8/8 완료) + Epic 5-2 Phase A (2/8 완료) 전체가 cloud에는 미반영 상태. 기존 12 Phase 4 테이블만 존재.
+- **원인**: `pnpm db:push`는 `drizzle-kit push`의 interactive prompt(`"truncate estimates table?"` 같은) 때문에 TTY 없는 환경(CI / AI / non-interactive shell)에서 항상 실패. PROGRESS.md가 주장한 "local E2E 22/22 PASS"는 **`supabase start`로 띄운 로컬 Docker DB** 기준. cloud migration은 Epic 5-1 작업 당시 apply_migration이나 SQL Editor로 개별 실행했어야 했으나 누락 → 수 주간 drift 누적.
+- **해결**:
+  1. **Supabase MCP `apply_migration` 경로로 우회** — TTY 없이 DDL 실행 가능.
+  2. 7개 Phase 5 migration 수동 순차 적용: 0017 (workspaces 4 테이블) → 0018 (RLS deny_anon) → 0019 (13 도메인 workspace_id NULLABLE) → 0020 (default workspace 생성 + 13 테이블 backfill + assertion) → 0022 (NOT NULL + UNIQUE 재조정 + 12 인덱스) → 0021 (13 도메인 RLS 52 정책 + `is_workspace_member` helper) → 0023 (users.last_workspace_id) → 0024 (users.onboarded_at + 백필) → 0025 (user_settings → workspace_settings 백필 + assertion).
+  3. 각 단계 후 검증 쿼리로 row count / NULL count 확인. 0020 assertion이 가장 중요 (workspace_id NULL row 0건 보장).
+- **규칙**:
+  1. **로컬 "E2E PASS"는 production-safe 증명 아님**. PROGRESS.md에 local/cloud 구분 명시 필수: "local supabase 기준 E2E PASS, cloud 미반영 상태" 같이.
+  2. `pnpm db:push`를 커밋 의식처럼 돌리지 말고 **apply_migration path**(Supabase MCP or Dashboard SQL Editor)를 기본으로. `db:push`는 destructive 변경 감지 시 interactive prompt 띄우므로 autonomous 실행 불가.
+  3. Task 완료 판정에 **cloud apply 여부를 체크리스트로 포함**. "schema.ts 수정 완료 + local에서 push 성공 + cloud에도 apply 확인"까지 해야 Task 완료.
+  4. **drift 조기 감지 쿼리** 정기 실행: `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY 1;` → local과 cloud 테이블 목록 diff. 매 세션 시작 시 1회 권장. Supabase `list_tables` MCP 도구 활용.
+  5. apply_migration은 각 SQL 파일 단위로 독립 호출. 트랜잭션 경계는 파일 내부 `BEGIN; ... COMMIT;`으로 구성 (0020/0021 패턴 참고). assertion 블록 필수 — 중간 실패 시 전체 롤백으로 partial apply 방지.
+  6. Supabase MCP `apply_migration`은 `supabase_migrations.schema_migrations` 테이블에 자체 history 기록하지만 drizzle의 `meta/_journal.json`과 별개. cloud migration 이력은 `SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version DESC` 로 확인.
+
+## 2026-04-21 저녁 — user_settings → workspace_settings 이관에서 "Parallel Change" 패턴 적용 (컬럼 즉시 drop 금지)
+
+- **상황**: Task 5-2-2 계획 시 user_settings 13 필드(사업자 7 + 견적 5 + 프리셋 1)를 workspace_settings로 이관. 2가지 선택지:
+  - A) 즉시 drop: user_settings의 13 컬럼을 ALTER DROP COLUMN으로 제거 + workspace_settings만 사용
+  - B) Parallel Change: 컬럼 유지 + 코드 경로만 workspace_settings로 전환
+- **결정**: B (Parallel Change). 근거:
+  1. **Martin Fowler "Parallel Change" 패턴**: expand → migrate → **contract은 별도 릴리스**. 한 릴리스에서 expand+contract 같이 하면 롤백 복잡.
+  2. **Stripe/Linear/Netflix 공통 관행**: deprecated column은 최소 1~2 릴리스 유지 (rollback window).
+  3. **Dairect 특수 요인**: user_settings 테이블 자체는 AI 한도 2필드(aiDailyCallCount/aiLastResetAt) + lastWeeklySummarySentAt 때문에 drop 불가 (이번 Task 외). 13 필드 컬럼만 NULL 방치 = 비용 ≈ 0.
+  4. **Phase 5.5 billing 전환 시 AI 한도도 workspace 이관 예정** — 그때 한꺼번에 column drop 일괄 Task로 처리하면 깔끔.
+- **규칙**:
+  1. **즉시 DROP COLUMN 금지**: 새 테이블로 이관 시 원본 컬럼은 **stop writing + stop reading → 1~2 릴리스 후 drop**. 원본을 남기면 rollback이 `UPDATE`로 단순. 원본 없으면 backup restore 필요.
+  2. 이관 시점에 **같은 값이 두 곳에 존재**하지 않도록 주의. "원본은 유지하되 쓰지 말 것" 규칙 필요. 이번엔 user_settings 쓰기 경로(ensureDefaultWorkspace의 `.values({ userId })` 빈 row INSERT만 유지)가 이 규칙 통과.
+  3. **assertion 필수**: 백필 SQL에 source vs destination 일치 검증 DO 블록 포함. 0020/0025 패턴처럼 mismatch 0건 확인. 실패 시 RAISE EXCEPTION → 전체 롤백.
+  4. **multi-tenant 설정 이관 권한 정책**: 조회+편집 모두 **owner/admin만**이 안전한 기본값 (Linear/Stripe 표준). 민감정보(사업자번호/은행계좌)가 포함되면 member는 **메뉴 자체 숨김** 권장. restrictive → permissive로 나중에 완화 쉬움 (반대는 어려움).
+
 ## 2026-04-21 오후 — Default workspace 자동 생성은 signup action이 아닌 `/dashboard/layout.tsx`에 배치
 
 - **상황**: Task 5-2-7(default workspace 자동 생성) 구현 위치 결정. 후보 2곳:

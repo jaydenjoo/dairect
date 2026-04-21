@@ -7,7 +7,7 @@ import {
   clients,
   invoices,
   projects,
-  userSettings,
+  workspaceSettings,
 } from "@/lib/db/schema";
 import { emitN8nEvent } from "@/lib/n8n/client";
 import { sanitizeHeader } from "@/lib/security/sanitize-headers";
@@ -105,13 +105,16 @@ export async function GET(request: Request): Promise<NextResponse> {
       projectName: projects.name,
       clientEmail: clients.email,
       clientCompanyName: clients.companyName,
-      pmEmail: userSettings.businessEmail,
-      bankInfo: userSettings.bankInfo,
+      pmEmail: workspaceSettings.businessEmail,
+      bankInfo: workspaceSettings.bankInfo,
     })
     .from(invoices)
     .innerJoin(projects, eq(projects.id, invoices.projectId))
     .leftJoin(clients, eq(clients.id, projects.clientId))
-    .leftJoin(userSettings, eq(userSettings.userId, invoices.userId))
+    .leftJoin(
+      workspaceSettings,
+      eq(workspaceSettings.workspaceId, invoices.workspaceId),
+    )
     .where(
       and(
         eq(invoices.status, "sent"),

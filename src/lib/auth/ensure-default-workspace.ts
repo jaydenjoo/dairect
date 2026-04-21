@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import {
   userSettings,
   workspaceMembers,
+  workspaceSettings,
   workspaces,
 } from "@/lib/db/schema";
 
@@ -104,6 +105,13 @@ export async function ensureDefaultWorkspace(
           .insert(userSettings)
           .values({ userId })
           .onConflictDoNothing({ target: userSettings.userId });
+
+        // Phase 5 Task 5-2-2: workspace_settings 빈 row 자동 생성 — 기본 prefix/dailyRate/split 채움.
+        // 신규 가입자가 /dashboard/settings 처음 저장 전에도 getSettings()가 기본값 반환 가능.
+        await tx
+          .insert(workspaceSettings)
+          .values({ workspaceId: ws.id })
+          .onConflictDoNothing({ target: workspaceSettings.workspaceId });
 
         return ws.id;
       } catch (err) {

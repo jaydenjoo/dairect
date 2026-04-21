@@ -50,6 +50,9 @@ type Props = {
   basePath?: BasePath;
   // 프로젝트 메뉴에 표시할 "전체 미확인 피드백 합계". /demo 등 layout은 미지정 → 뱃지 숨김.
   unreadProjectCount?: number;
+  // Phase 5 Task 5-2-2: owner/admin만 설정 메뉴 노출 (민감정보 방어).
+  // /demo 등 workspace 맥락 없는 layout에선 true로 기본 허용.
+  canSeeSettings?: boolean;
 };
 
 // 사이드바 뱃지가 "99+"로 잘리도록 상한 숫자 렌더 (UI 레이아웃 안정성).
@@ -63,6 +66,7 @@ function formatBadgeCount(n: number): string {
 export function Sidebar({
   basePath = "/dashboard",
   unreadProjectCount = 0,
+  canSeeSettings = true,
 }: Props) {
   const pathname = usePathname();
 
@@ -115,20 +119,22 @@ export function Sidebar({
           </ul>
         </nav>
 
-        {/* Settings (bottom) */}
-        <div className="px-3 py-4">
-          <Link
-            href={`${basePath}/settings`}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-              isActive(pathname, `${basePath}/settings`, basePath)
-                ? "bg-sidebar-accent text-sidebar-foreground"
-                : "text-sidebar-foreground/40 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80"
-            }`}
-          >
-            <Settings className="h-[18px] w-[18px] shrink-0" />
-            설정
-          </Link>
-        </div>
+        {/* Settings (bottom) — owner/admin만 노출 */}
+        {canSeeSettings && (
+          <div className="px-3 py-4">
+            <Link
+              href={`${basePath}/settings`}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                isActive(pathname, `${basePath}/settings`, basePath)
+                  ? "bg-sidebar-accent text-sidebar-foreground"
+                  : "text-sidebar-foreground/40 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80"
+              }`}
+            >
+              <Settings className="h-[18px] w-[18px] shrink-0" />
+              설정
+            </Link>
+          </div>
+        )}
       </aside>
 
       {/* Mobile Bottom Tab Bar */}

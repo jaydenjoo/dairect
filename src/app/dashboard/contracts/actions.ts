@@ -6,7 +6,7 @@ import {
   estimates,
   clients,
   projects,
-  userSettings,
+  workspaceSettings,
 } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
 import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
@@ -52,9 +52,9 @@ async function generateContractNumber(
   workspaceId: string,
 ): Promise<string> {
   const settingsRows = await tx
-    .select({ contractNumberPrefix: userSettings.contractNumberPrefix })
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId))
+    .select({ contractNumberPrefix: workspaceSettings.contractNumberPrefix })
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.workspaceId, workspaceId))
     .limit(1);
 
   const prefix = settingsRows[0]?.contractNumberPrefix ?? "CON";

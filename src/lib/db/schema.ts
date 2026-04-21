@@ -33,6 +33,10 @@ export const users = pgTable(
     lastWorkspaceId: uuid("last_workspace_id").references(() => workspaces.id, {
       onDelete: "set null",
     }),
+    // Phase 5 Task 5-2-1: /onboarding 플로우 진입 여부.
+    // NULL = 미완료 (신규 가입) / NOT NULL = 완료 or 건너뛰기. 마이그레이션 0024에서
+    // 기존 workspace 소속 사용자는 자동 백필 — Phase 5 이전 가입자 보호.
+    onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
   },
   (table) => [
