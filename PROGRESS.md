@@ -1,7 +1,7 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-21 밤 (Phase 5 Epic 5-2 **5-2-2b/d/e/c/f 코드 완료** — AI 한도 + 설정 저장 + actions export 정리 + 로고 업로드 + middleware→proxy 리네임)
-> 현재 위치: **Phase 5 Epic 5-2 Phase A+B + 5-2-2b/d/e/c/f 완료** + 0016/0026/0027/0028/0029 cloud apply. 남은 것: ⑤ Phase C (초대 5-2-4~5-2-5, Resend 필요) / 5-2-2c·f Jayden 수동 확인
+> 최종 업데이트: 2026-04-21 심야 (Task 5-2-2c/f Playwright E2E 13/13 통과 + C-H1/C-H2 해소 + 리뷰 H1 이원화 재수정 PASS)
+> 현재 위치: **Phase 5 Epic 5-2 Phase A+B + 5-2-2b/c/d/e/f + C-H1/C-H2 완료**. 남은 것: Task 5-2-2g(H2 cross-workspace UPSERT, 멀티멤버 진입 전 필수) / Phase C(초대 5-2-4~5-2-5, Resend 필요)
 
 ## 전체 진행률
 
@@ -12,7 +12,7 @@
 | Phase 2 | 견적/계약/정산 + 리브랜딩 | ✅ 완료 | 100% |
 | Phase 3 | AI + 자동화 + 리드 CRM | ✅ 완료 (W2/W3 cron 포함) | 100% (5/5 + cron 전체 완료) |
 | Phase 4 | 고객 포털 + /demo + PWA | ✅ 완료 | 100% (Task 4-1 ✅ / 4-2 M1~M8 ✅) |
-| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 ✅ 8/8 완료. Epic 5-2 🟡 Phase A+B+5-2-2b 6/8 완료 (α 5-2-0/5-2-7 + β 5-2-3-A + 5-2-3-B + 5-2-1 + 5-2-2 주 이관 + 5-2-2b AI 한도). Epic 5-3~5-5 대기 |
+| Phase 5 | SaaS 전환 준비 (multi-tenant + billing) | 🟡 진행 중 | Epic 5-1 ✅ 8/8 완료. Epic 5-2 🟡 Phase A+B+서브 5건+C-H1/C-H2 ✅ (메인 6/8 + 서브 5 + 멀티 멤버 블로커 2건 해소). 남은 것: 5-2-2g(H2) → Phase C(5-2-4/5). Epic 5-3~5-5 대기 |
 
 ## Phase 0: 기반 설정 ✅
 
@@ -409,7 +409,93 @@ code-reviewer + security-reviewer 병렬 리뷰, HIGH 3 + MEDIUM 1 수정:
 
 ---
 
-## 이번 세션 (2026-04-21 밤 — Task 5-2-2b: AI 한도 workspace_settings 이관 + 리뷰 일괄 수정)
+## 이번 세션 (2026-04-21 심야 — Task 5-2-2c/f Playwright E2E + C-H1/C-H2 해소 + 리뷰 H1 이원화 재수정)
+
+### 완료 내역
+
+**1. Task 5-2-2c/f Playwright E2E 검증 (Jayden 수동 대기 해소)**
+- **5-2-2f (middleware → proxy 리네임) 4/4 통과**: 로그아웃→/dashboard→/login, 로그인→/login→/dashboard, 로그인→/signup→/dashboard, 로그아웃→/login.
+- **5-2-2c (로고 업로드) 9/9 통과**: 로고 섹션 최상단 + 초기 placeholder / PNG 업로드 토스트+미리보기 / 새로고침 persist (Supabase Storage URL `workspace-logos/{workspace_id}/{timestamp}.png`) / 6MB 거부 / .txt MIME 거부 / 제거 버튼+confirm→placeholder 복귀 / Storage 물리 삭제 / DB `logo_url`/`logo_storage_path` NULL.
+- signup 플로우: /signup → cloud email confirmation(`UPDATE auth.users SET email_confirmed_at`로 강제) → /login → /onboarding → /dashboard. workspace + workspace_members(owner) + workspace_settings 자동 생성 확인. `users.onboarded_at` 정상 갱신.
+
+**2. C-H1 (AI_DAILY_LIMIT 상향)**
+- `src/lib/validation/ai-estimate.ts`: 50 → 200 + 주석 "Phase 5.5 billing에서 플랜별 재설계" 예고. workspace 공유 카운터 완화용 단순 상수 변경.
+
+**3. C-H2 1차 (쿨다운 WHERE workspace 교체) + 리뷰 H1 이원화 재수정**
+- `briefing-actions.ts` / `report-actions.ts` `tryCooldownReturn` 1차 변경: 쿨다운 키 `userId → workspaceId`로 교체 (카운터 중복 차감 방어 목적).
+- 1차 리뷰에서 **code-reviewer CRITICAL 1 + security-reviewer HIGH 2 발견** → 단순 교체 시 타 멤버 content가 요청자 화면에 노출되는 **권한 경계 침범 취약점**.
+- **이원화 재수정 채택** (code-reviewer 옵션 1 + security-reviewer 옵션 C 혼합):
+  - workspace 10초 윈도우로 카운터 보호는 유지 (본 흐름 진입 차단 = 카운터 +1 방어).
+  - 반환 row의 userId가 요청자와 **같으면** → 기존 content cache hit.
+  - **다르면** → `RegenerateResult.code = "COOLDOWN"` 신규 + "워크스페이스에서 방금 AI 호출이 있었어요. 10초 후 다시 시도해주세요." 에러로만 응답. `contentJson` 파생물 일절 노출 차단.
+- `RegenerateResult` 타입 union에 `"COOLDOWN"` 추가 (briefing/report 양쪽).
+- SELECT에 `userId` 컬럼 추가 + `rows[0].userId !== userId` 분기 도입.
+- `desc(aiGeneratedAt) LIMIT 1` 추가 (workspace에 멤버별 row 여럿일 때 "가장 최근" 기준).
+
+### 독립 리뷰 결과 (code-reviewer + security-reviewer 2라운드 병렬)
+
+**1라운드 (단순 교체 후)**:
+- code-reviewer CRITICAL 1 (C-1): 쿨다운 hit으로 다른 멤버 `contentJson` 반환 → weekly-report는 PDF 다운로드 고객 발송 경로로 유출 위험 격상.
+- security-reviewer HIGH 2:
+  - H1: C-1과 동일 (멤버 A의 Acme Corp 미수금 등이 B 화면에 노출).
+  - H2: `briefings_user_week_unique (userId, weekStart)` / `weekly_reports_user_project_week_unique` 유지 + `workspace-picker`로 A→B 스위치 후 같은 주 재생성 시 `onConflict`로 A의 row.contentJson만 덮어쓰기 + workspace_id는 A 유지 → B 화면에 A workspace 브리핑 노출. **기존 숨어있던 취약점 발견**.
+- code-reviewer Important 2: briefings workspace 기반 인덱스 설계 정합성 누락 (선택적), 50→200 하드코딩 스냅샷 체크 (grep 결과 없음, PASS).
+- H1 즉시 수정, H2는 범위 크고 기존 취약점이라 **별도 Task 5-2-2g로 분리 등록**.
+
+**2라운드 (H1 수정 후) — 양쪽 PASS, 블로커 0건**:
+- 기밀성: `contentJson` 파생물 일절 응답에 포함 안 됨.
+- 인가: Postgres `uuid` + Supabase auth UUID 엄격 비교. `getUserId` null 시 AUTH 조기 반환.
+- DoS: 본 흐름 진입 차단 = workspace 카운터 보호 유지 (C-H2 원래 의도 그대로).
+- 감사: COOLDOWN 경로에 `console.*` 호출 없음 → Sentry/Vercel에 타 멤버 userId 축적 없음.
+- Parallel Change: `getCurrentBriefing`/`getCurrentWeeklyReport`는 `userId` 필터 유지 → 읽기와 쿨다운 비대칭은 **의도된 수정**.
+- RLS 정합성: `0021_rls_policies_multitenant.sql` `is_workspace_member` 정책과 앱 레이어 userId 게이트 2중 방어선 유지.
+- H2 독립성: UNIQUE target은 이번 수정에서 손대지 않음 → 5-2-2g 시나리오 위장하지 않음.
+- Existence oracle 관찰(B가 A의 10초 내 호출 여부 탐지): Dairect 협업 맥락에서 이미 공개 정보(activity_log·UI 상태)이므로 허용 범위.
+
+### 검증 결과
+- `pnpm tsc --noEmit` → 0 error
+- `pnpm lint` → 신규 경고 0 (기존 `estimate-form.tsx:225 _id` 무관 1건만)
+- `pnpm build` → 28 routes + SW artifact(`public/sw.js`) OK
+- Playwright E2E: 5-2-2f 4/4 + 5-2-2c 9/9 + signup 플로우 전부 통과
+
+### 수정 파일 (3)
+- `src/lib/validation/ai-estimate.ts` — C-H1
+- `src/lib/ai/briefing-actions.ts` — C-H2 + H1 이원화
+- `src/lib/ai/report-actions.ts` — C-H2 + H1 이원화
+
+변경 라인: +67 / -10. 스키마 변경 없음, 마이그레이션 0건.
+
+### 🧹 Cleanup
+- E2E 테스트 계정 `e2e-1776745761@dairect.kr` (user_id: `2dbfc47a-dca6-4fb5-80cf-86ee8bf7111b`) SQL transaction으로 cascade 삭제: auth/public/workspace_members/workspaces/user_settings/storage.objects 모두 0건 확인.
+- 기존 `playwright@dairect.test` (2026-04-17 생성) 테스트 인프라 계정은 **보존**.
+- 임시 이미지 파일 `.playwright-mcp/e2e-logo/` 3건 (valid-logo.png / oversized.png / notimage.txt) — Jayden 직접 정리 필요 (rm 권한 차단).
+
+### 차기 Task 등록 — Task 5-2-2g (멀티 멤버 진입 전 필수)
+
+**H2 cross-workspace UPSERT 덮어쓰기 해소**
+
+- **배경**: workspace switch(5-2-3-B)이 열린 상태에서 `briefings` UNIQUE `(user_id, week_start_date)` + `weekly_reports` UNIQUE `(user_id, project_id, week_start_date)` 유지 → user X가 workspace A → B 스위치 후 같은 주 Regenerate 시 `onConflict`로 A의 row contentJson을 덮어쓰기 + workspace_id는 A 그대로 → B 화면에 A workspace 브리핑 노출.
+- **작업 범위**:
+  1. 마이그레이션 0030: UNIQUE 확장 — `briefings (user_id, workspace_id, week_start_date)` + `weekly_reports (user_id, workspace_id, project_id, week_start_date)`. 기존 UNIQUE drop + 재생성. 사전 assertion 블록으로 `COUNT(*) GROUP BY 새키 HAVING COUNT>1 = 0` 검증.
+  2. `upsertBriefing` / `upsertReport` onConflict target에 `workspaceId` 추가.
+  3. `getCurrentBriefing` / `getCurrentWeeklyReport` WHERE에 `workspaceId` 추가 (Parallel Change 완결성).
+  4. cloud apply + E2E(workspace 스위치 → 같은 주차 재생성 → 덮어쓰기 없음 확인).
+- **예상**: 1시간.
+
+### 🚧 차단 요소 (멀티 멤버 workspace 진입 전 상태)
+- ✅ **C-H1** — AI_DAILY_LIMIT 200 상향 (완료)
+- ✅ **C-H2** — workspace 쿨다운 이원화 (완료, 리뷰 H1 PASS)
+- 🔜 **H2 (Task 5-2-2g)** — cross-workspace UPSERT 덮어쓰기 (차기 세션 최우선)
+- 🚫 **Resend API key** — Jayden이 사전 발급 필요 (Phase C 진입 전)
+
+### 다음 세션 선택지 (우선순위 순)
+1. **Task 5-2-2g** — H2 해소 (멀티 멤버 차단 해제 마지막 1건, Phase C 전 필수)
+2. **Phase C (Task 5-2-4 + 5-2-5)** — 초대 발송/수락 + Resend 통합 (API key 발급 후)
+3. **UX 개선** — COOLDOWN 코드 amber 톤 배지 + 10초 카운트다운 (리뷰 선택 제안, 백로그)
+
+---
+
+## 이전 세션 (2026-04-21 밤 — Task 5-2-2b: AI 한도 workspace_settings 이관 + 리뷰 일괄 수정)
 
 ### 완료 내역
 - Task: **5-2-2b** (AI 한도 2필드 user_settings → workspace_settings 이관, Phase 5.5 billing 대비)

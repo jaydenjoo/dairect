@@ -1,5 +1,37 @@
 # Dairect — 교훈 기록
 
+## 2026-04-21 심야 — workspace 단위 billing 이관 시 read/write path 대칭을 강제로 점검해야 한다 (단순 WHERE 교체가 권한 경계를 뚫는다)
+
+- **증상**: Task 5-2-2b에서 남긴 C-H2(workspace 공유 카운터 vs user 스코프 쿨다운 비대칭 DoS)를 해소하려 `tryCooldownReturn`의 WHERE를 `briefings.userId` → `briefings.workspaceId`로 단순 교체. tsc/lint/build 전부 통과 + 내 머릿속 모델로도 "카운터가 workspace니까 쿨다운도 workspace로" 자연스러워 보임. 실제로는 code-reviewer CRITICAL·security-reviewer HIGH 리뷰에서 **타 멤버의 briefing/weekly_report content가 요청자 화면에 렌더되는 권한 경계 침범**이 잡힘. 특히 weekly_report는 PDF로 고객 발송 경로가 있어 "B가 만든 보고서를 A가 자기 이름으로 고객에게 발송" 시나리오로 격상.
+- **원인**: `getWeeklyBriefingData(userId)` · `getWeeklyReportData(userId)` 같은 집계 쿼리가 여전히 userId 필터로 "개인 뷰"를 만들고, `getCurrentBriefing`/`getCurrentWeeklyReport` 읽기 쿼리도 `eq(briefings.userId, userId)` 기반. 쿨다운만 workspace로 바뀌는 순간 **read(개인) vs cooldown-return(공유)** 비대칭이 생김. 쿨다운 hit이 `result.content`에 타인의 contentJson을 실어 client `setContent(result.content)`로 렌더 → 설계 의도(UNIQUE `(userId, weekStart)`가 말하는 "멤버별 개인 브리핑")가 한 순간에 무너짐.
+- **해결**: 쿨다운 이원화로 재수정. 공유 윈도우는 카운터 보호 목적만 살리고, content 반환은 `rows[0].userId === requesterUserId`일 때만. 다른 멤버 row hit 시 `RegenerateResult.code = "COOLDOWN"` 전용 에러로만 응답 + contentJson 일절 제거. 2라운드 리뷰에서 양쪽 PASS.
+- **규칙**:
+  1. **workspace 단위 billing/quota 이관 Task에서는 관련 테이블의 `read / write / cooldown / cache / logging` 5개 경로를 모두 매핑한 뒤 키를 선택**. 어느 하나만 바꾸면 비대칭이 취약점이 된다. Task 5-2-2b 체크리스트("카운터 + 카운터 증가 쿼리 + 소스 데이터 3중 세트 이관")를 5중 세트로 확장.
+  2. **"쿨다운은 workspace 기반으로 하면 된다"가 직관적으로 맞아 보여도, 반환 payload가 무엇인지 항상 분해하라**. 같은 WHERE라도 return shape이 content를 실으면 권한 경계, 메타만 실으면 카운터 보호에 해당. 키(쿼리 필터)와 페이로드(응답 본문)는 독립적으로 설계 의도 검증.
+  3. **tsc/lint/build 통과가 설계 안전을 증명하지 않는다**. 타입은 "userId 비교 없이 content 반환"을 구조적으로 허용. 리뷰어 없이 이 오류를 발견할 유일한 수단은 "read와 write의 소유권 축이 무엇인가"라는 질문을 수정 전에 스스로 문서화하는 것.
+  4. **리뷰 2라운드 패턴 내재화**: 단순 교체 1라운드 → 리뷰 → 이원화 재수정 2라운드 → PASS. 글로벌 "3파일 이상 수정 시 서브에이전트 병렬 위임" 규칙과 맞물려 workspace 범위 이관은 **특히 code-reviewer + security-reviewer 병렬 리뷰를 구현 완료 즉시 돌리고**, CRITICAL 수정 후 재리뷰를 한 번 더 돌려 종결한다.
+
+## 2026-04-21 심야 — 쿨다운 이원화 패턴: "공유 자원 보호"와 "개인 콘텐츠 격리"를 한 함수 안에서 분리한다
+
+- **상황**: AI 카운터(workspace 공유)와 briefing/report content(개인 소유)가 한 테이블 한 함수에서 교차할 때 설계 선택지:
+  - A) 카운터/content 둘 다 workspace: UNIQUE 재설계 + UPSERT target 변경 + content도 공유. 범위 큼, 감사 추적 복잡.
+  - B) 카운터/content 둘 다 user: 쿨다운을 userId로 되돌리고 workspace 카운터 중복 차감은 Redis/뮤텍스로 분리. 인프라 필요.
+  - **C) 이원화 (채택)**: 쿼리 WHERE는 workspace로 넓혀서 "최근 10초 내 활동 있는가" 탐지만 하고, 결과 row의 소유자를 다시 검사해서 본인이면 content 반환·아니면 COOLDOWN 에러. 한 함수 안에 공유(윈도우)/개인(content) 두 축을 분리.
+- **규칙**:
+  1. **"공유 윈도우로 본 흐름 진입 차단"과 "개인 소유 content 반환"은 별개의 축**. 한 함수에 합쳐도 되지만 두 축을 주석으로 분리 선언하라. 이번 코드처럼 "// 카운터 보호 목적 윈도우" / "// 본인 row → cache hit" / "// 타 멤버 row → COOLDOWN" 3단 분기 + 주석이 표준.
+  2. **전용 에러 code 신설**(`"COOLDOWN"`)로 LIMIT_EXCEEDED/TIMEOUT/PARSE_ERROR와 구분. 나중에 UI에서 amber 톤 배지, 카운트다운 UI 등 섬세한 UX 분기가 쉬워짐. 기존 에러 코드에 섞으면 "진짜 한도 초과"와 "잠깐 겹친 10초"를 UI가 구분 못 함.
+  3. **existence oracle은 허용 범위 판단**: B가 Regenerate로 "A가 10초 내 호출했는지" 탐지 가능해지지만, 협업 앱에서 동료 활동 시그널은 이미 public(activity_log, UI 상태). 기밀 유출이 아니므로 이원화의 비용으로 수용.
+
+## 2026-04-21 심야 — workspace_members가 멤버십 M:N이면 UPSERT target에 workspace_id를 명시하지 않은 UNIQUE는 cross-workspace 덮어쓰기로 터진다 (Task 5-2-2g 선제 기록)
+
+- **상황**: Task 5-2-2b 리뷰 H2로 발견된 숨은 취약점. `briefings`/`weekly_reports` UNIQUE가 `(user_id, [project_id,] week_start_date)` 상태에서 workspace switch 기능(5-2-3-B)이 열려있음 → user X가 workspace A→B로 스위치 후 같은 주 Regenerate 하면 `onConflict`가 A의 row(workspace_id=A)에 매치 → contentJson만 덮어쓰고 workspace_id는 A 유지 → B 화면 SSR에서도 `WHERE userId+weekStart` 매칭으로 그 row가 반환되어 **B workspace 페이지에 A workspace 데이터 노출**.
+- **원인**: Phase 5 multi-tenant 이관 초기에 workspace_id 컬럼만 NOT NULL로 추가하고 UNIQUE 제약은 손대지 않음. "한 user = 하나의 기본 row" 가정이 multi-workspace 멤버십 도입과 함께 깨졌지만 UNIQUE가 경고를 안 보냄. 컬럼 추가 + 백필까지는 깔끔했지만 **애플리케이션 레이어(UPSERT target / 읽기 WHERE)가 workspace_id를 인지하지 못하는 상태**가 수 주간 누적.
+- **해결 예고(Task 5-2-2g)**: 마이그레이션 0030에서 UNIQUE를 `(user_id, workspace_id, [project_id,] week_start_date)`로 확장 + `upsertBriefing`/`upsertReport` onConflict target 확장 + `getCurrentBriefing`/`getCurrentWeeklyReport` WHERE에 workspaceId 추가 + cloud apply + workspace 스위치 E2E.
+- **규칙**:
+  1. **multi-tenant 도입 Task에는 "컬럼 추가/NOT NULL 전환"뿐 아니라 "기존 UNIQUE 제약 + onConflict target + 모든 WHERE 경로"를 동일 체크리스트에서 점검**. 컬럼만 추가하고 제약은 놔두면 workspace 스위치 같은 후속 기능에서 조용히 터진다.
+  2. **"한 user = 한 row" 가정은 member:workspace M:N 도입 시 깨진다**. 검토 쿼리: `grep "unique.*userId\|onConflict.*userId"` → workspace_id 없는 것 전수 감사. 이번 2건 외에 발견되면 동일 Task에 포함.
+  3. **리뷰는 "이번 변경이 만든 문제"와 "기존에 숨어있던 문제"를 분리 보고해야 한다**. H1(이번 변경 악화)은 즉시 수정, H2(이번 리뷰로 발견한 기존 취약점)는 별도 Task로 분리해야 PR 범위가 폭발하지 않고 롤백 단위가 명확해진다.
+
 ## 2026-04-21 밤 — "use server" 파일에서 export type/interface/const는 Turbopack Server Action 변환을 silent 무력화 (10패턴 1 재학습)
 
 - **증상**: `/dashboard/settings` 저장 버튼 클릭 시 `onSubmit` → `saveSettings(formData)` 호출되지만 **네트워크 POST 요청 0건** + 콘솔 에러 0 + 토스트 0. DB 미반영 + dev server 로그에도 흔적 없음. 완전 silent no-op.

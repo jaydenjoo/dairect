@@ -44,7 +44,9 @@ type RegenerateResult =
   | {
       success: false;
       error: string;
-      code: "AUTH" | "LIMIT_EXCEEDED" | "TIMEOUT" | "PARSE_ERROR" | "UNKNOWN";
+      // COOLDOWN: 같은 workspace의 다른 멤버가 10초 내 생성한 row가 있을 때
+      //   — 카운터 중복 차감만 방어하고 content는 노출하지 않기 위한 전용 코드 (리뷰 H1).
+      code: "AUTH" | "LIMIT_EXCEEDED" | "COOLDOWN" | "TIMEOUT" | "PARSE_ERROR" | "UNKNOWN";
       dailyCount?: number;
       dailyLimit?: number;
     };
@@ -336,9 +338,15 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
 
 // ─── 내부 헬퍼 ───
 
-// 쿨다운 체크: 10초 내 생성된 기존 row 있으면 그대로 반환.
-// 없거나 content drift면 null → 본 흐름 진입.
-// 쿨다운 조회는 여전히 userId 기반 (briefings 테이블 소유 검증). 카운터만 workspace로 이관.
+// 쿨다운 체크 (리뷰 H1 후 이원화):
+//
+// - workspace 범위에서 10초 내 row 조회 → 카운터 이중 차감 방어 목적 (C-H2 원래 의도).
+// - 반환된 row의 userId가 요청자와 같으면 → 기존 content를 cache hit으로 반환.
+// - 다른 멤버 row이면 → content 노출 차단, `COOLDOWN` 에러로만 응답.
+//   briefings는 getWeeklyBriefingData(userId)가 개인별 수금/프로젝트를 집계하는 "개인 뷰"이므로
+//   (UNIQUE (userId, weekStartDate) 유지) 다른 멤버의 contentJson을 그대로 렌더하면 소유권 경계가 뚫림.
+//
+// 결과: 카운터는 workspace 단위로 보호되고, content는 여전히 멤버별로만 노출.
 async function tryCooldownReturn(
   userId: string,
   workspaceId: string,
@@ -346,13 +354,20 @@ async function tryCooldownReturn(
 ): Promise<RegenerateResult | null> {
   const rows = await db
     .select({
+      userId: briefings.userId,
       contentJson: briefings.contentJson,
       weekStartDate: briefings.weekStartDate,
       aiGeneratedAt: briefings.aiGeneratedAt,
       generationType: briefings.generationType,
     })
     .from(briefings)
-    .where(and(eq(briefings.userId, userId), eq(briefings.weekStartDate, weekStart)))
+    .where(
+      and(
+        eq(briefings.workspaceId, workspaceId),
+        eq(briefings.weekStartDate, weekStart),
+      ),
+    )
+    .orderBy(desc(briefings.aiGeneratedAt))
     .limit(1);
 
   if (rows.length === 0) return null;
@@ -360,10 +375,23 @@ async function tryCooldownReturn(
   const ageMs = Date.now() - rows[0].aiGeneratedAt.getTime();
   if (ageMs >= BRIEFING_COOLDOWN_MS) return null;
 
+  const dailyCount = await readDailyCount(workspaceId);
+
+  // 다른 멤버 row → content 노출 차단 + 카운터 보호 목적의 cooldown 에러로만 응답.
+  if (rows[0].userId !== userId) {
+    return {
+      success: false,
+      error: "워크스페이스에서 방금 AI 호출이 있었어요. 10초 후 다시 시도해주세요.",
+      code: "COOLDOWN",
+      dailyCount,
+      dailyLimit: AI_DAILY_LIMIT,
+    };
+  }
+
+  // 본인 row → 기존 content 정상 cache hit. drift 시 null → 본 흐름 진입.
   const parsed = briefingContentSchema.safeParse(rows[0].contentJson);
   if (!parsed.success) return null;
 
-  const dailyCount = await readDailyCount(workspaceId);
   return {
     success: true,
     content: parsed.data,

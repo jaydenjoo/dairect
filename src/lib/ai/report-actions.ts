@@ -52,6 +52,9 @@ type RegenerateResult =
         | "INVALID_INPUT"
         | "NOT_FOUND"
         | "LIMIT_EXCEEDED"
+        // COOLDOWN: 같은 workspace의 다른 멤버가 10초 내 생성한 row가 있을 때
+        //   — 카운터 중복 차감만 방어하고 content는 노출하지 않기 위한 전용 코드 (리뷰 H1).
+        | "COOLDOWN"
         | "TIMEOUT"
         | "PARSE_ERROR"
         | "UNKNOWN";
@@ -385,7 +388,15 @@ export async function regenerateWeeklyReportAction(
 
 // ─── 내부 헬퍼 ───
 
-// 쿨다운 조회는 여전히 userId 기반 (weekly_reports 테이블 소유 검증). 카운터만 workspace로 이관.
+// 쿨다운 체크 (리뷰 H1 후 이원화):
+//
+// - workspace 범위에서 10초 내 row 조회 → 카운터 이중 차감 방어 목적 (C-H2 원래 의도).
+// - 반환된 row의 userId가 요청자와 같으면 → 기존 content를 cache hit으로 반환.
+// - 다른 멤버 row이면 → content 노출 차단, `COOLDOWN` 에러로만 응답.
+//   weekly_reports는 getWeeklyReportData(userId)가 개인별 프로젝트 집계 + PDF 고객 발송 경로가 있어
+//   (UNIQUE (userId, projectId, weekStartDate) 유지) 다른 멤버의 contentJson을 렌더/다운로드하면 유출 위험.
+//
+// 결과: 카운터는 workspace 단위로 보호되고, content는 여전히 멤버별로만 노출.
 async function tryCooldownReturn(
   userId: string,
   workspaceId: string,
@@ -394,6 +405,7 @@ async function tryCooldownReturn(
 ): Promise<RegenerateResult | null> {
   const rows = await db
     .select({
+      userId: weeklyReports.userId,
       contentJson: weeklyReports.contentJson,
       weekStartDate: weeklyReports.weekStartDate,
       aiGeneratedAt: weeklyReports.aiGeneratedAt,
@@ -402,11 +414,12 @@ async function tryCooldownReturn(
     .from(weeklyReports)
     .where(
       and(
-        eq(weeklyReports.userId, userId),
+        eq(weeklyReports.workspaceId, workspaceId),
         eq(weeklyReports.projectId, projectId),
         eq(weeklyReports.weekStartDate, weekStart),
       ),
     )
+    .orderBy(desc(weeklyReports.aiGeneratedAt))
     .limit(1);
 
   if (rows.length === 0) return null;
@@ -414,10 +427,23 @@ async function tryCooldownReturn(
   const ageMs = Date.now() - rows[0].aiGeneratedAt.getTime();
   if (ageMs >= REPORT_COOLDOWN_MS) return null;
 
+  const dailyCount = await readDailyCount(workspaceId);
+
+  // 다른 멤버 row → content 노출 차단 + 카운터 보호 목적의 cooldown 에러로만 응답.
+  if (rows[0].userId !== userId) {
+    return {
+      success: false,
+      error: "워크스페이스에서 방금 AI 호출이 있었어요. 10초 후 다시 시도해주세요.",
+      code: "COOLDOWN",
+      dailyCount,
+      dailyLimit: AI_DAILY_LIMIT,
+    };
+  }
+
+  // 본인 row → 기존 content 정상 cache hit. drift 시 null → 본 흐름 진입.
   const parsed = reportContentSchema.safeParse(rows[0].contentJson);
   if (!parsed.success) return null;
 
-  const dailyCount = await readDailyCount(workspaceId);
   return {
     success: true,
     content: parsed.data,

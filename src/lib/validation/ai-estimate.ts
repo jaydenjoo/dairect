@@ -2,7 +2,10 @@ import { z } from "zod";
 
 // ─── AI 호출 제약 ───
 
-export const AI_DAILY_LIMIT = 50;
+// Task 5-2-2b에서 workspace_settings로 이관되어 workspace 공유 카운터가 됨.
+// 1인 기준 50 → 멤버 N명 체감 50/N 문제(C-H1)를 단순 상향으로 완화.
+// 플랜별 세분화 한도는 Phase 5.5 billing에서 재설계.
+export const AI_DAILY_LIMIT = 200;
 export const AI_REQUIREMENTS_MIN = 100;
 export const AI_REQUIREMENTS_MAX = 2000;
 export const AI_TIMEOUT_MS = 30_000;
