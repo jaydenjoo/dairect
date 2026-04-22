@@ -1,5 +1,20 @@
 # Dairect — 교훈 기록
 
+## 2026-04-22 — "로직은 맞았는데 증상 재현"의 세 번째 원인은 Vercel edge 전파 지연 (Task 5-2-4 post-deploy hotfix 3차 여정)
+
+- **상황**: Task 5-2-4 배포 후 중복 초대 차단 테스트에서 "초대 생성 중 오류가 발생했습니다" UNKNOWN fallback 관찰. 1차 hotfix(err.code 3중 매칭) → 여전히 miss → 로그로 `pgCode: null` 확인 → Drizzle `DrizzleQueryError.cause` 소스 확인 → 2차 hotfix(err.cause unwrap) 배포. Vercel Deployments 패널에서 `Current Production` 뱃지 확인했음에도 **동일 증상 + 로그마저 확인 불가** 보고. 3차로 에러 shape을 토스트에 직접 embed해서 문제 좁히려 한 순간, Jayden이 재실행하자 **정상 "이미 발송된 초대가 있습니다" 메시지가 출력**됨. 즉 2차 hotfix 로직 자체는 맞았고, 그 사이 **추가 배포(3차)로 전체 edge가 강제 갱신**되며 구 서버 액션 번들이 사라졌던 것.
+- **후보 원인 3개가 있었는데 실제 원인은 4번째**:
+  1. err.code 3중 매칭 miss → 1차 hotfix 대상 (확정)
+  2. err.cause 접근 경로 부재 → 2차 hotfix 대상 (확정)
+  3. 내가 쓴 cause unwrap 코드 자체 버그 → 가설만 있었음 (실제 아님)
+  4. **Vercel edge cache / Fluid compute warm instance 전파 지연 → 구 번들이 일부 요청에만 실행됨** (실제)
+- **규칙**:
+  1. **"Current Production 뱃지 + Ready 상태"가 전체 edge 롤아웃 완료를 보장하지 않는다**. Vercel은 기본적으로 deployment 전환이 수 분 이내 수렴하지만, warm Lambda/Fluid 인스턴스는 이전 번들을 수 분간 더 실행할 수 있음. 특히 Server Actions처럼 server-side인 경로는 브라우저 재로드로는 갱신 안 됨. 해결: deployment 직후 재테스트는 10분 이상 간격 + "강제 재배포" 1회(empty commit or redeploy 버튼)로 warm instance 회전.
+  2. **리뷰 HIGH findings를 반영했는데 증상이 그대로라면 "코드 버그 가설"을 소진하기 전에 "전파/캐시 가설"도 체크하라**. drizzle-orm 소스 직접 확인, 에러 shape 가설 검증, 3차 디버그 배포까지 갔는데 실제로는 2차가 이미 맞는 답이었음. 추가 1회 배포(3차)가 그 자체로 "강제 재배포" 역할을 해서 증상을 해결했다. 순서상 **"동일 로직 no-op redeploy"** 를 디버깅 초기 단계에 넣었으면 2차 시점에 해결됐을 것.
+  3. **로그가 안 보이는 현상 + 증상 재현**은 거의 항상 "배포 전파" 또는 "로그 수집 필터". 코드 레벨에서는 `console.error`가 실행되면 Vercel Function Logs에 100% 찍힌다. 안 보이면 (a) 실행 안 된 것(= 구 번들) (b) 로그 UI 검색 실수 둘 중 하나. 이걸 빨리 구분하는 방법: "전혀 다른 정상 동작 경로에도 로그를 임시로 찍어 비교"하거나 "response body에 직접 디버그 데이터 싣기"(3차 hotfix가 한 것).
+  4. **디버그 페이로드를 토스트에 싣는 우회 기법**은 로그 문제와 배포 전파 문제 모두에 작동한다. 로그가 안 보여도 응답은 브라우저로 돌아오므로 UX에 정보가 도달. 단 권한이 owner/admin 등 소수로 제한되어야 정보 누출 위험 통제 가능 + 원인 확정 후 즉시 복구 커밋이 전제.
+  5. **같은 증상에 hotfix를 3회 쌓으면 Parallel Change가 복잡**해진다. 이번 교훈으로 다음에는 **"1차 hotfix 실패 시 바로 '배포 전파'도 의심해서 no-op redeploy 또는 edge purge 시도"**를 디버깅 체크리스트 첫 항목에 올린다.
+
 ## 2026-04-22 — 이메일 발송 경로의 3중 방어선: URL fail-fast / Subject 제어문자 / revoke double-fault (Task 5-2-4 초대 발송)
 
 - **상황**: workspace 멤버 초대 발송(`createInvitationAction` + `sendInvitationEmail`) 구현 후 code-reviewer + security-reviewer 병렬 리뷰. CRITICAL 0이지만 HIGH 2건이 **운영 안정성 + 감사 일관성**에 직결되어 즉시 반영 결정. 세 방어선을 묶어서 교훈화.

@@ -1,7 +1,18 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-22 (Task 5-2-4 완료 — workspace 멤버 초대 생성 + Resend 이메일 발송 + review HIGH 2건 반영)
+> 최종 업데이트: 2026-04-22 (Task 5-2-4 최종 완료 — 프로덕션 DUPLICATE 정상 작동 확인 + 디버그 코드 제거 복구 push)
 > 현재 위치: **Phase 5 Epic 5-2 Phase C 진입 (5-2-4 완료)**. 남은 것: 5-2-5 `/invite/[token]` 수락 플로우. Resend sandbox 발신자(onboarding@resend.dev)로 테스트 가능, dairect.kr 도메인 verify 후 `.env` 교체만 남음.
+
+## Task 5-2-4 Post-deploy 디버그 여정 (2026-04-22)
+
+프로덕션 첫 테스트에서 중복 초대 시 "초대 생성 중 오류가 발생했습니다" UNKNOWN fallback 관찰 → 3단계 hotfix로 근본 해결.
+
+| Hotfix | Commit | 변경 | 결과 |
+|--------|--------|------|------|
+| 1차 | `7618c0d` | err.code 3중 매칭 (code=23505 / message regex / constraint 이름) | 최상위 err.code가 null이라 여전히 miss. 로그에 `pgCode: null` 확인 → 원인 좁혀짐 |
+| 2차 | `0c0e4c5` | err.cause까지 unwrap (drizzle-orm의 `DrizzleQueryError` 소스 확인: cause에 원본 PostgresError 보존) | 배포는 Ready였으나 첫 재테스트에서 동일 증상 + 로그 없음 재현 |
+| 3차 debug | `055403d` | 에러 shape 요약을 return.error에 embed → 토스트로 직접 노출 | Jayden 재실행 시 "이미 발송된 초대가 있습니다" 정상 메시지 확인 — 즉 2차 hotfix가 실제로는 작동 중이었으나 **Vercel edge cache 전파 지연**으로 일부 리전에서 구 버전 서버 액션 실행 |
+| 복구 | (이번 commit) | 디버그 페이로드 + 확장 로그 롤백, 원래 UX 문구 복구. 2차 hotfix의 err.cause unwrap 로직은 유지 | Task 5-2-4 최종 종료 |
 
 ## Task 5-2-4 ✅ 완료 (workspace 멤버 초대 생성 + Resend 이메일 발송)
 

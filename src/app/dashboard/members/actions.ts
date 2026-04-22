@@ -163,45 +163,14 @@ export async function createInvitationAction(formData: FormData): Promise<Action
         code: "DUPLICATE",
       };
     }
-    // ── 임시 디버그 3차 hotfix (Task 5-2-4, 2026-04-22): 토스트에 에러 shape 요약 노출 ──
-    // 2차 hotfix(0c0e4c5) 배포 후에도 DUPLICATE 판정이 miss하는데 Vercel 로그에도 잡히지 않음.
-    // 실제 shape 확정을 위해 에러 구조 요약을 return.error에 직접 실어 토스트로 확인.
-    // 원인 확정 후 즉시 원래 문구 복구 커밋 예정.
-    const errName = err instanceof Error ? err.name : typeof err;
-    const causeName = rootCause instanceof Error ? rootCause.name : String(rootCause);
-    const causeCode =
-      typeof (rootCause as { code?: unknown })?.code === "string"
-        ? String((rootCause as { code?: unknown })?.code)
-        : "null";
-    const keys =
-      err && typeof err === "object"
-        ? Object.keys(err as object).join(",").slice(0, 50)
-        : "";
-    const causeKeys =
-      rootCause && typeof rootCause === "object"
-        ? Object.keys(rootCause as object).join(",").slice(0, 50)
-        : "";
     console.error("[createInvitationAction] insert error", {
-      name: errName,
+      name: err instanceof Error ? err.name : typeof err,
       message: errMsg.slice(0, 200),
       pgCode: typeof pgCode === "string" ? pgCode : null,
-      causeName,
-      causeCode,
+      causeName: rootCause instanceof Error ? rootCause.name : null,
       causeMessage: causeMsg.slice(0, 200),
-      keys,
-      causeKeys,
     });
-    const dbg = [
-      `n=${errName}`,
-      `c=${pgCode ?? "null"}`,
-      `cn=${causeName}`,
-      `cc=${causeCode}`,
-      `k=[${keys}]`,
-      `ck=[${causeKeys}]`,
-      `m=${errMsg.slice(0, 40)}`,
-      `cm=${causeMsg.slice(0, 40)}`,
-    ].join(" ");
-    return { success: false, error: `[DBG] ${dbg}`, code: "UNKNOWN" };
+    return { success: false, error: "초대 생성 중 오류가 발생했습니다", code: "UNKNOWN" };
   }
 
   try {
