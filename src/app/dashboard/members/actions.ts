@@ -139,9 +139,19 @@ export async function createInvitationAction(formData: FormData): Promise<Action
       expiresAt,
     });
   } catch (err) {
-    const code = (err as { code?: string })?.code;
-    if (code === "23505") {
-      // workspace_invitations_pending_idx — 같은 workspace+email 활성 초대 존재
+    // 중복 활성 초대 판정 — postgres.js / Drizzle 에러 shape이 버전·래핑 경로별로 다를 수 있어 3중 매칭.
+    // 운영 중 단일 조건(err.code === "23505")만 보면 shape 변동 시 UNKNOWN fallback으로 묻힘 (2026-04-22 발견).
+    //   (1) err.code === "23505" — postgres.js PostgresError 표준
+    //   (2) error.message에 Postgres 표준 문구 "duplicate key value violates unique constraint"
+    //   (3) constraint 이름 "workspace_invitations_pending_idx" 포함
+    // pgCode는 로그에 함께 기록해 다음 인시던트에서 실제 shape를 즉시 확정.
+    const pgCode = (err as { code?: unknown })?.code;
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const isDuplicate =
+      pgCode === "23505" ||
+      /duplicate key value violates unique constraint/i.test(errMsg) ||
+      /workspace_invitations_pending_idx/.test(errMsg);
+    if (isDuplicate) {
       return {
         success: false,
         error: "이미 발송된 초대가 있습니다. 먼저 취소하고 다시 보내주세요.",
@@ -150,7 +160,8 @@ export async function createInvitationAction(formData: FormData): Promise<Action
     }
     console.error("[createInvitationAction] insert error", {
       name: err instanceof Error ? err.name : typeof err,
-      message: err instanceof Error ? err.message.slice(0, 200) : "",
+      message: errMsg.slice(0, 200),
+      pgCode: typeof pgCode === "string" ? pgCode : null,
     });
     return { success: false, error: "초대 생성 중 오류가 발생했습니다", code: "UNKNOWN" };
   }
