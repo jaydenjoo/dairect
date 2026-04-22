@@ -1,5 +1,45 @@
 # Dairect — 교훈 기록
 
+## 2026-04-22 밤 — Server-only 모듈은 `import "server-only"`로 빌드 타임 명시 차단 — zod fail에 간접 의존은 신뢰성 부족 (Task 5-5-1 리뷰 MEDIUM-3)
+
+- **상황**: Phase 5.5 보안 강화로 `src/lib/env.ts`(Zod env 검증)를 신규 도입. 초안에서는 "client component가 실수로 import해도 `process.env.DATABASE_URL`이 client 번들에서 undefined → zod fail로 빌드/런타임 에러 노출"이라고 자연스러운 server-only 강제를 의도. security-reviewer가 이 간접 방어의 한계를 MEDIUM으로 지적.
+- **간접 방어의 약점**:
+  1. `NEXT_PUBLIC_*` 4개는 client에서도 정의됨 → superRefine을 통과할 가능성 → server 전용 env 참조가 client 번들에 포함되는 경로가 이론적으로 존재.
+  2. webpack의 `process.env.X` 정적 치환은 server secret 자체를 leak하지 않지만, **schema 객체와 에러 메시지 한국어 텍스트가 client 번들에 직렬화되어 들어감** — 번들 사이즈 + 정보 노출.
+  3. 에러가 build/runtime 어느 시점에 나타날지 상황에 따라 다름 → 간헐적 사고 디버깅 어려움.
+- **해결**: `pnpm add server-only` (0.0.1, ~10 LOC 작은 패키지) + `src/lib/env.ts` 최상단에 `import "server-only";` 한 줄. Next.js/React Server Components 표준 패턴 — client component(또는 'use client' 트리)에서 import 시도 시 webpack/turbopack이 빌드 타임에 즉시 throw.
+- **규칙**:
+  1. **DB 연결, secret, 외부 API SDK 같은 server 전용 모듈은 항상 `import "server-only";` 최상단**. zod fail이나 `typeof window` 체크 같은 간접 방어는 보조이지 주방어가 아니다. 명시적 contract가 안전.
+  2. **공식 패턴(`server-only` 패키지) > 직접 만든 가드**. 직접 작성한 `if (typeof window !== "undefined") throw`는 런타임 차단만 가능 (빌드 차단 못 함). server-only는 webpack loader 단계에서 차단 → CI에서 잡힘.
+  3. **server-only가 설치 안 되어 있다고 우회 금지**. `pnpm add server-only`로 한 번 설치하면 Next.js 프로젝트 표준 도구. 새 server 모듈마다 보일러플레이트 없이 한 줄 import.
+  4. **client에 노출 가능한 env는 명시적으로 분리** — `src/lib/env.ts`(server) + `src/lib/env.public.ts`(NEXT_PUBLIC만, server-only 안 붙임)의 2파일 패턴. 이번 Task에서는 `env` export 사용처가 0건이라 분리 보류했으나 향후 사용 시점에 같이 분리.
+
+## 2026-04-22 밤 — Zod schema의 형식 강제(`.email()` 등)는 SDK가 처리하는 영역이면 위임 — production 부팅 회귀 위험 (Task 5-5-1 리뷰 HIGH-1)
+
+- **증상**: `src/lib/env.ts` 초안에서 `RESEND_REPLY_TO: z.string().email("RESEND_REPLY_TO는 이메일 형식이어야 함").optional()`로 작성. security-reviewer가 "Vercel UI에서 사용자가 `Jayden <hidream72@gmail.com>` 같은 'Name <email>' 표기로 입력하면 production 부팅 즉시 차단됨"을 HIGH로 지적. RESEND SDK는 양 형식을 모두 허용하는데 startup이 더 엄격한 비대칭 → 사고 시나리오는 외부 공격이 아닌 운영자 본인의 형식 입력 실수.
+- **비대칭의 함정**: 같은 schema 안에서 `RESEND_FROM_EMAIL`은 `.email()` 없이 `.string().optional()`로 통과시키는데, **옵션 항목인 REPLY_TO만 엄격하게 막음** — 검증 우선순위가 거꾸로. from 쪽 형식 오류가 발송 실패로 더 큰 사고인데 옵션 항목만 잡고 있는 모순.
+- **해결**: `RESEND_REPLY_TO: z.string().min(1).optional()`로 완화. 형식 검증은 발송 시점에 Resend SDK가 자체 처리하도록 위임. 비공백만 startup에서 보장(빈 문자열 set 사고 방지).
+- **규칙**:
+  1. **Startup env 검증의 strict-ness는 "SDK가 어떻게 처리하는가"를 기준으로**. SDK가 형식을 강제하면 startup도 같은 수준으로 강제 (정렬). SDK가 관용적이면 startup도 관용적이어야 함 (운영자가 SDK 동작을 신뢰해서 입력하는데 startup이 거부하면 부팅 차단 = 가용성 사고).
+  2. **옵션 필드를 필수 필드보다 엄격하게 검증하는 비대칭은 즉시 의심**. 같은 도메인 값이라면 strict-ness가 일관되어야 함 — 한쪽만 strict면 누락된 검증을 추가할지, 과한 검증을 완화할지 결정 필요.
+  3. **`.email()`, `.url()` 같은 형식 검증은 도메인 라이브러리(Resend SDK, fetch URL parser)가 어차피 수행하는 영역**. startup의 fail-fast는 "값이 존재하는가" 위주로 좁히고, 형식은 라이브러리에 위임 → schema가 production 부팅을 막는 잘못된 트리거가 되는 경로 차단.
+  4. **검증 메시지에 "어떻게 입력해야 하는가"의 예시 포함**. 단순 "이메일 형식이어야 함"보다 "예: invite@send.dairect.kr (Name <email> 표기 시 따옴표 없이)"가 운영자 디버깅 시간 단축. 이번엔 검증 자체를 제거했지만, 남기는 검증은 메시지 품질에 신경.
+
+## 2026-04-22 밤 — Referrer-Policy는 `/invite/`, `/portal/`뿐 아니라 `/auth/callback?code=...`에도 필요 — OAuth code 5xx 잔류 leak (Task 5-5-1 리뷰 MEDIUM-1)
+
+- **상황**: Phase 5.5 보안 강화로 URL path에 토큰이 박힌 `/invite/[token]`, `/portal/[token]`에 `Referrer-Policy: no-referrer` 응답 헤더 추가. security-reviewer가 "`/auth/callback?code=...&next=...`도 query string에 단명 OAuth code를 잠시 노출 — `redirect()`로 즉시 빠져나가는 happy path는 leak 창이 좁지만, **callback이 5xx error로 떨어지면 사용자가 그 페이지에 머물게 됨** → 그때 외부 자원(이미지/링크) 클릭 시 code가 referer로 leak"을 MEDIUM으로 지적.
+- **OAuth code의 위험성**: PKCE/code는 단명(short-lived, 1분 내외)이지만, **TOCTOU race에서 재교환 시 세션 탈취 이론적으로 가능**. 외부 서버 로그에 잔류한 code가 즉시 사용 시도되면 정당한 사용자보다 먼저 토큰 교환 가능.
+- **해결**: `next.config.ts` headers에 `/auth/:path*` 추가:
+  ```typescript
+  { source: "/auth/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] }
+  ```
+  비용 0(redirect 응답에도 헤더 적용 — 발송하는 쪽이 이미 빠져나가서 의미 없어 보이지만 5xx 경로 보호) + happy path 영향 0 + 실패 경로 보호.
+- **규칙**:
+  1. **"URL에 비밀이 들어가는 경로 목록"에 path 토큰뿐 아니라 query 토큰도 포함**. `/auth/callback?code=`, `/api/...?token=`, `/reset?nonce=` 등 query에 1회용 비밀이 박히는 모든 라우트가 대상. path/query 구분 없이 응답 헤더로 동일 보호.
+  2. **happy path만 보고 정책 결정 금지**. "redirect로 즉시 빠져나가니까 보호 불필요"는 5xx/4xx 에러 페이지에서 사용자가 머무르는 경로를 놓침. **에러 응답에도 동일 정책이 적용되도록 path-prefix 매칭으로 통째로 보호**가 안전.
+  3. **새로운 토큰/code-bearing 라우트 추가 시 체크리스트**: SW matcher 등록(Task 4-4 패턴) + Referrer-Policy 적용(Task 5-5-1 패턴) + open redirect sanitizer 사용(Task 5-2-5 패턴) **세 가지가 묶음**. 새 dynamic 라우트 PR에서 이 3건 점검을 자동화(예: GitHub PR template + grep 스크립트)하면 매번 인간 기억에 의존하지 않음.
+  4. **Referrer-Policy 사이트 전체 vs 경로별 trade-off**: 사이트 전체 `strict-origin-when-cross-origin` 기본 + 민감 경로만 `no-referrer` 강화의 2단 정책이 이상적. 단 사이트 전체 정책 변경은 분석/광고 referer 손실 영향 분석 필요 — Phase 5.5 후속 ToDo로 명시.
+
 ## 2026-04-22 저녁 — Open Redirect에는 backslash bypass도 있다: WHATWG URL 파서는 `/\evil.com`을 `https://evil.com/`로 정규화한다 (Task 5-2-5 리뷰 CRITICAL C-1)
 
 - **증상**: `/invite/[token]` 플로우에서 `sanitizeNext`는 "상대경로만 허용, `//`(protocol-relative) 차단"으로 4곳(login/signup/callback/signout)에 중복 구현되어 있었음. code-reviewer가 **`/\evil.com` 입력 시 현재 정규식(`!startsWith("//")`)을 통과하지만 브라우저 URL 파서가 backslash를 forward slash로 정규화해 결과적으로 외부 사이트로 리다이렉트 가능**함을 지적. WHATWG URL 스펙: `new URL("/\\evil.com", "https://dairect.kr").href` → `https://evil.com/` (Chromium/Firefox 공통).

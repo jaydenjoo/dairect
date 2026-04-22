@@ -32,6 +32,32 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Phase 5.5 보안 강화: URL path/query에 비밀 토큰이 포함된 경로에 Referrer-Policy: no-referrer.
+  // 사용자가 해당 페이지 내 외부 링크(footer/임베드 이미지 등)로 이동 시 Referer 헤더에
+  // token URL이 실려 외부 서버 로그에 잔류하는 leak 경로 차단.
+  // 응답 헤더 방식 채택(메타 태그 대비 HTML 변조에 강건).
+  //
+  // 대상:
+  //  - /invite/[token]  : 멤버 초대 수락 (URL path token)
+  //  - /portal/[token]  : 고객 포털 공유 링크 (URL path token)
+  //  - /auth/...        : OAuth callback의 ?code=... query 잠시 노출 — 5xx 경로에서 사용자가
+  //                       머무르면 외부 자원 클릭으로 code leak 위험 (MEDIUM-1 리뷰 반영).
+  async headers() {
+    return [
+      {
+        source: "/invite/:path*",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
+      {
+        source: "/portal/:path*",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
+      {
+        source: "/auth/:path*",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
+    ];
+  },
 };
 
 export default withSerwist(nextConfig);

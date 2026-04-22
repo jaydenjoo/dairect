@@ -1,7 +1,61 @@
 # Dairect v3.1 — 진행 현황
 
+> 최종 업데이트: 2026-04-22 밤 (Task 5-5-1 ✅ Phase 5.5 보안 강화 묶음 — 3건 + security-reviewer HIGH 1 + MEDIUM 2 즉시 반영)
+> 현재 위치: **Phase 5.5 보안 강화 진행 중**. Task 5-5-1 완료(referrer-policy + env startup 검증 + Resend key 분리 가이드). 남은 Phase 5.5 ToDo 5건(아래) + Phase D 진입 검토.
+
+## Task 5-5-1 ✅ 완료 (Phase 5.5 보안 강화 묶음 3건 + 리뷰 4건 반영)
+
+**범위**: Phase 5.5 ToDo 8건 중 3건 묶음 처리.
+
+**신규 파일 3**
+- `src/lib/env.ts` — Zod 스키마로 모든 필수 env 정의 + production-only superRefine(RESEND 2종 강제). top-level `validateEnv()` 호출 + cached `env` export. `import "server-only"`로 client 번들 leak 빌드 타임 차단.
+- `src/instrumentation.ts` — Next.js 공식 부팅 훅. `register()`에서 `nodejs runtime`이면 `./lib/env` import → top-level validate 실행 → throw 시 부팅 차단.
+- `scripts/test-env-validation.mjs` — zod superRefine 5개 케이스 일회성 검증 스크립트(dev/prod RESEND 누락, prod 충족, bad URL, empty DATABASE_URL). 모두 PASS 확인.
+
+**수정 파일 2**
+- `next.config.ts` — `headers()` async function 추가. `/invite/:path*`, `/portal/:path*`, `/auth/:path*`에 `Referrer-Policy: no-referrer` 응답 헤더. 응답 헤더 방식(메타 태그 대비 HTML 변조 강건). `/auth/`는 OAuth `?code=...` query 5xx 시 잔류 leak 방어(MEDIUM-1 리뷰 반영).
+- `docs/env-setup.md` — RESEND_API_KEY/FROM_EMAIL/REPLY_TO 항목 + Resend Sending Access(only) key 분리 절차 5단계 + 분기 회전 권장 + startup 검증 안내 + 트러블슈팅 2건(따옴표 leak / 부팅 차단).
+
+**의존성 추가 1**
+- `pnpm add server-only@0.0.1` — Vercel 공식 패턴. server 전용 모듈이 client component에서 import될 때 빌드 타임 즉시 차단. env.ts 최상단 `import "server-only"`로 적용.
+
+**검증**
+- `pnpm tsc --noEmit && pnpm lint && pnpm build` — 전 단계 통과. SW artifact verified.
+- `node scripts/test-env-validation.mjs` — 5/5 PASS (dev RESEND 누락 PASS, prod RESEND 누락 FAIL, prod 충족 PASS, bad url FAIL, empty DATABASE_URL FAIL).
+- dev 서버 부팅 + curl 헤더 검증:
+  - `/invite/<uuid>` → 200 + `Referrer-Policy: no-referrer` ✅
+  - `/portal/<uuid>` → 200 + `Referrer-Policy: no-referrer` ✅
+  - `/auth/callback?code=test` → 307 + `Referrer-Policy: no-referrer` ✅
+  - `/` → 200 + 헤더 미적용 ✅ (대조군)
+
+**security-reviewer 결과**
+- CRITICAL 0건. HIGH 1건 + MEDIUM 4건 + LOW 2건 + INFO 다수.
+- **즉시 반영 4건**:
+  - HIGH-1: `RESEND_REPLY_TO`를 `.email()` 강제 → `.min(1)`로 완화. "Name <email>" 표기 입력 시 production 부팅 차단되는 회귀 위험 제거. 실제 형식 검증은 Resend SDK가 발송 시점 처리.
+  - MEDIUM-1: `/auth/:path*` Referrer-Policy 추가 (OAuth code 5xx 잔류 leak 방어).
+  - MEDIUM-3: `import "server-only"` 추가 (client 번들 leak 빌드 타임 차단).
+  - 부수: 코드 주석에 리뷰 사유 명기.
+- **Phase 5.5 잔여 ToDo로 이관 4건**:
+  - MEDIUM-2: n8n webhook URL 5종을 env schema에 옵션 등록 (drift 방지). trade-off: 잘못된 URL 1개로 production 부팅 차단되는 부작용.
+  - MEDIUM-4: instrumentation 부팅 차단 효과 end-to-end 실증 (`pnpm start` + 누락 env 시나리오) + `next.config.ts`에서 `import "@/lib/env"` 검토 (build 타임 차단 보강).
+  - LOW-1: `scripts/test-env-validation.mjs`를 vitest 케이스로 이관 (현재 schema 사본이라 drift 위험).
+  - LOW-2: `docs/env-setup.md`의 RESEND_FROM_EMAIL "주소만 vs Name <email>" 표기 일관성 명문화.
+
+### 차기 Task 등록 (Phase 5.5 잔여 ToDo 5건)
+1. **Resend Sending Access key 발급/회전** (Jayden 수동, docs/env-setup.md 절차 따름) — 가장 우선 권장
+2. **rate limit** (members 초대 발송 / login 시도 등 — Vercel KV 또는 Upstash Redis)
+3. **activity_logs 감사** (멤버 초대 발송/수락/revoke 이벤트 audit trail)
+4. **멤버 수 상한 게이트** (workspace_settings.plan별 max members enforce)
+5. **MEDIUM-2/4 + LOW-1/2 후속** (n8n schema 등록 / instrumentation 실증 / vitest 이관 / docs 명문화)
+
+또는 **Phase 5 Epic 5-3** 진입 검토 가능 (PRD 재확인 필요).
+
+---
+
+## 이전 Task — Phase 5 Epic 5-2 Phase C (5-2-4, 5-2-5)
+
 > 최종 업데이트: 2026-04-22 저녁 (Task 5-2-5 ✅ + 부수 4건 묶음 완료 — 프로덕션 E2E: 초대 발송→수신→수락→대시보드 진입 전 경로 실측 성공)
-> 현재 위치: **Phase 5 Epic 5-2 Phase C 완결 (5-2-4, 5-2-5 완료) + Phase 5.5 선행 1건(pending idx LOWER) + Supabase Auth 보안 강화 5건 + send.dairect.kr 도메인 prod 전환**. 남은 Phase C Task: workspace switcher UI(이미 구현되어 있어 추가 구현 0 / 실전 드롭다운 UX는 타계정 초대→수락 시 자동 검증됨), 이후는 Phase 5.5 ToDo 또는 Phase D.
+> 위치: **Phase 5 Epic 5-2 Phase C 완결 (5-2-4, 5-2-5 완료) + Phase 5.5 선행 1건(pending idx LOWER) + Supabase Auth 보안 강화 5건 + send.dairect.kr 도메인 prod 전환**. 남은 Phase C Task: workspace switcher UI(이미 구현되어 있어 추가 구현 0 / 실전 드롭다운 UX는 타계정 초대→수락 시 자동 검증됨), 이후는 Phase 5.5 ToDo 또는 Phase D.
 
 ## Task 5-2-5 ✅ 완료 (/invite/[token] 초대 수락 + 리뷰 CRITICAL 2 + HIGH 6 반영)
 
