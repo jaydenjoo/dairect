@@ -4,6 +4,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
+  activityLogs,
   users,
   workspaceInvitations,
   workspaceMembers,
@@ -200,6 +201,7 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
           ),
         )
         .returning({
+          id: workspaceInvitations.id,
           workspaceId: workspaceInvitations.workspaceId,
           role: workspaceInvitations.role,
         });
@@ -208,7 +210,7 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
         // 동시 수락 등 race 상황 — 트랜잭션 롤백
         throw new Error("ACCEPT_RACE");
       }
-      const { workspaceId: acceptedWsId, role: acceptedRole } = accepted[0];
+      const { id: invitationId, workspaceId: acceptedWsId, role: acceptedRole } = accepted[0];
 
       // 2) workspace_members INSERT — UNIQUE (workspace_id, user_id) 이중 수락 방어
       await tx
@@ -227,6 +229,23 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
         .update(users)
         .set({ lastWorkspaceId: acceptedWsId })
         .where(eq(users.id, userId));
+
+      // 4) Phase 5.5 Task 5-5-3: 감사 로그 기록 (같은 transaction → atomicity).
+      // metadata.email은 invitation의 저장된 email (이미 lowercase 정규화됨).
+      // metadata.inviteeUserId는 수락자 본인 — invitedBy(원래 발송자)와 분리되어 추적 가능.
+      await tx.insert(activityLogs).values({
+        userId,
+        workspaceId: acceptedWsId,
+        entityType: "workspace_invitation",
+        entityId: invitationId,
+        action: "workspace_invitation.accepted",
+        description: "멤버 초대 수락",
+        metadata: {
+          email: existing.email,
+          role: acceptedRole,
+          inviteeUserId: userId,
+        },
+      });
 
       return acceptedWsId;
     });

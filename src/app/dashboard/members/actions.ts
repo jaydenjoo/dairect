@@ -5,6 +5,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
+  activityLogs,
   users,
   workspaceInvitations,
   workspaceMembers,
@@ -204,13 +205,32 @@ export async function createInvitationAction(formData: FormData): Promise<Action
         throw new MemberLimitExceededError(used, limit, plan);
       }
 
-      await tx.insert(workspaceInvitations).values({
+      const [inserted] = await tx
+        .insert(workspaceInvitations)
+        .values({
+          workspaceId,
+          email: parsed.data.email,
+          role: parsed.data.role,
+          token,
+          invitedBy: userId,
+          expiresAt,
+        })
+        .returning({ id: workspaceInvitations.id });
+
+      // Phase 5.5 Task 5-5-3: 감사 로그 기록 (같은 transaction → atomicity 보장).
+      // metadata에 raw email/role 저장 — RLS로 workspace 멤버만 조회 가능 (PRD-erd:326).
+      await tx.insert(activityLogs).values({
+        userId,
         workspaceId,
-        email: parsed.data.email,
-        role: parsed.data.role,
-        token,
-        invitedBy: userId,
-        expiresAt,
+        entityType: "workspace_invitation",
+        entityId: inserted.id,
+        action: "workspace_invitation.created",
+        description: "멤버 초대 발송",
+        metadata: {
+          email: parsed.data.email,
+          role: parsed.data.role,
+          inviterName,
+        },
       });
     });
   } catch (err) {
@@ -321,20 +341,49 @@ export async function revokeInvitationAction(invitationId: string): Promise<Acti
     return { success: false, error: "잘못된 초대 ID입니다", code: "INVALID_INPUT" };
   }
 
-  const updated = await db
-    .update(workspaceInvitations)
-    .set({ revokedAt: new Date() })
-    .where(
-      and(
-        eq(workspaceInvitations.id, idCheck.data),
-        eq(workspaceInvitations.workspaceId, workspaceId),
-        isNull(workspaceInvitations.acceptedAt),
-        isNull(workspaceInvitations.revokedAt),
-      ),
-    )
-    .returning({ id: workspaceInvitations.id });
+  // Phase 5.5 Task 5-5-3: revoke + activity_log를 단일 transaction으로 묶어 atomicity 보장.
+  // 0 rows 반환 케이스(이미 수락/취소됨)는 transaction 안에서 null 반환 → 외부에서 NOT_FOUND.
+  // (실제 변경 없음 → audit log도 남기지 않음 — 멱등성 일관)
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(workspaceInvitations)
+      .set({ revokedAt: new Date() })
+      .where(
+        and(
+          eq(workspaceInvitations.id, idCheck.data),
+          eq(workspaceInvitations.workspaceId, workspaceId),
+          isNull(workspaceInvitations.acceptedAt),
+          isNull(workspaceInvitations.revokedAt),
+        ),
+      )
+      .returning({
+        id: workspaceInvitations.id,
+        email: workspaceInvitations.email,
+        role: workspaceInvitations.role,
+        invitedBy: workspaceInvitations.invitedBy,
+      });
 
-  if (updated.length === 0) {
+    if (!row) return null;
+
+    await tx.insert(activityLogs).values({
+      userId,
+      workspaceId,
+      entityType: "workspace_invitation",
+      entityId: row.id,
+      action: "workspace_invitation.revoked",
+      description: "멤버 초대 취소",
+      metadata: {
+        email: row.email,
+        role: row.role,
+        // 원래 발송자 — revoke한 사람(userId)과 다를 수 있음 (다른 admin이 취소).
+        originalInviterUserId: row.invitedBy,
+      },
+    });
+
+    return row;
+  });
+
+  if (!updated) {
     return { success: false, error: "취소할 수 있는 초대가 아닙니다", code: "NOT_FOUND" };
   }
 

@@ -1,5 +1,30 @@
 # Dairect — 교훈 기록
 
+## 2026-04-22 밤 — Audit log INSERT는 primary mutation과 같은 transaction에 묶어야 atomicity 확보 + 도입 시점에 "PII 라이프사이클 + 표시 정책" 후속 ToDo도 함께 기록 (Task 5-5-3)
+
+- **상황**: Task 5-5-3에서 `workspace_invitation.created/accepted/revoked` 3 이벤트를 activity_logs에 추가. 기존 portal_token audit 패턴(`portal-actions.ts:188`) 재사용 — primary mutation(workspace_invitations INSERT/UPDATE)과 activity_logs INSERT를 **같은 db.transaction에 묶어 atomicity 보장**. 구현 후 code-reviewer + security-reviewer 모두 CRITICAL/HIGH 0건 통과. 다만 두 리뷰 합쳐 MEDIUM 5건이 모두 "감사 로그 도입 자체는 OK이지만 그 데이터를 어떻게 다룰지(자동 revoke audit / 표시 정책 / PII 라이프사이클 / XSS 정규화 / 권한 박제) 정책 미정"임을 지적.
+- **Atomicity의 가치 (재확증)**:
+  - primary mutation 성공 + audit log 실패 → "정상 처리됐는데 audit 누락" → 분쟁/추적 불가 (false negative).
+  - primary mutation 실패 + audit log 성공 → "발생 안 한 일이 audit에 남음" → 잘못된 사고 보고 (false positive).
+  - 같은 transaction에 묶으면 두 케이스 모두 차단. 트랜잭션 비용은 INSERT 1건 추가뿐 — 거의 무시 가능.
+  - 단, transaction 안 INSERT가 main row의 returning id에 의존하면 INSERT 순서가 중요 (workspace_invitations INSERT → returning id → activityLogs INSERT 순).
+- **PII 라이프사이클 + 표시 정책의 잠복 리스크**:
+  - audit log에 raw email/name 저장 → RLS로 workspace 멤버만 조회 가능(현재) → 안전. 그러나 6개월~1년 누적 후:
+    - "GDPR 삭제 요청": 사용자가 자기 PII 삭제를 요구하면 audit log도 삭제? 보존? 익명화? — 결정 미정이면 법적 리스크.
+    - "audit log UI 도입": 누군가 React로 metadata.email을 그대로 렌더링 → user.name(자유 텍스트)에 control char/HTML/JS 포함 시 XSS. 도입 시점에서야 인지.
+    - "보존 기간": 90일 / 1년 / 영구? cold storage 이관 정책? — 미정이면 DB 비대화.
+  - 이 모든 결정을 audit 도입 시점(=지금)에 미리 ToDo로 기록해두면 후속 누락 방지. 도입 시점에 미정인 정책일수록 후속에 잊혀짐.
+- **규칙**:
+  1. **Audit log INSERT는 primary mutation과 같은 transaction에 묶어 atomicity 강제**. 별도 transaction이면 partial failure 시 거짓 audit 발생. 트랜잭션 비용 < 데이터 무결성 가치.
+  2. **Audit 도입 시 함께 결정/문서화해야 할 후속 정책 4종**:
+     - **표시 정책**: 누가(workspace 멤버 vs admin only) 어디서(대시보드 활동 피드 vs 별도 audit UI) audit를 보는가
+     - **PII 라이프사이클**: 보존 기간 + 삭제/익명화 정책 + GDPR 대응
+     - **render escape 정책**: metadata에 자유 텍스트(user.name)가 들어가면 UI 도입 전에 control char 정규화 + escape 강제
+     - **권한 snapshot 정책**: actor의 role을 audit 시점에 박제할지(분쟁 정확성) vs 현재 role을 join할지(단순성)
+  3. **Audit 데이터는 INSERT만 추가하고 표시 정책 미결정이면 데이터가 누적되며 잠복 리스크가 됨**. PROGRESS.md에 Phase 5.5 ToDo로 5건(자동 revoke / 표시 정책 / 정규화 / PII / role 박제) 명시 — 이번 Task 종료가 미해결 이슈 누락이 아님을 보장.
+  4. **기존 패턴 재사용 시 패턴이 가정한 후속 단계까지 따라가는지 점검**. portal_token audit를 그대로 복사했으나 portal_token도 동일한 표시 정책 미결정 상태. 재사용한다고 안전하다는 착각 금지 — 패턴이 만든 미해결 이슈가 같이 복사됨.
+  5. **revokeInvitationAction처럼 단일 UPDATE를 transaction으로 감싸 audit를 추가할 때, 0 rows 분기를 trans 안에서 null 반환 + audit skip으로 처리**. transaction throw로 처리하면 외부 catch가 NOT_FOUND를 정상 분기로 다뤄야 해서 흐름이 부자연. null 반환이 멱등성 일관 + audit skip으로 "변경 없으면 audit 없음" 원칙 유지.
+
 ## 2026-04-22 밤 — INSERT-time only enforcement는 비대칭 게이트 — plan downgrade로 한도 우회 가능, 모든 mutation 진입점에 동일 게이트 필요 (Task 5-5-2 리뷰 CRIT-1)
 
 - **상황**: Task 5-5-2에서 멤버 수 상한 게이트를 `createInvitationAction`(초대 발송)에만 도입. 발송 시 (members + pending + 1 > limit) 비교로 정확한 한도 enforcement 구현 + 6 시나리오 SQL PASS. code-reviewer가 "발송 게이트 자체는 견고하나 `acceptInvitationAction`(수락)에는 한도 체크 부재 → plan downgrade(pro→free) 시점 우회 가능"을 CRITICAL로 지적.

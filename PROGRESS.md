@@ -1,7 +1,50 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-22 밤 (Task 5-5-2 ✅ 멤버 수 상한 게이트 — invite + accept 양측 + reviewer CRIT-1 즉시 반영)
-> 현재 위치: **Phase 5.5 진행 중**. Task 5-5-1(보안 강화 묶음) + 5-5-2(멤버 한도 게이트) 완료. 남은 Phase 5.5 ToDo 4건(아래).
+> 최종 업데이트: 2026-04-22 밤 (Task 5-5-3 ✅ activity_logs 감사 — invite/accept/revoke 3 이벤트 atomically 기록)
+> 현재 위치: **Phase 5.5 진행 중**. Task 5-5-1(보안 강화) + 5-5-2(멤버 한도) + 5-5-3(audit) 완료. 남은 Phase 5.5 ToDo 3건 + audit 후속 5건(아래).
+
+## Task 5-5-3 ✅ 완료 (멤버 초대/수락/취소 activity_logs 감사 — 3 이벤트 atomically + 리뷰 통과)
+
+**범위**: 3가지 이벤트를 같은 transaction에 INSERT (atomicity 보장).
+- `workspace_invitation.created` (createInvitationAction)
+- `workspace_invitation.accepted` (acceptInvitationAction)
+- `workspace_invitation.revoked` (revokeInvitationAction)
+
+**수정 파일 2**
+- `src/app/dashboard/members/actions.ts`:
+  - createInvitationAction transaction에 `tx.insert(activityLogs).values({...})` 추가. invitation INSERT를 `.returning({ id })`로 변경하여 entityId 확보. metadata: { email, role, inviterName }.
+  - revokeInvitationAction을 `db.transaction`으로 감쌈 (기존 단일 UPDATE → tx). UPDATE returning에 email/role/invitedBy 추가. 0 rows 반환 시 null 반환 → 외부 NOT_FOUND (멱등성 일관, audit log skip). metadata: { email, role, originalInviterUserId }.
+- `src/app/invite/[token]/accept-actions.ts`:
+  - acceptInvitationAction transaction의 invitation UPDATE returning에 id 추가. workspace_members INSERT + last_workspace_id UPDATE 다음에 activityLogs INSERT. metadata: { email(invitation 저장값), role, inviteeUserId }.
+
+**기존 패턴 재사용**: `src/app/dashboard/projects/[id]/portal-actions.ts:188` 의 portal_token activity_log 패턴 그대로.
+
+**검증**
+- `pnpm tsc/lint/build` 통과 (lint warning 1건 무관 estimate-form.tsx).
+- Cloud Supabase schema 호환성 확인: 코드 INSERT 필드(userId, workspaceId, entityType, entityId, action, description, metadata) 모두 schema와 일치.
+- DO 블록 시뮬레이션 PASS: workspace_invitations + activity_logs 3건 INSERT 모두 schema 위반 없이 통과 → `RAISE EXCEPTION 'TEST_ROLLBACK_OK_LOGS=3'`로 자동 ROLLBACK (테스트 데이터 무손상).
+- RLS 호환성: `0021_rls_policies_multitenant.sql:191~202`의 `activity_logs_select_members` 정책으로 같은 workspace 멤버만 조회 가능 + anon RESTRICTIVE deny로 cross-tenant 차단.
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL/HIGH **0건** — 즉시 반영 필요 변경 없음.
+- transaction atomicity / RLS 격리 / token metadata 누락 / entityId 일관성(invitation.id) / nullable invitedBy / inviterName snapshot 시점 등 모두 의도된 설계로 OK.
+- **Phase 5.5 잔여 ToDo로 이관 5건**:
+  - audit-1 (code MED): 이메일 발송 실패 후 자동 soft revoke 시 audit log 부재 → 같은 패턴으로 추가 (action: workspace_invitation.revoked + metadata.reason: "email_send_failed"). 일관성 강화.
+  - audit-2 (code MED): 활동 피드(`getRecentActivity`)가 본인 row만 조회 → 다른 admin이 revoke한 초대를 invitee가 못 봄. 정책 변경(workspace 단위 표시) 별도 PRD 검토.
+  - audit-3 (sec MED-1): inviterName(user.name 자유 텍스트) control char 정규화 — 향후 audit UI 도입 시 XSS 자동 보호. 5줄 수정.
+  - audit-4 (sec MED-2): metadata.email 평문 저장 정책의 PII 라이프사이클(보존 기간 / 익명화 / 삭제 정책) 결정 — Phase 5.5 빌링과 함께.
+  - audit-5 (sec MED-3): revokeInvitation metadata에 revokerRoleAtTime 박제 — 분쟁 시 "revoke 시점의 권한" 추적 정확성.
+
+### 차기 Task 등록 (Phase 5.5 잔여 3건 + audit 후속 5건)
+1. **Resend Sending Access key 발급/회전** (Jayden 수동, 개발 완료 후 — 2026-04-22 결정)
+2. **rate limit** (members 초대 / login — Vercel KV vs Upstash Redis 결정 선행)
+3. **audit-1~5 + Task 5-5-1/2의 MEDIUM/LOW 후속 정리** (자동 revoke audit / 활동 피드 정책 / inviterName 정규화 / PII 라이프사이클 / revokerRole 박제 / n8n schema / instrumentation 실증 / vitest 이관 / page.tsx HIGH-1 / hashtext HIGH-2 / settings row missing HIGH-4 / Existing-over-limit 정책)
+
+또는 **Phase 5 Epic 5-3** 진입 검토 (PRD 재확인 필요).
+
+---
+
+## Task 5-5-2 ✅ 완료 (멤버 수 상한 게이트 — invite + accept 양측 + reviewer 즉시 반영 3건)
 
 ## Task 5-5-2 ✅ 완료 (멤버 수 상한 게이트 — invite + accept 양측 + reviewer 즉시 반영 3건)
 
