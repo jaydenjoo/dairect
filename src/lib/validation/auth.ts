@@ -4,7 +4,7 @@ import { z } from "zod";
 //
 // 정책:
 //   - email: RFC 준수 + 200자 제한 (login.tsx와 동일)
-//   - password: 8자 이상, 200자 이하 (Supabase 기본 + DoS 회피)
+//   - password: 8자 이상, 200자 이하 (Supabase Minimum password length=8과 일치. DoS 회피 목적의 max.)
 //   - confirmPassword: password와 일치 (refine)
 //   - name: 선택. 제공되면 1~50자, trim.
 //
