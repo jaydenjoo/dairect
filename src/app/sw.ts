@@ -52,6 +52,14 @@ const customRuntimeCaching: RuntimeCaching[] = [
       sameOrigin && url.pathname.startsWith("/dashboard"),
     handler: safeNetworkOnly(),
   },
+  // Phase 5 Task 5-2-5: /invite/[token] — URL path에 122-bit 랜덤 토큰 포함.
+  // SW 캐시에 저장 시 동일 기기의 다른 방문자에게 노출될 위험.
+  // Task 4-4 M1+M2에서 /portal/[token]으로 동일 패턴 차단한 것과 동일 이유.
+  {
+    matcher: ({ url, sameOrigin }) =>
+      sameOrigin && url.pathname.startsWith("/invite/"),
+    handler: safeNetworkOnly(),
+  },
   ...defaultCache,
 ];
 
@@ -78,6 +86,7 @@ const serwist = new Serwist({
           const url = new URL(request.url);
           if (url.pathname.startsWith("/dashboard")) return false;
           if (url.pathname.startsWith("/portal/")) return false;
+          if (url.pathname.startsWith("/invite/")) return false;
           if (url.pathname.startsWith("/api/")) return false;
           if (url.pathname.startsWith("/auth/")) return false;
           return true;

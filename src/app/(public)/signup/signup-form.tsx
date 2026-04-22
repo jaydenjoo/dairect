@@ -9,15 +9,20 @@ import { signupFormSchema } from "@/lib/validation/auth";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { safeNext } from "@/lib/utils/safe-next";
 
 // 회원가입 폼 client component.
 // 성공 시 동작:
-//   - data.session 존재 (local enable_confirmations=false): /dashboard 즉시 redirect + refresh
+//   - data.session 존재 (local enable_confirmations=false): next(기본 /dashboard) 즉시 redirect + refresh
 //   - data.session null (production enable_confirmations=true): "확인 메일 발송됨" 안내 UI
+//     (확인 메일의 링크가 /auth/callback?next=<encoded>로 돌아와 next로 최종 이동)
 export function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackError = searchParams.get("error");
+  // Phase 5 Task 5-2-5: /invite/[token] → /login → /signup 경로에서 next 보존.
+  // safeNext: backslash bypass + protocol-relative + 제어문자 모두 차단.
+  const next = safeNext(searchParams.get("next"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,7 +53,8 @@ export function SignupForm() {
       email: parsed.data.email,
       password: parsed.data.password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        // next 보존: 확인 메일 링크 → /auth/callback?next=<encoded> → 최종 next로 이동
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         data: { name: parsed.data.name ?? null },
       },
     });
@@ -68,9 +74,9 @@ export function SignupForm() {
       return;
     }
 
-    // session 있음 → 즉시 로그인 상태. dashboard로 진입 → layout이 default workspace 생성.
+    // session 있음 → 즉시 로그인 상태. next(기본 /dashboard)로 진입.
     if (data.session) {
-      router.push("/dashboard");
+      router.push(next);
       router.refresh();
       return;
     }
@@ -199,7 +205,10 @@ export function SignupForm() {
 
           <div className="text-center text-xs text-muted-foreground">
             이미 계정이 있으신가요?{" "}
-            <Link href="/login" className="text-primary hover:underline">
+            <Link
+              href={`/login${next !== "/dashboard" ? `?next=${encodeURIComponent(next)}` : ""}`}
+              className="text-primary hover:underline"
+            >
               로그인
             </Link>
           </div>

@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { safeNext } from "@/lib/utils/safe-next";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const rawNext = searchParams.get("next") ?? "/dashboard";
-  // Open Redirect 방지: 상대 경로만 허용, // 프로토콜 상대 URL 차단
-  const next =
-    rawNext.startsWith("/") && !rawNext.startsWith("//")
-      ? rawNext
-      : "/dashboard";
+  // Open Redirect 방지: 공통 safeNext 유틸로 통일.
+  // backslash bypass(`/\evil.com`)와 protocol-relative(`//evil.com`) 모두 차단.
+  const next = safeNext(searchParams.get("next"));
 
   if (code) {
     const supabase = await createClient();

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { safeNext } from "@/lib/utils/safe-next";
 
 const emailSchema = z.string().trim().email("올바른 이메일 형식이 아닙니다").max(200);
 const passwordSchema = z.string().min(8, "비밀번호는 8자 이상이어야 합니다").max(200);
@@ -19,6 +20,12 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackError = searchParams.get("error");
+  // Phase 5 Task 5-2-5: /invite/[token]에서 미로그인 시 ?next=/invite/<token>으로 리다이렉트되어 옴.
+  // 로그인 성공 후 next로 복귀 (기본값 /dashboard).
+  //
+  // safeNext 유틸: `//evil.com` + `/\evil.com`(backslash bypass) + 제어문자 차단.
+  // 상세 로직/위협 모델은 @/lib/utils/safe-next 주석 참조.
+  const next = safeNext(searchParams.get("next"));
 
   const [loginError, setLoginError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
@@ -32,7 +39,8 @@ function LoginForm() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        // auth/callback이 next 쿼리를 읽어 최종 리다이렉트 처리 (이미 open redirect 방지 로직 있음)
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
     if (error) {
@@ -67,7 +75,7 @@ function LoginForm() {
       setLoadingMode(null);
       return;
     }
-    router.push("/dashboard");
+    router.push(next);
     router.refresh();
   };
 
@@ -176,7 +184,10 @@ function LoginForm() {
 
           <div className="text-center text-xs text-muted-foreground">
             계정이 없으신가요?{" "}
-            <Link href="/signup" className="text-primary hover:underline">
+            <Link
+              href={`/signup${next !== "/dashboard" ? `?next=${encodeURIComponent(next)}` : ""}`}
+              className="text-primary hover:underline"
+            >
               회원가입
             </Link>
           </div>
