@@ -744,3 +744,34 @@ export const workspaceSettings = pgTable("workspace_settings", {
     .default(sql`now()`)
     .notNull(),
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Rate Limit (fixed window counter)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// Phase 5.5 Task 5-5-4: createInvitationAction 등 abuse 가능 엔드포인트 보호.
+// 마이그레이션: 0034_rate_limit_counters.sql
+//
+// 모델: key당 1 row, ON CONFLICT DO UPDATE로 자동 직렬화 (race 방어).
+// RLS: anon/authenticated 모두 RESTRICTIVE deny — server postgres role만 접근.
+//
+// key 컨벤션 (lib/rate-limit.ts와 일치):
+//   - "invite:user:{userId}:m" / ":h" — createInvitationAction 분/시간 한도
+//   - 향후 prefix 확장: "login:ip:{ip}", "signup:email:{email}" 등.
+export const rateLimitCounters = pgTable(
+  "rate_limit_counters",
+  {
+    key: text().primaryKey(),
+    windowStart: timestamp("window_start", { withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    count: integer().default(1).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+  },
+  (table) => [
+    // 향후 cleanup cron("WHERE window_start < NOW() - INTERVAL '1 day'")용.
+    index("rate_limit_counters_window_start_idx").on(table.windowStart),
+  ],
+);

@@ -1,7 +1,56 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-22 밤 (Task 5-5-3 ✅ activity_logs 감사 — invite/accept/revoke 3 이벤트 atomically 기록)
-> 현재 위치: **Phase 5.5 진행 중**. Task 5-5-1(보안 강화) + 5-5-2(멤버 한도) + 5-5-3(audit) 완료. 남은 Phase 5.5 ToDo 3건 + audit 후속 5건(아래).
+> 최종 업데이트: 2026-04-22 밤 (Task 5-5-4 ✅ createInvitationAction rate limit — fixed window counter + reviewer HIGH-1 short-circuit + MEDIUM 2건 즉시 반영)
+> 현재 위치: **Phase 5.5 진행 중**. Task 5-5-1(보안 강화) + 5-5-2(멤버 한도) + 5-5-3(audit) + 5-5-4(rate limit) 완료. 남은 Phase 5.5 ToDo 2건 + 후속 8건(아래).
+
+## Task 5-5-4 ✅ 완료 (createInvitationAction rate limit — fixed window counter)
+
+**범위**: createInvitationAction abuse 방어. 분 5회 + 시간 20회 한도, userId 기반 식별자.
+
+**신규 파일 3**
+- `src/lib/db/migrations/0034_rate_limit_counters.sql` — `rate_limit_counters` 테이블(key PK + window_start + count + updated_at) + window_start 인덱스(향후 cleanup용) + RLS RESTRICTIVE deny anon/authenticated. Cloud Supabase apply 완료.
+- `src/lib/db/schema.ts` — rateLimitCounters drizzle 정의 추가 (라인 749 이후).
+- `src/lib/rate-limit.ts` — `checkAndIncrementRateLimit(key, { windowSec, limit })` 단일 export. UPSERT + ON CONFLICT DO UPDATE의 SET CASE로 window expired면 reset(count=1) 아니면 increment(count+1). RETURNING으로 갱신 후 count + window_start 받아 retryAfterSec 산출. PG single-statement atomicity로 race 방어 (advisory lock 불필요).
+
+**수정 파일 1**
+- `src/app/dashboard/members/actions.ts`:
+  - `INVITE_RATE_LIMITS` 상수 (perMinute / perHour) 추가
+  - createInvitationAction validation 직후 분 한도 → 차단 시 즉시 RATE_LIMITED → 시간 한도 → 차단 시 RATE_LIMITED. **Short-circuit 패턴**: 분 차단 시 시간 카운트 skip (HIGH-1 reviewer 반영).
+  - ActionResult 타입에 RATE_LIMITED 추가
+  - validation 통과 후 체크 (오타로 자기 자신 차단 방지)
+
+**검증**
+- `pnpm tsc/lint/build` 통과
+- Cloud Supabase `apply_migration` 성공 (테이블 + 인덱스 + RLS 정책 생성)
+- DO 블록 회귀 PASS:
+  - iter1~5: count 1~5 PASS
+  - iter6: count=6 BLOCK (limit 5 초과)
+  - window 강제 만료 후 호출: count=1 RESET_OK
+- 자동 ROLLBACK으로 테스트 row 무손상
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL 0, HIGH 1 (code) — **즉시 반영 3건**:
+  - HIGH-1 (code): minute/hour 양쪽 카운트 동시 증가 → 분 차단 시 시간 카운트도 +1되어 정상 admin이 abuser 직후 시간 한도에 부당 도달 → **short-circuit으로 변경** (분 차단 시 시간 카운트 skip).
+  - MEDIUM-2 (sec): UPSERT row 미반환 fail-closed 시 retryAfterSec=windowSec 그대로 노출 → "3600초 후 다시 시도" 부정확 → **60초 캡 적용** (`Math.min(windowSec, 60)`).
+  - LOW-2 (code): NaN guard 추가 (`Number.isNaN(windowStartMs)` 분기 — driver upgrade/type cast 변경 안전망).
+- **Phase 5.5 잔여 ToDo로 이관 4건**:
+  - rate-1 (code MED-2 / sec LOW-2): stale key cleanup cron (Supabase pg_cron + DELETE WHERE window_start < NOW() - 24h) — 운영 1년 후에도 백만 row 미만 예상이지만 prefix 확장 시 누적 가능.
+  - rate-2 (code MED-3): 한도값 환경변수화 (INVITE_RATE_LIMIT_PER_MINUTE/HOUR) — 운영 중 abuse 발견 시 코드 수정 없이 조정.
+  - rate-3 (sec MED-3): Promise.all 병렬화 — short-circuit 채택으로 의미 작아짐, 보류.
+  - rate-4: 추가 엔드포인트(login/signup/password reset/contact form/AI burst)에 rate limit 확장 — Supabase auth 자체 정책 확인 후.
+
+### 차기 Task 등록 (Phase 5.5 잔여 2건 + 후속 8건)
+1. **Resend Sending Access key 발급/회전** (Jayden 수동, 개발 완료 후 — 2026-04-22 결정)
+2. **Phase 5 Epic 5-3** 진입 검토 (PRD 재확인 필요) — 또는 audit/rate/MEDIUM/LOW 후속 정리 묶음 Task
+
+후속 (잔여 기술 부채):
+- audit-1~5 (Task 5-5-3 잔여): 자동 revoke audit / 활동 피드 정책 / inviterName 정규화 / PII 라이프사이클 / revokerRole 박제
+- rate-1~4 (Task 5-5-4 잔여): cleanup cron / 한도 env / Promise.all / 추가 엔드포인트 확장
+- Task 5-5-1/2 잔여: n8n schema / instrumentation 실증 / vitest 이관 / page.tsx HIGH-1 / hashtext HIGH-2 / settings row missing HIGH-4 / Existing-over-limit 정책
+
+---
+
+## Task 5-5-3 ✅ 완료 (멤버 초대/수락/취소 activity_logs 감사 — 3 이벤트 atomically + 리뷰 통과)
 
 ## Task 5-5-3 ✅ 완료 (멤버 초대/수락/취소 activity_logs 감사 — 3 이벤트 atomically + 리뷰 통과)
 

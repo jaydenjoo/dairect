@@ -18,6 +18,7 @@ import { getCurrentWorkspaceRole } from "@/lib/auth/get-workspace-role";
 import { canManageMembers } from "@/lib/auth/workspace-permissions";
 import { sendInvitationEmail } from "@/lib/email/resend";
 import { getMaxMembers, getPlanLabel, suggestUpgradeTarget } from "@/lib/plans";
+import { checkAndIncrementRateLimit } from "@/lib/rate-limit";
 import {
   createInvitationInputSchema,
   invitationIdSchema,
@@ -50,8 +51,19 @@ type ActionResult =
         | "NOT_FOUND"
         | "EMAIL_FAILED"
         | "LIMIT_EXCEEDED"
+        | "RATE_LIMITED"
         | "UNKNOWN";
     };
+
+// Phase 5.5 Task 5-5-4: createInvitationAction abuse 방어용 한도.
+// userId 기반 분/시간 두 단계 — 정상 admin은 절대 도달하지 않을 값.
+//   분당 5회: 자동화/스크립트 차단
+//   시간당 20회: 단일 admin이 정상 운영하기에 충분 + 누적 abuse 방어
+// 한도값 변경 시 docs/env-setup.md 또는 운영 가이드 동기화 권장.
+const INVITE_RATE_LIMITS = {
+  perMinute: { windowSec: 60, limit: 5 },
+  perHour: { windowSec: 3600, limit: 20 },
+} as const;
 
 // Phase 5.5 Task 5-5-2: plan별 멤버 수 상한 도달 시 트랜잭션 안에서 throw → 외부 catch에서 분기.
 // transaction 내부에서 throw하면 drizzle이 자동 ROLLBACK + 외부로 propagate.
@@ -123,6 +135,33 @@ export async function createInvitationAction(formData: FormData): Promise<Action
       success: false,
       error: issue?.message ?? "입력값이 올바르지 않습니다",
       code: "INVALID_INPUT",
+    };
+  }
+
+  // Phase 5.5 Task 5-5-4: rate limit (validation 통과 후 — 오타로 자기 자신 차단 방지).
+  // Short-circuit: 분 한도 차단 시 시간 카운트 skip → 정상 admin이 분 차단 후 시간 한도까지
+  // 부당하게 도달하는 부작용 방지 (HIGH-1 reviewer 반영). abuser가 "분당 5회 → 1분 쉬고 반복"
+  // 패턴으로 시간 한도 우회 시도 가능하지만 4분만에 시간 한도(20) 도달 — 큰 우회 아님.
+  const minuteCheck = await checkAndIncrementRateLimit(
+    `invite:user:${userId}:m`,
+    INVITE_RATE_LIMITS.perMinute,
+  );
+  if (!minuteCheck.allowed) {
+    return {
+      success: false,
+      error: `초대 발송 횟수가 너무 많습니다. ${minuteCheck.retryAfterSec}초 후 다시 시도해주세요.`,
+      code: "RATE_LIMITED",
+    };
+  }
+  const hourCheck = await checkAndIncrementRateLimit(
+    `invite:user:${userId}:h`,
+    INVITE_RATE_LIMITS.perHour,
+  );
+  if (!hourCheck.allowed) {
+    return {
+      success: false,
+      error: `초대 발송 횟수가 너무 많습니다. ${hourCheck.retryAfterSec}초 후 다시 시도해주세요.`,
+      code: "RATE_LIMITED",
     };
   }
 

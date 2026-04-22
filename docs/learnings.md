@@ -1,5 +1,25 @@
 # Dairect — 교훈 기록
 
+## 2026-04-22 밤 — Multi-tier rate limit(분/시간)에서 양쪽 카운트 동시 증가는 정상 user 부당 차단 → short-circuit으로 정상 user 보호 우선 (Task 5-5-4 리뷰 HIGH-1)
+
+- **상황**: createInvitationAction abuse 방어로 fixed window counter(Supabase 기반) 도입. 분당 5회 + 시간당 20회 두 단계 한도. 초안에서는 두 체크를 독립 await으로 호출 → 분 한도 차단 시에도 시간 카운트도 +1. code-reviewer가 "정상 admin이 abuser 트래픽 직후 합법 사용 시 시간 한도(20)에 부당 도달"을 HIGH로 지적.
+- **부당 차단 시나리오**:
+  1. abuser X가 분당 5회 시도 → 분 한도 도달, 시간 카운트도 5
+  2. 1분 후 X가 다시 5회 → 분 reset되어 통과 + 시간 카운트 10
+  3. 4분 후 시간 카운트 20 도달 → **모든 사용자**가 1시간 동안 차단 (X 외 정상 admin Y도 영향)
+  - 분 한도가 abuser X에게만 적용된다고 착각하기 쉬우나, 같은 userId라면 X=Y인 경우(같은 admin이 정상 운영 중 잠시 abuse 의심 트래픽). 다른 userId면 X와 Y는 별개 → 영향 없음. 다만 같은 userId의 한도에서 "분 차단 → 시간 카운트도 누적"은 정상 admin 본인의 두 한도가 의도와 다르게 빠르게 소진되는 효과.
+- **본질**: multi-tier rate limit 설계에서 "더 짧은 window가 차단되면 더 긴 window는 카운트하지 않음" (short-circuit) vs "양쪽 모두 카운트하여 abuse를 모든 tier에 누적" (full count) 두 정책의 trade-off:
+  - **Short-circuit**: 정상 user 보호 + UX 친화. abuser는 짧은 window 차단을 피해 "burst → wait → burst" 패턴으로 긴 window 우회 시도 가능 (다만 4분만에 시간 한도 도달이라 큰 우회 아님).
+  - **Full count**: 모든 tier에 abuse 시도 누적 → 강한 deterrent. 단 정상 user가 분 차단 후 시간 한도에 빠르게 도달.
+- **해결**: short-circuit 채택. 분 한도 차단 시 시간 카운트 skip. abuser가 우회 시도해도 4분 만에 시간 한도(20) 도달 — 긴 우회는 불가.
+- **규칙**:
+  1. **Multi-tier rate limit은 default short-circuit**. 정상 user 보호가 우선이고, abuser 누적 효과는 "burst → wait → burst" 우회 비용으로 이미 차단 효과 충분.
+  2. **Full count 채택은 명시적 deterrent 의도가 있을 때만**. 그 경우 코멘트로 "의도: 분 차단 시에도 시간 카운트 → 지속 abuse가 시간 한도까지 강제 도달" 명시 — 향후 유지보수 시 혼동 방지.
+  3. **fail-closed 시 retryAfterSec를 windowSec 그대로 노출하면 부정확 안내 위험**. windowSec=3600(시간 한도)이면 "3600초 후 다시 시도" 메시지 노출 → 보수적으로 60초 캡 (`Math.min(windowSec, 60)`) — 사용자 안내는 짧게, 실제 차단은 다음 요청에서 정확히 재계산.
+  4. **rate limit 식별자는 "abuse 비용"을 기준으로 결정**. userId(인증된 사용자)는 가입 비용으로 abuse 비용 ↑. IP는 동적 IP 사용자에게 부당 차단 위험. 인증 후 호출이라면 userId 만으로 충분.
+  5. **rate limit 자체의 비용 검토**: 매 호출 1 UPSERT (Supabase). 베타 트래픽(일 100건)은 무시 가능이지만 prefix 확장(login/signup/AI 등) 시 cleanup cron 필요 — Phase 5.5 ToDo로 명시.
+  6. **fixed window vs sliding window의 trade-off**: fixed는 단순(1 row/key) + race 방어 자연(ON CONFLICT) + 경계 burst 가능. sliding은 정확하지만 row 누적 + cleanup 복잡. 베타에서 burst 시나리오 가능성 작으면 fixed로 시작 → Upstash Redis로 swap 가능한 인터페이스(`checkAndIncrementRateLimit`) 유지.
+
 ## 2026-04-22 밤 — Audit log INSERT는 primary mutation과 같은 transaction에 묶어야 atomicity 확보 + 도입 시점에 "PII 라이프사이클 + 표시 정책" 후속 ToDo도 함께 기록 (Task 5-5-3)
 
 - **상황**: Task 5-5-3에서 `workspace_invitation.created/accepted/revoked` 3 이벤트를 activity_logs에 추가. 기존 portal_token audit 패턴(`portal-actions.ts:188`) 재사용 — primary mutation(workspace_invitations INSERT/UPDATE)과 activity_logs INSERT를 **같은 db.transaction에 묶어 atomicity 보장**. 구현 후 code-reviewer + security-reviewer 모두 CRITICAL/HIGH 0건 통과. 다만 두 리뷰 합쳐 MEDIUM 5건이 모두 "감사 로그 도입 자체는 OK이지만 그 데이터를 어떻게 다룰지(자동 revoke audit / 표시 정책 / PII 라이프사이클 / XSS 정규화 / 권한 박제) 정책 미정"임을 지적.
