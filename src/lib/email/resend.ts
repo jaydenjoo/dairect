@@ -6,8 +6,9 @@ import { renderInvitationEmail, type InvitationEmailInput } from "./templates/in
 // 환경변수 설계 (2026-04-21):
 //   RESEND_API_KEY       — 필수. 미설정 시 sendInvitationEmail throw → Server Action catch에서 에러 반환.
 //   RESEND_FROM_EMAIL    — 필수. Resend가 도메인 소유 인증한 발신자.
-//                          sandbox 단계: 'onboarding@resend.dev' (Jayden 본인 email만 수신 가능).
-//                          도메인 verify 후: 'noreply@dairect.kr'로 .env 교체 (코드 무변경).
+//                          현재 사용값(2026-04-22 verified): 'Dairect <invite@send.dairect.kr>'
+//                          ("Name <email>" 형식 권장 — inbox에 Dairect 표시).
+//                          과거 sandbox: 'onboarding@resend.dev' — Jayden 본인 email만 수신 가능했음.
 //   RESEND_REPLY_TO      — 선택. 수신자 "답장" 시 도착할 주소 (verified 불필요).
 //                          Gmail 등 외부 주소 가능. 예: 'hidream72@gmail.com'.
 //
