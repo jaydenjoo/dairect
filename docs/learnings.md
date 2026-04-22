@@ -1,5 +1,86 @@
 # Dairect — 교훈 기록
 
+## 2026-04-22 저녁 — Open Redirect에는 backslash bypass도 있다: WHATWG URL 파서는 `/\evil.com`을 `https://evil.com/`로 정규화한다 (Task 5-2-5 리뷰 CRITICAL C-1)
+
+- **증상**: `/invite/[token]` 플로우에서 `sanitizeNext`는 "상대경로만 허용, `//`(protocol-relative) 차단"으로 4곳(login/signup/callback/signout)에 중복 구현되어 있었음. code-reviewer가 **`/\evil.com` 입력 시 현재 정규식(`!startsWith("//")`)을 통과하지만 브라우저 URL 파서가 backslash를 forward slash로 정규화해 결과적으로 외부 사이트로 리다이렉트 가능**함을 지적. WHATWG URL 스펙: `new URL("/\\evil.com", "https://dairect.kr").href` → `https://evil.com/` (Chromium/Firefox 공통).
+- **원인**:
+  1. `//` 하나만 차단하고 `\\`를 고려하지 않은 naive sanitizer. RFC 3986 관점에선 `\`가 URL path에 흔하지 않지만 브라우저가 관용적으로 정규화.
+  2. 4곳에 인라인 구현 — drift 위험. 한 곳 고쳐도 다른 곳 누락 시 우회로 남음.
+- **해결**: `src/lib/utils/safe-next.ts` 공통 유틸로 추출 + 4곳 치환. 규칙 3중:
+  - `/`로 시작하지 않으면 거부 (absolute URL, `javascript:` 등 전부 차단)
+  - 두 번째 글자가 `/` 또는 `\` 이면 거부 (protocol-relative + backslash bypass)
+  - 제어문자 (NUL~US + DEL) 포함 시 거부 (파서별 해석 상이로 우회 가능)
+- **규칙**:
+  1. **Open redirect sanitizer는 "슬래시류 이중 시작 문자 전체"를 차단**해야 한다. `//`, `/\`, `\\` 등 브라우저가 path separator로 관용 해석하는 모든 경우. 차단 규칙은 "허용 화이트리스트"로 작성하는 것이 안전(예: 첫 글자 `/` + 두 번째는 `/` `\` 아님 + 제어문자 없음).
+  2. **Sanitizer는 반드시 공통 유틸로 단일 정의**. 4곳 인라인 구현은 한 곳 업데이트 시 drift. `src/lib/utils/safe-next.ts` 같은 단일 지점 + 모든 authn/redirect 경로가 import.
+  3. **"브라우저 URL 정규화 규칙"은 보안 리뷰 체크리스트 고정 항목**. Chrome/Firefox가 관용적으로 처리하는 입력(백슬래시/유니코드 경계문자/제어문자 등)을 naive sanitizer가 놓치는 경우가 반복. 다음부터 open-redirect 테스트 케이스에 `/\evil.com`, `/%2Fevil.com`, `/\tevil.com` 셋 최소 포함.
+  4. **같은 유형의 CRITICAL이 과거 Task에서 없었어도 새 redirect 경로 도입 시 즉시 재검토**. Task 5-2-5에서 4개 신규 next-carrying 경로(login/signup/callback/signout)가 생겼고, 이 중 하나라도 백슬래시 미차단이면 전체 open redirect. 기존 "작동하는 sanitize" 복붙이 위험한 이유.
+
+## 2026-04-22 저녁 — URL path에 비밀 토큰이 포함된 경로는 Service Worker matcher + precache exclude 양쪽에 반드시 등록 (Task 5-2-5 리뷰 CRITICAL C-2, Task 4-4 패턴 재발)
+
+- **증상**: `/invite/[token]` 도입 직후 security-reviewer가 `src/app/sw.ts` + `next.config.ts`에 `/invite/` 경로 누락을 CRITICAL로 지적. **Task 4-4에서 `/portal/[token]` 공유 링크에 대해 M1+M2로 이미 해결한 동일 패턴의 재발**. @serwist/next/worker `defaultCache`가 catch-all NetworkFirst 3종(RSC payload / HTML page / "others")을 설치하므로 matcher 미등록 경로는 **SW 캐시에 저장** → 동일 기기의 다른 방문자(공용 PC, 가족 공유)가 같은 URL 방문 시 캐시 히트로 타인의 세션/토큰 데이터를 볼 수 있는 cross-tenant 누출 위험.
+- **원인**:
+  1. 새 민감 경로 추가 시 SW 매처 등록을 체크리스트화 안 함. Task 5-2-5 구현 중 focus가 page/accept-actions/accept-button 3파일에 쏠려 서브시스템(SW) 반영 누락.
+  2. `next.config.ts`의 `exclude` 정규식은 dynamic 라우트가 자동 제외되지만, 만약 누가 force-static/ISR로 전환하면 HTML이 precache 매니페스트에 박힐 수 있음 → 예방적 방어 필요.
+- **해결**:
+  - `src/app/sw.ts` `customRuntimeCaching`에 `{ matcher: url.pathname.startsWith("/invite/"), handler: safeNetworkOnly() }` 추가 (기존 `/portal/`, `/api/`, `/auth/`, `/dashboard` 목록 확장).
+  - `src/app/sw.ts` offline fallback matcher의 exclude 목록에 `/invite/` 추가 (세션 만료가 오프라인 페이지처럼 위장되어 토큰이 주소창에 잔류하는 상황 차단).
+  - `next.config.ts` `withSerwistInit.exclude` 정규식 배열에 `/\/invite\//` 추가.
+  - 번들 검증: `grep -o 'startsWith("/invite/")' public/sw.js` → 2건 확인 (matcher + fallback).
+- **규칙**:
+  1. **"URL path에 비밀 포함" 경로는 SW 3곳(runtimeCaching matcher / fallback matcher exclude / precache exclude) 전부에 등록**한다. 하나라도 빠지면 SW 캐시 경로 하나가 열림. 체크리스트: URL에 UUID/token/email/id 등이 박히는 모든 라우트.
+  2. **새 dynamic 라우트 추가 시 `.claude/rules/` 또는 checklist 문서에 "SW 등록했는가" 항목 고정**. Task 4-4 M1+M2 당시 교훈을 기록해뒀어도 5개 Task 뒤에 같은 실수. 체크리스트 자동화 없이 인간 기억에 의존하면 반복.
+  3. **`defaultCache` 스프레드는 편하지만 catch-all 때문에 민감 경로 방어에 취약**. 앞쪽에 NetworkOnly 매처가 전부 와야 안전. 우선순위 역전(민감 매처를 뒤에 넣음)은 즉시 누출 경로가 됨 — 새 매처 추가 시 배열 위치 확인.
+  4. **번들 레벨 검증을 CI에 고정**: `public/sw.js`에 `/invite/`, `/portal/`, `/dashboard` 등 startsWith 리터럴이 각각 2회(matcher + fallback exclude) 포함됐는지 grep 검증하는 postbuild 스크립트. 개발자가 코드는 고쳤지만 번들러가 트리쉐이킹해서 제거한 경우도 잡힘.
+  5. **"Task 4-4 패턴"이라는 이름을 붙여 기억에 고정**: 향후 "새 민감 dynamic 라우트" 도입 시 "Task 4-4 패턴 체크했어?"가 팀 공통 언어가 되게.
+
+## 2026-04-22 저녁 — Vercel 환경변수에는 dotenv용 따옴표를 그대로 복사하면 안 된다: "from" 형식 leak으로 Resend 발송 전면 실패 (Task 5-2-5 prod 전환 디버깅)
+
+- **증상**: Resend domain `send.dairect.kr` verified 확인(4:00 PM) + Vercel `RESEND_FROM_EMAIL=Dairect <invite@send.dairect.kr>` 교체 + Redeploy 완료(d5f309f Ready) 상태에서 Jayden이 `/dashboard/members` 초대 시도 → 토스트 "초대 저장은 되었지만 이메일 발송에 실패했습니다." 3회 연속 재현. DB 조회: INSERT → 0.3초 후 자동 revoke 패턴 → `sendInvitationEmail`의 nested try/catch가 email fail 시 soft revoke하는 로직은 정상 작동. 즉 문제는 Resend API 호출 단계.
+- **원인 소거 과정**:
+  1. sandbox 제한(`onboarding@resend.dev`만 본인 email 수신): 배제 — Jayden은 본인 hidream72@gmail.com로 보낸 것도 실패.
+  2. Vercel 재배포 미반영: `/invite/invalid-not-uuid` curl → HTTP 200 + ErrorCard → 새 코드 반영 확인, 배제.
+  3. DNS 전파 미완: `dig` 결과 DKIM/SPF/MX 모두 전파 완료, 배제.
+  4. **From 형식 leak (실제 원인)**: 내가 `.env.local` 안내 시 `RESEND_FROM_EMAIL="Dairect <invite@send.dairect.kr>"` (shell escape용 따옴표 포함)으로 제공. Jayden이 **Vercel UI에도 따옴표 포함해 입력** → Vercel이 raw string 그대로 저장 → 실제 env 값 = `"Dairect <invite@send.dairect.kr>"` (따옴표 자체가 값 일부) → Resend API가 이 from을 파싱 거부.
+- **해결**: Vercel UI 값을 `invite@send.dairect.kr` (주소만, name 제거)로 교체 + Redeploy → 재테스트 → 발송 성공 → 수신 확인 → 수락 플로우 전부 작동.
+- **규칙**:
+  1. **dotenv 문법(`.env.local`)과 Vercel UI 입력은 서로 다른 세계**. `.env.local`은 shell parser 기준이라 값에 공백/`<`/`>`/특수문자가 있으면 따옴표로 감싸야 함. Vercel UI는 입력된 문자열을 **그대로** env 값으로 저장(자체 파서 없음). 사용자에게 안내할 때 두 경우를 분리 설명하거나 "따옴표 없이" 명시 필요.
+  2. **"Name <email>" 형식을 env 단일 변수로 담지 말고 2개로 분리**: `RESEND_FROM_NAME=Dairect` + `RESEND_FROM_EMAIL=invite@send.dairect.kr` → 코드에서 ``` `${NAME} <${EMAIL}>` ``` 조합. 이러면 각 변수에 단순 문자열만 들어가 dotenv/Vercel 양쪽에서 escape 이슈 없음. Phase 5.5 리팩터 후보로 기록.
+  3. **"prod 전환 후 첫 발송 실패" 디버깅 체크리스트**: (a) sandbox 제한 여부 (b) 환경변수 값이 정확히 무엇인지 Vercel UI 화면 확인 (c) DNS 전파 dig 검증 (d) Resend 대시보드 Logs의 실제 에러 메시지. 이번엔 (d) 로그를 못 보여준 상태에서 (a)(b)(c)로 가설 좁히기에 성공했지만, **Resend Emails 탭의 실패 상세가 있으면 1분 진단**이 가능.
+  4. **Vercel env 변경 후 Redeploy 필수**는 상식이지만 자주 잊힘. 환경변수만 Save하고 기다리면 기존 warm Lambda가 구 값 유지. Deployments 탭에서 "Redeploy" 명시 클릭 또는 git push로 auto-trigger. 사용자에게 안내할 때 "Save 클릭만으론 반영 안 됨, Redeploy 필수" 강조.
+  5. **email 발송 실패가 "자동 soft revoke"로 복구 가능한 설계**는 이번처럼 반복 시도해도 DB에 잠금이 남지 않아 재시도 비용이 낮음. Task 5-2-4에서 설치한 nested try/catch가 이번 디버깅을 안전하게 만들었음. "실패 시점에 idx 해제"가 없었다면 첫 시도 후 같은 email 재초대가 duplicate 에러로 계속 막혀 디버깅이 크게 지연됐을 것.
+
+## 2026-04-22 저녁 — Server Component의 try/catch는 `NEXT_REDIRECT` digest를 re-throw해야 한다 + token 같은 민감값은 로그에서 완전 제외 (Task 5-2-5 리뷰 HIGH sec-H1)
+
+- **상황**: `/invite/[token]/page.tsx`에서 DB 조회 3건(invitation, workspace, existingMembership) + `supabase.auth.getUser()` + `redirect()` 호출이 혼재. security-reviewer가 "DB error 발생 시 Vercel Function Logs의 stack trace에 token이 포함되어 로그 유출 시 무자격 수락 경로가 열림"을 HIGH로 지적. try/catch 전체 감싸기가 자연스러운 해결이지만 **Next.js `redirect()`는 `NEXT_REDIRECT` digest를 가진 special error를 throw**하므로 naive try/catch가 이를 잡으면 리다이렉트가 무력화.
+- **해결 패턴**: 
+  ```ts
+  function isNextInternalError(err: unknown): boolean {
+    return typeof err === "object" && err !== null && "digest" in err
+      && typeof (err as { digest: unknown }).digest === "string"
+      && (err as { digest: string }).digest.startsWith("NEXT_");
+  }
+
+  export default async function InvitePage(props: PageProps) {
+    try {
+      return await renderInvitePage(props);
+    } catch (err) {
+      if (isNextInternalError(err)) throw err; // redirect()/notFound() 보존
+      console.error("[invite/page] error", { 
+        name: err instanceof Error ? err.name : typeof err,
+        message: err instanceof Error ? err.message.slice(0, 200) : "",
+        // token 의도적 제외
+      });
+      return <ErrorCard title="초대 링크를 확인할 수 없습니다" .../>;
+    }
+  }
+  ```
+- **규칙**:
+  1. **Server Component에서 try/catch + `redirect()` 혼용 시 `NEXT_REDIRECT` digest re-throw 필수**. `notFound()`도 동일 패턴(`NEXT_NOT_FOUND` digest). `err.digest?.startsWith("NEXT_")` 체크가 공식 is-next-internal 식별자. next/navigation의 `isRedirectError` export는 internal이라 rely 금지.
+  2. **에러 로그에 path/pathParam은 포함 금지**. params에 token/UUID/hashed-id 같은 민감 값이 들어가는 dynamic 라우트는 `err.name` + `err.message.slice(0, 200)` 까지만 로그. stack trace는 Vercel이 자동 수집하지만 token은 URL에서 유출 가능하므로 추가 로깅 금지. `url`, `params`, `request.headers` 등을 `console.error`에 실지 않는다.
+  3. **`page.tsx`를 thin wrapper + `renderXxx` helper로 분리**하면 try/catch 경계가 명확. wrapper는 전체 에러 처리만, helper가 실제 로직. 이번 구현에서 `InvitePage` → `renderInvitePage(props)` 분리. 300줄 이상 페이지가 되면 이 분리가 더 효과적.
+  4. **EMAIL_MISMATCH 에러 메시지에 `invitation.email`을 포함하지 않는다** (email enumeration 방어). 공격자가 임의 UUID + 자신 계정 로그인으로 `/invite/<uuid>` 접근 시 mismatch 에러 본문에서 수신자 email을 열람하는 경로 차단. zod → DB LOWER(email) → 에러 메시지까지 3중 defense-in-depth. UI 문구는 "이 초대는 다른 이메일로 발송되었습니다" 같은 generic 표현.
+
 ## 2026-04-22 — "로직은 맞았는데 증상 재현"의 세 번째 원인은 Vercel edge 전파 지연 (Task 5-2-4 post-deploy hotfix 3차 여정)
 
 - **상황**: Task 5-2-4 배포 후 중복 초대 차단 테스트에서 "초대 생성 중 오류가 발생했습니다" UNKNOWN fallback 관찰. 1차 hotfix(err.code 3중 매칭) → 여전히 miss → 로그로 `pgCode: null` 확인 → Drizzle `DrizzleQueryError.cause` 소스 확인 → 2차 hotfix(err.cause unwrap) 배포. Vercel Deployments 패널에서 `Current Production` 뱃지 확인했음에도 **동일 증상 + 로그마저 확인 불가** 보고. 3차로 에러 shape을 토스트에 직접 embed해서 문제 좁히려 한 순간, Jayden이 재실행하자 **정상 "이미 발송된 초대가 있습니다" 메시지가 출력**됨. 즉 2차 hotfix 로직 자체는 맞았고, 그 사이 **추가 배포(3차)로 전체 edge가 강제 갱신**되며 구 서버 액션 번들이 사라졌던 것.

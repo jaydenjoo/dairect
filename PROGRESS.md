@@ -1,7 +1,100 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-22 (Task 5-2-4 최종 완료 — 프로덕션 DUPLICATE 정상 작동 확인 + 디버그 코드 제거 복구 push)
-> 현재 위치: **Phase 5 Epic 5-2 Phase C 진입 (5-2-4 완료)**. 남은 것: 5-2-5 `/invite/[token]` 수락 플로우. Resend sandbox 발신자(onboarding@resend.dev)로 테스트 가능, dairect.kr 도메인 verify 후 `.env` 교체만 남음.
+> 최종 업데이트: 2026-04-22 저녁 (Task 5-2-5 ✅ + 부수 4건 묶음 완료 — 프로덕션 E2E: 초대 발송→수신→수락→대시보드 진입 전 경로 실측 성공)
+> 현재 위치: **Phase 5 Epic 5-2 Phase C 완결 (5-2-4, 5-2-5 완료) + Phase 5.5 선행 1건(pending idx LOWER) + Supabase Auth 보안 강화 5건 + send.dairect.kr 도메인 prod 전환**. 남은 Phase C Task: workspace switcher UI(이미 구현되어 있어 추가 구현 0 / 실전 드롭다운 UX는 타계정 초대→수락 시 자동 검증됨), 이후는 Phase 5.5 ToDo 또는 Phase D.
+
+## Task 5-2-5 ✅ 완료 (/invite/[token] 초대 수락 + 리뷰 CRITICAL 2 + HIGH 6 반영)
+
+**범위**: Task 5-2-4(초대 발송) 후속 — 수신자가 초대 링크 클릭 시 동작하는 전체 플로우.
+
+**신규 파일 5**
+- `src/app/invite/[token]/page.tsx` — 서버 컴포넌트, 10단계 상태 분기 (포맷/존재/owner차단/revoked/accepted/expired/미로그인 redirect/email 매칭/이미 멤버/수락 UI). `redirect()` 포함 로직을 try/catch로 감싸 `NEXT_REDIRECT` digest re-throw 패턴으로 에러 로그에서 token 제외.
+- `src/app/invite/[token]/accept-actions.ts` — 트랜잭션(UPDATE workspace_invitations + INSERT workspace_members + UPDATE users.last_workspace_id). 만료 판정은 DB `NOW()`로 통일(시계 drift 제거). EMAIL_MISMATCH 에러 메시지에 `invitation.email` 미포함(enumeration 방어). `role IN ('admin','member')` WHERE 조건으로 owner 초대 차단 defense-in-depth.
+- `src/app/invite/[token]/accept-button.tsx` — 클라이언트 버튼, useTransition + toast.
+- `src/app/auth/signout/route.ts` — `/invite/[token]` email 불일치 시 "로그아웃 후 다시 로그인" 폼용 POST 라우트. Origin 헤더 검증(CSRF 방어) + safeNext.
+- `src/lib/validation/invite-accept.ts` — Zod 토큰 uuid 스키마.
+- `src/lib/utils/safe-next.ts` — open-redirect 공통 유틸. `//`(protocol-relative) + `/\`(backslash bypass — WHATWG URL 정규화 경로) + 제어문자 차단. 4곳에서 재사용.
+
+**수정 파일 5**
+- `src/app/(public)/login/page.tsx` — safeNext 유틸 도입 + `next` 쿼리 보존(로그인 성공 후 복귀).
+- `src/app/(public)/signup/signup-form.tsx` — safeNext + emailRedirectTo에 next 실어 /auth/callback 경유 복귀.
+- `src/app/auth/callback/route.ts` — safeNext 통일(sanitize 중복 구현 제거).
+- `src/app/sw.ts` — `/invite/` startsWith matcher 추가(NetworkOnly + silent 504 fallback) + fallback matcher exclude 추가.
+- `next.config.ts` — `exclude` 정규식 리스트에 `/\/invite\//` 추가(precache 주입 차단).
+
+**리뷰 반영 8건** (code-reviewer + security-reviewer 병렬):
+- C-1 (code): `sanitizeNext` 4곳이 backslash bypass 미방어 → `safeNext` 공통 유틸 추출 + 치환. WHATWG URL 파서가 `/\evil.com`을 `https://evil.com/`로 정규화하는 경로 차단.
+- C-2 (sec): SW matcher + next.config exclude에 `/invite/` 누락. Task 4-4 M1+M2(`/portal/[token]`)와 동일 패턴 재발 방지.
+- H1 (code): `accept-actions.ts` `existing.expiresAt.getTime() <= Date.now()` → DB `NOW()` SQL로 통일(page.tsx와 일관, 앱 시계 drift 제거).
+- H2 (code): EMAIL_MISMATCH 에러에서 `existing.email` 제거 → email enumeration 차단.
+- H1 (sec): `page.tsx` 전체 try/catch wrapper + `isNextInternalError` helper로 `NEXT_REDIRECT`/`NEXT_NOT_FOUND` re-throw. 에러 로깅에 token 미포함.
+- H3 (sec): `/auth/signout` POST 라우트에 Origin 헤더 검증(외부 origin 거부 + /login 리다이렉트).
+- H4 (sec): `role='owner'` 초대 수락 차단을 page.tsx(INVALID_TOKEN) + accept-actions.ts 양쪽에 설치. UI 경로에서는 생성 불가지만 DB 직접 INSERT 경로 defense-in-depth.
+- H2 (sec 잔여): Supabase "Secure email change" 설정 의존 → Jayden이 대시보드에서 ON 확인 완료(2026-04-22).
+
+## 부수 작업 4건 (같은 세션에서 묶음 처리)
+
+**B1. Phase 5.5 선행 — `workspace_invitations_pending_idx` LOWER(email) 교체** (commit `a90835d`)
+- 0033_pending_idx_lower_email.sql: DROP + CREATE with expression index. BEGIN/COMMIT 원자성.
+- schema.ts: `sql\`LOWER(${table.email})\`` 표현식으로 DB drift 방지.
+- Pre-check SQL로 대소문자 중복 0건 확인 후 적용. Cloud Supabase 적용 완료 — `pg_indexes.indexdef`에서 `lower(email)` 확인.
+- 효과: zod `email.toLowerCase()` 우회 경로(직접 INSERT, 데이터 이관 스크립트 등)에서도 DB가 case-insensitive로 중복 차단.
+
+**B2. Supabase Auth 보안 강화 5건** (Jayden UI 수동)
+- Secure email change: ON (email 변경 시 옛 주소 confirm 필요 → 초대 가로채기 체인 차단)
+- Secure password change: ON (24시간 내 로그인 아닐 시 재인증 요구)
+- Require current password when updating: ON
+- Prevent use of leaked passwords: ON (HaveIBeenPwned 통합)
+- Minimum password length: 6 → 8 (앱 zod와 일치)
+- Password requirements: "Letters and digits"
+- 주석 동기화 commit `3bddfc6`: `signupFormSchema`의 `min(8)`이 Supabase 설정과 일치함을 명시.
+
+**B3. dairect.kr 도메인 prod 전환 — send.dairect.kr 서브도메인 방식** (commit `d5f309f`)
+- Resend `send.dairect.kr` 등록(Tokyo region, ap-northeast-1) → Vercel Auto Configure로 DNS 4개 자동 추가 → 4:00 PM Verified.
+- DNS 확인: DKIM `resend._domainkey.send.dairect.kr` / MX `send.send.dairect.kr → feedback-smtp.ap-northeast-1.amazonses.com` / SPF `send.send.dairect.kr → v=spf1 include:amazonses.com ~all`. 서브도메인 채택 이유: `dairect.kr` apex의 MX를 미래 수신 이메일 서비스(Gmail Workspace 등) 확장 시점까지 보존.
+- 환경변수 교체: `RESEND_FROM_EMAIL=invite@send.dairect.kr` (최초 시도 `"Dairect <invite@send.dairect.kr>"` 따옴표 포함 형식은 Resend API가 거부 → 주소만 사용으로 회피. name 포함 필요 시 Phase 5.5에서 env 2개(NAME/EMAIL) 분리 리팩터).
+- Vercel Redeploy 후 E2E 실측 성공.
+
+**B4. workspace switcher UI — 이미 구현되어 있음을 확인**
+- `src/components/dashboard/workspace-picker.tsx`(client) + `src/lib/auth/list-user-workspaces.ts`(server) + `header.tsx` 통합 모두 Task 5-2-3-B에서 완료됨.
+- 단일 workspace 시 이름+role 뱃지만 표시 / 다수 workspace 시 드롭다운(모바일 bottom sheet + 데스크톱 popover) + Server Action 전환. Jayden 계정이 workspace 1개라 드롭다운 실전 UX는 Task 5에서 타 계정 초대→수락 시 자동 검증됨.
+
+## Task 5 E2E 실측 (2026-04-22 저녁)
+
+**curl 기반 공개 URL 검증**
+- `/` 200 OK
+- `/dashboard` (미로그인) 307 → `/login` (middleware)
+- `/invite/invalid-not-uuid` 200 + "초대 링크가 유효하지 않습니다" ErrorCard (isUuid 1차 검증 통과)
+- `/invite/00000000-0000-0000-0000-000000000000` 200 + "이 링크는 존재하지 않거나..." (DB 조회 후 invitation 없음 분기)
+
+**Jayden 수동 실측** — 프로덕션
+- `/dashboard/members` 로그인 후 진입 → 초대 폼 작동
+- 본인 이메일로 초대 발송 → **메일 정상 수신** (`invite@send.dairect.kr` 발신자) ✅
+- 이메일 버튼 클릭 → `/invite/[token]` 페이지 → 수락 → **`/dashboard` 자동 진입** ✅ (last_workspace_id 업데이트)
+
+**DB 상태 검증** — 실패 시점의 자동 soft revoke 로직 정상 작동 확인:
+- 초대 INSERT 후 email 발송 실패 시 nested try/catch가 `revokedAt = NOW()` UPDATE → pending idx 해제 → 재초대 경로 열림.
+- 3건의 email 실패 레코드가 0.3~0.5초 간격으로 자동 revoke됨을 `revoke_delay_sec < 2` 로 확증.
+
+## Task 5-2-5 Post-deploy 디버그 여정 (이메일 발송 실패 → 원인 확진)
+
+Vercel push + Redeploy 완료 직후 Jayden이 `/dashboard/members`에서 초대 시도 → 토스트 "초대 저장은 되었지만 이메일 발송에 실패했습니다." 3건 연속 재현.
+
+| 단계 | 조치 | 발견 |
+|------|------|------|
+| 1 | DB 최신 5건 조회 (`workspace_invitations` ORDER BY created_at DESC) | INSERT → 0.3~0.5초 후 자동 revoke (email 실패 soft revoke 정상 작동) |
+| 2 | `/invite/invalid-not-uuid` curl | HTTP 200 + ErrorCard → 프로덕션 새 코드 반영 확인 |
+| 3 | 원인 가설 | Vercel `RESEND_FROM_EMAIL` 값에 따옴표가 포함됐을 가능성(`"Dairect <invite@send.dairect.kr>"` 형식) |
+| 4 | 수정 | 값을 `invite@send.dairect.kr`(주소만)로 교체 + **Redeploy** |
+| 5 | 재시도 | Jayden 본인 이메일로 발송 → 수신 성공 → 수락 → 대시보드 진입 ✅ |
+
+**핵심 교훈 3**:
+- Vercel 환경변수 UI는 value를 **raw string** 저장. dotenv용 따옴표 포함 문법(`X="..."`)을 그대로 복사하면 따옴표 자체가 값 일부가 됨.
+- `.env.local` 안내 시 shell-escape 목적의 따옴표와 Vercel UI 입력을 명시적으로 분리 설명 필요.
+- Resend는 `from` 필드에 RFC 5322 `"Name <email>"` 형식을 받지만 Vercel env에 저장된 값이 정확히 그 형식이어야 함(따옴표 leak 금지).
+
+---
+
 
 ## Task 5-2-4 Post-deploy 디버그 여정 (2026-04-22)
 
