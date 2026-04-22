@@ -684,8 +684,10 @@ export const workspaceInvitations = pgTable(
       sql`${table.role} IN ('owner', 'admin', 'member')`,
     ),
     // 활성 초대(수락 전 + 취소 전) 중복 방어 — 같은 workspace+email에 여러 건 발급 방지.
+    // LOWER(email) expression index — DB 레벨 case-insensitive 강제 (zod 우회 경로 defense-in-depth).
+    // 실제 DDL은 0033_pending_idx_lower_email.sql에서 수행.
     uniqueIndex("workspace_invitations_pending_idx")
-      .on(table.workspaceId, table.email)
+      .on(table.workspaceId, sql`LOWER(${table.email})`)
       .where(sql`${table.acceptedAt} IS NULL AND ${table.revokedAt} IS NULL`),
   ],
 );
