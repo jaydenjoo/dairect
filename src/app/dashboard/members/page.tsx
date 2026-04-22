@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   users,
   workspaceInvitations,
   workspaceMembers,
+  workspaceSettings,
 } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
 import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
 import { getCurrentWorkspaceRole } from "@/lib/auth/get-workspace-role";
 import { canManageMembers } from "@/lib/auth/workspace-permissions";
+import { getMaxMembers, getPlanLabel, suggestUpgradeTarget } from "@/lib/plans";
 import { MembersClient, type MemberRow, type InvitationRow } from "./members-client";
 
 export const metadata: Metadata = {
@@ -87,6 +89,37 @@ export default async function MembersPage() {
     revokedAtIso: r.revokedAt ? r.revokedAt.toISOString() : null,
   }));
 
+  // ─── Phase 5.5 Task 5-5-2: plan + 사용량 산출 ───
+  // workspace_settings.plan을 SELECT (default 'free' NOT NULL이라 정상 경로에서 row 존재).
+  // pending 카운트는 DB NOW()로 직접 비교 → actions.ts와 동일 정의 + server purity 규칙 준수
+  // (Server Component에서 Date.now() 호출은 react-hooks/purity 위반 → DB로 시각 비교 위임).
+  // server에서 한 번 산출 → client는 표시 + form disabled에만 사용 (서버에서 다시 검증되므로 신뢰 경계 안전).
+  const [settingsRow] = await db
+    .select({ plan: workspaceSettings.plan })
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.workspaceId, workspaceId))
+    .limit(1);
+  const plan = settingsRow?.plan ?? "free";
+  const planLabel = getPlanLabel(plan);
+  const upgradeTarget = suggestUpgradeTarget(plan);
+  const limit = getMaxMembers(plan);
+
+  const [pendingCountRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(workspaceInvitations)
+    .where(
+      and(
+        eq(workspaceInvitations.workspaceId, workspaceId),
+        isNull(workspaceInvitations.acceptedAt),
+        isNull(workspaceInvitations.revokedAt),
+        sql`${workspaceInvitations.expiresAt} > NOW()`,
+      ),
+    );
+  const pendingCount = pendingCountRow?.count ?? 0;
+  const used = members.length + pendingCount;
+  // Infinity는 JSON 직렬화 시 null로 변환되므로 client prop은 number|null로 정규화.
+  const limitForClient = Number.isFinite(limit) ? limit : null;
+
   return (
     <div className="py-10">
       <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
@@ -97,7 +130,14 @@ export default async function MembersPage() {
       </p>
 
       <div className="mt-8">
-        <MembersClient members={members} invitations={invitations} />
+        <MembersClient
+          members={members}
+          invitations={invitations}
+          planLabel={planLabel}
+          upgradeTarget={upgradeTarget}
+          limit={limitForClient}
+          used={used}
+        />
       </div>
     </div>
   );

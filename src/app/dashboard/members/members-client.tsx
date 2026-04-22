@@ -75,13 +75,33 @@ function formatDate(iso: string): string {
 type Props = {
   members: MemberRow[];
   invitations: InvitationRow[];
+  // Phase 5.5 Task 5-5-2: plan별 멤버 수 상한 게이트.
+  // planLabel = UI 표시용 ("Free"/"Pro"/"Team").
+  // upgradeTarget = 다음 단계 plan ("Pro" or "Team") — server에서 suggestUpgradeTarget로 산출.
+  // limit=null → 무제한 (Team 플랜). server에서 Infinity → null로 정규화.
+  // used = 현재 멤버 수 + pending 초대 수. server 산출 값(신뢰).
+  // server 측이 createInvitationAction 트랜잭션 안에서 다시 검증하므로 client disabled는 UX 보조.
+  planLabel: string;
+  upgradeTarget: string;
+  limit: number | null;
+  used: number;
 };
 
-export function MembersClient({ members, invitations }: Props) {
+export function MembersClient({
+  members,
+  invitations,
+  planLabel,
+  upgradeTarget,
+  limit,
+  used,
+}: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<InviteRole>("member");
+
+  const atLimit = limit !== null && used >= limit;
+  const limitText = limit === null ? "무제한" : `${limit}명`;
 
   function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -117,10 +137,31 @@ export function MembersClient({ members, invitations }: Props) {
     <div className="space-y-10">
       {/* 초대 폼 */}
       <section className="rounded-2xl bg-card p-6">
-        <h2 className="text-base font-semibold text-foreground">새 멤버 초대</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          이메일로 초대 링크를 발송합니다. 받은 사람이 링크를 눌러 수락하면 멤버가 됩니다.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">새 멤버 초대</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              이메일로 초대 링크를 발송합니다. 받은 사람이 링크를 눌러 수락하면 멤버가 됩니다.
+            </p>
+          </div>
+          <div className="text-right text-xs">
+            <div className="font-medium text-foreground">
+              {used} / {limitText}
+            </div>
+            <div className="mt-0.5 text-muted-foreground">{planLabel} 플랜</div>
+          </div>
+        </div>
+
+        {atLimit && (
+          <div
+            role="alert"
+            className="mt-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+          >
+            {planLabel} 플랜의 멤버 한도({limitText})에 도달했습니다. 기존 멤버나 발송된 초대를
+            정리하거나 {upgradeTarget} 플랜으로 업그레이드하면 더 추가할 수 있어요.
+          </div>
+        )}
+
         <form
           onSubmit={handleInvite}
           className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[1fr_180px_auto] sm:items-end"
@@ -134,7 +175,7 @@ export function MembersClient({ members, invitations }: Props) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@company.com"
-              disabled={pending}
+              disabled={pending || atLimit}
             />
           </div>
           <div>
@@ -142,7 +183,7 @@ export function MembersClient({ members, invitations }: Props) {
             <Select
               value={role}
               onValueChange={(v) => setRole(v as InviteRole)}
-              disabled={pending}
+              disabled={pending || atLimit}
             >
               <SelectTrigger id="invite-role">
                 <SelectValue />
@@ -155,7 +196,7 @@ export function MembersClient({ members, invitations }: Props) {
           </div>
           <button
             type="submit"
-            disabled={pending || !email}
+            disabled={pending || !email || atLimit}
             className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
             <UserPlus className="h-4 w-4" />

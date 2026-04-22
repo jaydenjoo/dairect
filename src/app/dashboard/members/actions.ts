@@ -1,15 +1,22 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { users, workspaceInvitations, workspaces } from "@/lib/db/schema";
+import {
+  users,
+  workspaceInvitations,
+  workspaceMembers,
+  workspaceSettings,
+  workspaces,
+} from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
 import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
 import { getCurrentWorkspaceRole } from "@/lib/auth/get-workspace-role";
 import { canManageMembers } from "@/lib/auth/workspace-permissions";
 import { sendInvitationEmail } from "@/lib/email/resend";
+import { getMaxMembers, getPlanLabel, suggestUpgradeTarget } from "@/lib/plans";
 import {
   createInvitationInputSchema,
   invitationIdSchema,
@@ -31,7 +38,33 @@ import {
 
 type ActionResult =
   | { success: true }
-  | { success: false; error: string; code?: "AUTH" | "FORBIDDEN" | "INVALID_INPUT" | "DUPLICATE" | "NOT_FOUND" | "EMAIL_FAILED" | "UNKNOWN" };
+  | {
+      success: false;
+      error: string;
+      code?:
+        | "AUTH"
+        | "FORBIDDEN"
+        | "INVALID_INPUT"
+        | "DUPLICATE"
+        | "NOT_FOUND"
+        | "EMAIL_FAILED"
+        | "LIMIT_EXCEEDED"
+        | "UNKNOWN";
+    };
+
+// Phase 5.5 Task 5-5-2: plan별 멤버 수 상한 도달 시 트랜잭션 안에서 throw → 외부 catch에서 분기.
+// transaction 내부에서 throw하면 drizzle이 자동 ROLLBACK + 외부로 propagate.
+class MemberLimitExceededError extends Error {
+  readonly code = "MEMBER_LIMIT_EXCEEDED" as const;
+  constructor(
+    readonly used: number,
+    readonly limit: number,
+    readonly plan: string,
+  ) {
+    super("MEMBER_LIMIT_EXCEEDED");
+    this.name = "MemberLimitExceededError";
+  }
+}
 
 const INVITE_TTL_DAYS = 7;
 
@@ -129,16 +162,70 @@ export async function createInvitationAction(formData: FormData): Promise<Action
     };
   }
 
+  // Phase 5.5 Task 5-5-2: plan별 멤버 한도 게이트 + 기존 INSERT를 단일 트랜잭션에 묶음.
+  // - advisory lock으로 workspace 단위 잠금 → 동시에 들어온 초대 INSERT 직렬화 (TOCTOU 방어).
+  // - workspace_settings.plan SELECT → getMaxMembers로 한도 산출.
+  // - workspace_members count + workspace_invitations pending count 합산 → used.
+  // - used >= limit이면 MemberLimitExceededError throw → 트랜잭션 ROLLBACK → 외부 catch에서 분기.
   try {
-    await db.insert(workspaceInvitations).values({
-      workspaceId,
-      email: parsed.data.email,
-      role: parsed.data.role,
-      token,
-      invitedBy: userId,
-      expiresAt,
+    await db.transaction(async (tx) => {
+      // hashtext()는 PG 내장 함수 — bigint 해시 → advisory lock key. xact 변형은 트랜잭션 종료 시 자동 해제.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${workspaceId}))`);
+
+      const [settingsRow] = await tx
+        .select({ plan: workspaceSettings.plan })
+        .from(workspaceSettings)
+        .where(eq(workspaceSettings.workspaceId, workspaceId))
+        .limit(1);
+      const plan = settingsRow?.plan ?? "free";
+      const limit = getMaxMembers(plan);
+
+      const [memberCountRow] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(workspaceMembers)
+        .where(eq(workspaceMembers.workspaceId, workspaceId));
+      const memberCount = memberCountRow?.count ?? 0;
+
+      const [pendingCountRow] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(workspaceInvitations)
+        .where(
+          and(
+            eq(workspaceInvitations.workspaceId, workspaceId),
+            isNull(workspaceInvitations.acceptedAt),
+            isNull(workspaceInvitations.revokedAt),
+            sql`${workspaceInvitations.expiresAt} > NOW()`,
+          ),
+        );
+      const pendingCount = pendingCountRow?.count ?? 0;
+
+      const used = memberCount + pendingCount;
+      if (used >= limit) {
+        throw new MemberLimitExceededError(used, limit, plan);
+      }
+
+      await tx.insert(workspaceInvitations).values({
+        workspaceId,
+        email: parsed.data.email,
+        role: parsed.data.role,
+        token,
+        invitedBy: userId,
+        expiresAt,
+      });
     });
   } catch (err) {
+    // 한도 초과 분기 (가장 먼저 — instanceof 매칭이 빠름)
+    if (err instanceof MemberLimitExceededError) {
+      const planLabel = getPlanLabel(err.plan);
+      const upgradeTo = suggestUpgradeTarget(err.plan);
+      const limitText = Number.isFinite(err.limit) ? `${err.limit}명` : "무제한";
+      return {
+        success: false,
+        error: `현재 ${planLabel} 플랜의 멤버 한도(${limitText})에 도달했습니다. 기존 멤버나 발송된 초대를 정리하거나 ${upgradeTo} 플랜으로 업그레이드해주세요.`,
+        code: "LIMIT_EXCEEDED",
+      };
+    }
+
     // 중복 활성 초대 판정 — Drizzle ORM은 원본 PostgresError를 err.cause에 담고
     // 자체 "Failed query: ..." 메시지로 wrap함 (name="Error"). 최상위 err.code는 null.
     // 2026-04-22 1차 hotfix(7618c0d)가 최상위만 봐서 miss 확인 → cause까지 unwrap.

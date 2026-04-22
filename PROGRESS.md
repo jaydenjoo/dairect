@@ -1,7 +1,65 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-22 밤 (Task 5-5-1 ✅ Phase 5.5 보안 강화 묶음 — 3건 + security-reviewer HIGH 1 + MEDIUM 2 즉시 반영)
-> 현재 위치: **Phase 5.5 보안 강화 진행 중**. Task 5-5-1 완료(referrer-policy + env startup 검증 + Resend key 분리 가이드). 남은 Phase 5.5 ToDo 5건(아래) + Phase D 진입 검토.
+> 최종 업데이트: 2026-04-22 밤 (Task 5-5-2 ✅ 멤버 수 상한 게이트 — invite + accept 양측 + reviewer CRIT-1 즉시 반영)
+> 현재 위치: **Phase 5.5 진행 중**. Task 5-5-1(보안 강화 묶음) + 5-5-2(멤버 한도 게이트) 완료. 남은 Phase 5.5 ToDo 4건(아래).
+
+## Task 5-5-2 ✅ 완료 (멤버 수 상한 게이트 — invite + accept 양측 + reviewer 즉시 반영 3건)
+
+**범위**: workspace plan별 max members enforcement (베타: Free 3 / Pro 5 / Team ∞).
+- PRD-phase5.md:154-162 정의(1/1/∞)는 베타 종료 후 Phase 5.5 빌링 진입 시점에 회귀 — `src/lib/plans.ts` 한 줄 변경.
+
+**신규 파일 1**
+- `src/lib/plans.ts` — `PLAN_MAX_MEMBERS` 상수 + `getMaxMembers` / `getPlanLabel` / `suggestUpgradeTarget` 헬퍼. 무제한은 `Number.POSITIVE_INFINITY`(server JSON 직렬화 시 page.tsx에서 null로 정규화). "INSERT-time + ACCEPT-time enforcement only" + "Existing-over-limit 정책은 Phase 5.5 빌링 ToDo" 명시 주석.
+
+**수정 파일 4**
+- `src/app/dashboard/members/actions.ts` (createInvitationAction):
+  - `db.transaction` 안에 `pg_advisory_xact_lock(hashtext(workspaceId))` → 동시 INSERT 직렬화.
+  - workspace_settings.plan SELECT + workspace_members count + workspace_invitations pending count(`acceptedAt IS NULL AND revokedAt IS NULL AND expiresAt > NOW()`) 합산.
+  - `used >= limit`이면 `MemberLimitExceededError` throw → 트랜잭션 ROLLBACK → 외부 catch에서 instanceof 분기로 LIMIT_EXCEEDED 반환 (DUPLICATE 분기보다 먼저).
+  - 메시지에 동적 업그레이드 안내 (Free → Pro / Pro → Team — `suggestUpgradeTarget` 사용).
+- `src/app/dashboard/members/page.tsx`:
+  - workspace_settings.plan SELECT + 별도 COUNT(*) 쿼리로 pending count(`Date.now()` 호출 회피 → React Server Component purity 규칙 준수, DB NOW()로 actions.ts와 동일 정의).
+  - planLabel/upgradeTarget/limit(Infinity → null 정규화)/used를 client에 prop 전달.
+- `src/app/dashboard/members/members-client.tsx`:
+  - 초대 폼 헤더에 "N / M (Free 플랜)" 사용량 표시.
+  - 한도 도달 시 amber 배너(role="alert") + email/role select/submit button 모두 disabled.
+  - 동적 업그레이드 안내 ("…또는 {upgradeTarget} 플랜으로 업그레이드하면 더 추가할 수 있어요").
+- `src/app/invite/[token]/accept-actions.ts` (acceptInvitationAction) — **code-reviewer CRIT-1 즉시 반영**:
+  - 발송 게이트 통과 후에도 plan downgrade(pro→free) 또는 SQL 직접 INSERT 우회 시 수락 시점 한도 깨짐 가능 → 같은 트랜잭션 패턴(advisory lock + plan SELECT + members count) 추가.
+  - `existingMember` 체크로 재수락(idempotent) 시 한도 체크 skip → onConflictDoNothing과 일관.
+  - 자기 자신 invitation은 곧 member로 전환되므로 pending 카운트 제외 → `memberCount >= limit`만 검사.
+  - `AcceptLimitExceededError` throw → catch에서 LIMIT_EXCEEDED 반환 (ACCEPT_RACE 분기보다 먼저).
+
+**검증**
+- `pnpm tsc/lint/build` 통과 (lint warning 1건 무관 estimate-form.tsx).
+- Cloud Supabase SQL 격리 시나리오 12건 PASS:
+  - 발송 게이트 6건 (T1~T6): Free/Pro/Team × used 매트릭스 + edge case + unknown plan fallback.
+  - 수락 게이트 6건 (A1~A6): Free/Pro/Team × member_count + downgrade 누적 초과 시나리오 + unknown plan fallback.
+  - 핵심 시나리오 A5 Free downgrade 후 members=4 → BLOCKED — CRIT-1 우회 경로 봉쇄 확인.
+- advisory lock 동작 검증 (reentrant + 다른 ws 동시 가능).
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL 1 (code) + HIGH 0 (sec) → **즉시 반영 3건**:
+  - CRIT-1: accept-actions.ts 한도 게이트 추가 (위에 기록).
+  - LOW-2: "팀 플랜으로 업그레이드" 정적 안내 → `suggestUpgradeTarget`로 동적("Free → Pro" / "Pro → Team").
+  - INFO: plans.ts에 "INSERT-time + ACCEPT-time only enforcement, existing-over-limit은 Phase 5.5 ToDo" 주석 추가.
+- **Phase 5.5 잔여 ToDo로 이관 3건**:
+  - HIGH-1 (code): page.tsx의 memberRows + pendingCount 두 SELECT 사이 race로 표시값 일시 불일치 — UX 영향만 (server transaction이 신뢰 경계).
+  - HIGH-2 (code): hashtext()는 32-bit 해시 → 워크스페이스 1만 개 시점에 충돌 가능 (다른 ws 직렬화로 latency 영향만, 데이터 정합 영향 없음). 2-key advisory lock 전환은 Phase 5.5 빌링 후 ToDo.
+  - HIGH-4 (code): workspaceSettings row 누락 시 free fallback이 silent — `console.error` 알림 추가 권장.
+- **Existing-over-limit 정책**: plan downgrade 시점에 이미 한도 초과한 워크스페이스의 자동 정리/강제 다운그레이드는 Phase 5.5 billing webhook과 함께 결정.
+
+### 차기 Task 등록 (Phase 5.5 잔여 4건)
+1. **Resend Sending Access key 발급/회전** (Jayden 수동, 개발 완료 후 진행 예정 — 2026-04-22 결정)
+2. **rate limit** (members 초대 / login — Vercel KV vs Upstash Redis 결정 선행)
+3. **activity_logs 감사** (초대 발송/수락/revoke + plan 변경 audit trail)
+4. **MEDIUM/LOW 후속 정리** (n8n webhook URL schema / instrumentation 부팅 차단 실증 + next.config build-time import / vitest 이관 / RESEND_FROM_EMAIL 표기 명문화 / page.tsx HIGH-1 / hashtext HIGH-2 / settings row missing HIGH-4 / Existing-over-limit 정책)
+
+또는 **Phase 5 Epic 5-3** 진입 검토 (PRD 재확인 필요).
+
+---
+
+## Task 5-5-1 ✅ 완료 (Phase 5.5 보안 강화 묶음 3건 + 리뷰 4건 반영)
 
 ## Task 5-5-1 ✅ 완료 (Phase 5.5 보안 강화 묶음 3건 + 리뷰 4건 반영)
 

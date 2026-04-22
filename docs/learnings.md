@@ -1,5 +1,23 @@
 # Dairect — 교훈 기록
 
+## 2026-04-22 밤 — INSERT-time only enforcement는 비대칭 게이트 — plan downgrade로 한도 우회 가능, 모든 mutation 진입점에 동일 게이트 필요 (Task 5-5-2 리뷰 CRIT-1)
+
+- **상황**: Task 5-5-2에서 멤버 수 상한 게이트를 `createInvitationAction`(초대 발송)에만 도입. 발송 시 (members + pending + 1 > limit) 비교로 정확한 한도 enforcement 구현 + 6 시나리오 SQL PASS. code-reviewer가 "발송 게이트 자체는 견고하나 `acceptInvitationAction`(수락)에는 한도 체크 부재 → plan downgrade(pro→free) 시점 우회 가능"을 CRITICAL로 지적.
+- **우회 시나리오**:
+  1. T0: plan=pro(한도 5), members=4, pending=1 → used=5 (한도 도달, 정상).
+  2. T1: admin이 plan을 free(한도 3)로 downgrade (Phase 5.5 후속 UI 또는 직접 SQL).
+  3. T2: T0 시점에 발송된 pending 초대 수신자가 수락 → `acceptInvitationAction`이 한도 체크 없이 INSERT → members=5 (free 한도 3을 영구 초과한 잠금 상태).
+  4. 이후 발송 게이트는 정상 작동하지만 "이미 5명이라 신규 초대 거부" + "기존 5명은 어떻게 정리할지" 미정의 → 운영 사고.
+- **본질**: "INSERT-time only enforcement"는 같은 한도가 여러 mutation 경로에서 적용될 때 한 곳만 막아도 다른 경로로 우회 가능. 한도가 진짜 invariant라면 **모든 mutation 진입점에 동일한 게이트가 대칭으로 적용**되어야 함.
+- **해결**: `acceptInvitationAction`에도 같은 패턴(advisory lock + workspace_settings.plan SELECT + workspace_members count + memberCount >= limit이면 throw) 추가. SQL 회귀 6건 추가(A1~A6) — 핵심 A5(Free downgrade 후 members=4) BLOCKED 확인.
+- **규칙**:
+  1. **"한도 enforcement"는 최소 2개 진입점(발송 + 수락) 양쪽에 대칭으로 설치**. 발송만 막으면 plan downgrade/SQL 직접 INSERT/Phase 5.5 후속 UI 등 우회 경로가 시간이 지나며 누적. 새 mutation 경로 추가 시 "이 경로가 한도와 무관한가?" 명시 점검.
+  2. **CRITICAL 게이트는 단일 진입점이 아니라 invariant 단위로 설계**. "어디에서 막느냐"가 아니라 "어떤 상태가 절대 안 되는가"를 정의 → 그 상태를 만들 수 있는 모든 경로 식별 → 각 경로에 게이트.
+  3. **plan/role/quota 같은 정책 변경 시 기존 데이터의 호환성 별도 검토**. plan 변경(pro→free)은 단순 한 줄 UPDATE지만 그 시점부터 "이미 한도 초과"인 워크스페이스가 정상 운영 불가 상태가 됨. Phase 5.5 billing webhook은 단순 plan 변경뿐 아니라 "기존 데이터 정리 정책"(자동 archive / admin 알림 / grace period 등)도 함께 결계.
+  4. **트랜잭션 게이트의 sub-throw 클래스 패턴 일관성**: `MemberLimitExceededError` (invite) + `AcceptLimitExceededError` (accept). 둘 다 `instanceof` 분기를 catch 블록 가장 위에 두어 다른 분기(DUPLICATE/RACE)와 메시지 매칭 충돌 방지. 동일 패턴 적용으로 코드 review/디버그 시 한 곳 보면 다른 곳 추정 가능.
+  5. **idempotent 재수락 보호**: 자기 자신이 이미 멤버면 한도 체크 skip → page render와 accept 사이 race(다른 탭에서 먼저 수락)로 false positive 차단. `onConflictDoNothing`과 함께 두 층의 idempotent 보장.
+  6. **`acceptInvitationAction`처럼 다단계 트랜잭션은 새 단계 추가 시 "기존 단계 사이의 race가 깨지지 않는가" 점검**. advisory lock을 트랜잭션 시작점에 두면 모든 후속 SELECT/UPDATE가 직렬화되어 race 차단. lock 위치를 INSERT 직전에 두면 lock 이전의 SELECT 결과가 stale될 수 있음.
+
 ## 2026-04-22 밤 — Server-only 모듈은 `import "server-only"`로 빌드 타임 명시 차단 — zod fail에 간접 의존은 신뢰성 부족 (Task 5-5-1 리뷰 MEDIUM-3)
 
 - **상황**: Phase 5.5 보안 강화로 `src/lib/env.ts`(Zod env 검증)를 신규 도입. 초안에서는 "client component가 실수로 import해도 `process.env.DATABASE_URL`이 client 번들에서 undefined → zod fail로 빌드/런타임 에러 노출"이라고 자연스러운 server-only 강제를 의도. security-reviewer가 이 간접 방어의 한계를 MEDIUM으로 지적.

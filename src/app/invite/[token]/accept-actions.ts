@@ -7,8 +7,10 @@ import {
   users,
   workspaceInvitations,
   workspaceMembers,
+  workspaceSettings,
 } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
+import { getMaxMembers, getPlanLabel, suggestUpgradeTarget } from "@/lib/plans";
 import { createClient } from "@/lib/supabase/server";
 import { acceptInvitationInputSchema } from "@/lib/validation/invite-accept";
 
@@ -53,8 +55,24 @@ type AcceptResult =
         | "REVOKED"
         | "ALREADY_ACCEPTED"
         | "EMAIL_MISMATCH"
+        | "LIMIT_EXCEEDED"
         | "UNKNOWN";
     };
+
+// Phase 5.5 Task 5-5-2: 수락 측 plan 한도 게이트 (code-reviewer CRIT-1 반영).
+// 발송 시점에 통과한 초대도 plan downgrade(pro→free) 또는 SQL 직접 INSERT 우회 시
+// 수락 시점에 한도가 깨질 수 있음 → defense-in-depth로 transaction 안에서 재검증.
+class AcceptLimitExceededError extends Error {
+  readonly code = "ACCEPT_LIMIT_EXCEEDED" as const;
+  constructor(
+    readonly memberCount: number,
+    readonly limit: number,
+    readonly plan: string,
+  ) {
+    super("ACCEPT_LIMIT_EXCEEDED");
+    this.name = "AcceptLimitExceededError";
+  }
+}
 
 export async function acceptInvitationAction(token: string): Promise<AcceptResult> {
   const userId = await getUserId();
@@ -124,6 +142,47 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
 
   try {
     const workspaceId = await db.transaction(async (tx) => {
+      // ─── Phase 5.5 Task 5-5-2: 수락 측 plan 한도 게이트 ───
+      // advisory lock으로 동시 다수 수락 직렬화 → race로 한도 초과 방지.
+      // hashtext()는 32-bit 해시 (워크스페이스 1만 개 시점에 충돌 우려 — Phase 5.5 ToDo).
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${existing.workspaceId}))`);
+
+      // 이미 멤버라면 한도 체크 skip — onConflictDoNothing이 INSERT skip하므로 idempotent 보장.
+      // page render와 accept 사이의 race(동시 다른 탭 수락)에서 한도 도달 false positive 차단.
+      const [existingMember] = await tx
+        .select({ id: workspaceMembers.id })
+        .from(workspaceMembers)
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, existing.workspaceId),
+            eq(workspaceMembers.userId, userId),
+          ),
+        )
+        .limit(1);
+
+      if (!existingMember) {
+        const [settingsRow] = await tx
+          .select({ plan: workspaceSettings.plan })
+          .from(workspaceSettings)
+          .where(eq(workspaceSettings.workspaceId, existing.workspaceId))
+          .limit(1);
+        const plan = settingsRow?.plan ?? "free";
+        const limit = getMaxMembers(plan);
+
+        const [memberCountRow] = await tx
+          .select({ count: sql<number>`count(*)::int` })
+          .from(workspaceMembers)
+          .where(eq(workspaceMembers.workspaceId, existing.workspaceId));
+        const memberCount = memberCountRow?.count ?? 0;
+
+        // memberCount >= limit이면 자기 자신 추가 시 한도 초과 → 거부.
+        // pending 초대 수는 빼지 않음: 자기 invitation은 곧 accept되어 member로 전환되므로
+        // pending - 1 + member + 1 = 합 동일. members만 보면 충분.
+        if (memberCount >= limit) {
+          throw new AcceptLimitExceededError(memberCount, limit, plan);
+        }
+      }
+
       // 1) invitations UPDATE — WHERE 조건으로 race safety 확보 (동시 수락 시 1건만 성공).
       //    email은 다시 한 번 DB 레벨에서 검증 (TOCTOU 방어).
       //    role != 'owner' 조건도 WHERE에 포함 — pre-query 이후 DB가 바뀌었을 가능성 차단.
@@ -175,6 +234,18 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
     revalidatePath("/dashboard");
     return { success: true, workspaceId };
   } catch (err) {
+    // Phase 5.5 Task 5-5-2: 한도 초과 분기 (instanceof 매칭 — DUPLICATE/RACE 분기보다 먼저).
+    if (err instanceof AcceptLimitExceededError) {
+      const planLabel = getPlanLabel(err.plan);
+      const upgradeTo = suggestUpgradeTarget(err.plan);
+      const limitText = Number.isFinite(err.limit) ? `${err.limit}명` : "무제한";
+      return {
+        success: false,
+        error: `워크스페이스 멤버 한도(${planLabel} 플랜 ${limitText})에 도달했습니다. 워크스페이스 관리자가 ${upgradeTo} 플랜으로 업그레이드하거나 기존 멤버를 정리한 후 다시 시도해주세요.`,
+        code: "LIMIT_EXCEEDED",
+      };
+    }
+
     if (err instanceof Error && err.message === "ACCEPT_RACE") {
       // race 발생 시 row 상태를 재조회하여 정확한 code 반환
       // 만료 판정도 DB NOW() 기준으로 통일.
