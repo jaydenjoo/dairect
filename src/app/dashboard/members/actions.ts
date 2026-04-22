@@ -19,6 +19,7 @@ import { canManageMembers } from "@/lib/auth/workspace-permissions";
 import { sendInvitationEmail } from "@/lib/email/resend";
 import { getMaxMembers, getPlanLabel, suggestUpgradeTarget } from "@/lib/plans";
 import { checkAndIncrementRateLimit } from "@/lib/rate-limit";
+import { sanitizeFreeText } from "@/lib/utils/sanitize";
 import {
   createInvitationInputSchema,
   invitationIdSchema,
@@ -57,13 +58,30 @@ type ActionResult =
 
 // Phase 5.5 Task 5-5-4: createInvitationAction abuse 방어용 한도.
 // userId 기반 분/시간 두 단계 — 정상 admin은 절대 도달하지 않을 값.
-//   분당 5회: 자동화/스크립트 차단
-//   시간당 20회: 단일 admin이 정상 운영하기에 충분 + 누적 abuse 방어
-// 한도값 변경 시 docs/env-setup.md 또는 운영 가이드 동기화 권장.
+//   분당 5회: 자동화/스크립트 차단 (default, INVITE_RATE_LIMIT_PER_MINUTE env로 override)
+//   시간당 20회: 단일 admin이 정상 운영 충분 + 누적 abuse 방어 (INVITE_RATE_LIMIT_PER_HOUR)
+// Task 5-5-5 rate-2: env 변수화 — 운영 중 abuse 발견 시 코드 수정 없이 조정 가능.
+//
+// parseRateLimit 가드 (Task 5-5-5 review HIGH-1): env가 빈 문자열/NaN/0/음수면 default fallback.
+// env.ts zod가 양의 정수만 허용하지만, env.ts가 우회되거나 zod 통과 후 race로 변경되는
+// 시나리오 방어 + 두 곳에서 같은 invariant 강제 (defense-in-depth).
+function parseRateLimit(envVal: string | undefined, fallback: number): number {
+  if (!envVal) return fallback;
+  const n = Number(envVal);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.floor(n);
+}
+
 const INVITE_RATE_LIMITS = {
-  perMinute: { windowSec: 60, limit: 5 },
-  perHour: { windowSec: 3600, limit: 20 },
-} as const;
+  perMinute: {
+    windowSec: 60,
+    limit: parseRateLimit(process.env.INVITE_RATE_LIMIT_PER_MINUTE, 5),
+  },
+  perHour: {
+    windowSec: 3600,
+    limit: parseRateLimit(process.env.INVITE_RATE_LIMIT_PER_HOUR, 20),
+  },
+};
 
 // Phase 5.5 Task 5-5-2: plan별 멤버 수 상한 도달 시 트랜잭션 안에서 throw → 외부 catch에서 분기.
 // transaction 내부에서 throw하면 drizzle이 자동 ROLLBACK + 외부로 propagate.
@@ -174,13 +192,20 @@ export async function createInvitationAction(formData: FormData): Promise<Action
   if (!wsRow) {
     return { success: false, error: "워크스페이스를 찾을 수 없습니다", code: "NOT_FOUND" };
   }
+  // Task 5-5-5 review MED-3 (sec): workspace.name도 자유 입력 → 이메일 본문/audit metadata에서
+  // BiDi/control char 스푸핑 방어. inviterName과 동일 정책으로 산출 시점 1회 정규화.
+  const wsName = sanitizeFreeText(wsRow.name);
 
   const [inviterRow] = await db
     .select({ name: users.name, email: users.email })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  const inviterName = inviterRow?.name || inviterRow?.email || "팀 관리자";
+  // Task 5-5-5 audit-3: user.name은 가입 시 자유 입력 → control char/BiDi override 포함 가능.
+  // 이메일 본문 + audit metadata 두 곳에서 사용되므로 산출 시점에 한 번 정규화 (defense-in-depth).
+  const inviterName = sanitizeFreeText(
+    inviterRow?.name || inviterRow?.email || "팀 관리자",
+  );
 
   const token = randomUUID();
   const expiresAt = computeExpiresAt();
@@ -217,6 +242,13 @@ export async function createInvitationAction(formData: FormData): Promise<Action
         .from(workspaceSettings)
         .where(eq(workspaceSettings.workspaceId, workspaceId))
         .limit(1);
+      // Task 5-5-5 HIGH-4: workspace 생성 시 settings row 동시 생성 불변식 위반 알림.
+      // 정상 경로에서 발생 불가 — silent fallback 없이 즉시 인지하여 무결성 깨진 워크스페이스 추적.
+      if (!settingsRow) {
+        console.error("[createInvitationAction] workspace_settings row missing — fallback to 'free'", {
+          workspaceId,
+        });
+      }
       const plan = settingsRow?.plan ?? "free";
       const limit = getMaxMembers(plan);
 
@@ -322,7 +354,7 @@ export async function createInvitationAction(formData: FormData): Promise<Action
   try {
     await sendInvitationEmail({
       to: parsed.data.email,
-      workspaceName: wsRow.name,
+      workspaceName: wsName,
       inviterName,
       inviteUrl,
       expiresAt,
@@ -331,11 +363,33 @@ export async function createInvitationAction(formData: FormData): Promise<Action
     // 이메일 실패 → row soft revoke로 일관성 복구 (재발송 경로 열림).
     // security-reviewer H1: revoke UPDATE 자체가 실패하면 pending idx 영구 잠금 → 중첩 try/catch로
     //                        double-fault를 로그로만 남기고 상위는 EMAIL_FAILED 반환 유지.
+    // Task 5-5-5 audit-1: 자동 revoke + audit log를 단일 transaction으로 묶어 atomicity 일관.
+    //                     수동 revoke와 동일하게 audit trail 남겨 디버깅/감사 추적성 확보
+    //                     (action: workspace_invitation.revoked + metadata.reason: email_send_failed).
     try {
-      await db
-        .update(workspaceInvitations)
-        .set({ revokedAt: new Date() })
-        .where(eq(workspaceInvitations.token, token));
+      await db.transaction(async (tx) => {
+        const [revokedRow] = await tx
+          .update(workspaceInvitations)
+          .set({ revokedAt: new Date() })
+          .where(eq(workspaceInvitations.token, token))
+          .returning({ id: workspaceInvitations.id });
+        if (revokedRow) {
+          await tx.insert(activityLogs).values({
+            userId,
+            workspaceId,
+            entityType: "workspace_invitation",
+            entityId: revokedRow.id,
+            action: "workspace_invitation.revoked",
+            description: "이메일 발송 실패로 자동 취소",
+            metadata: {
+              email: parsed.data.email,
+              role: parsed.data.role,
+              reason: "email_send_failed",
+              originalInviterUserId: userId,
+            },
+          });
+        }
+      });
     } catch (revokeErr) {
       console.error("[createInvitationAction] revoke after email failure also failed", {
         name: revokeErr instanceof Error ? revokeErr.name : typeof revokeErr,
@@ -416,6 +470,9 @@ export async function revokeInvitationAction(invitationId: string): Promise<Acti
         role: row.role,
         // 원래 발송자 — revoke한 사람(userId)과 다를 수 있음 (다른 admin이 취소).
         originalInviterUserId: row.invitedBy,
+        // Task 5-5-5 audit-5: revoker의 시점 role을 박제 — 분쟁 시 "revoke 시점에 어떤 권한이었는지"
+        // 추적 정확성 (이후 role이 변경되어도 audit는 시점 정보 유지).
+        revokerRoleAtTime: role,
       },
     });
 

@@ -1,7 +1,63 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-22 밤 (Task 5-5-4 ✅ createInvitationAction rate limit — fixed window counter + reviewer HIGH-1 short-circuit + MEDIUM 2건 즉시 반영)
-> 현재 위치: **Phase 5.5 진행 중**. Task 5-5-1(보안 강화) + 5-5-2(멤버 한도) + 5-5-3(audit) + 5-5-4(rate limit) 완료. 남은 Phase 5.5 ToDo 2건 + 후속 8건(아래).
+> 최종 업데이트: 2026-04-22 밤 (Task 5-5-5 ✅ Phase 5.5 잔여 정리 묶음 — 7건 + reviewer HIGH-1 + MED 정책 변경 즉시 반영)
+> 현재 위치: **Phase 5.5 진행 중**. Task 5-5-1~5 완료 (보안/한도/audit/rate limit/잔여 정리). 남은 Phase 5.5 ToDo 2건 + 후속 8건(아래).
+
+## Task 5-5-5 ✅ 완료 (Phase 5.5 잔여 정리 묶음 7건 + reviewer 즉시 반영 3건)
+
+**범위**: Task 5-5-1~4의 잔여 MEDIUM/LOW 7건 단일 묶음 처리.
+
+**신규 파일 1**
+- `src/lib/utils/sanitize.ts` — `sanitizeFreeText(text: string)` + `sanitizeFreeTextOrNull` export. control char(\x00-\x08\x0B\x0C\x0E-\x1F\x7F) + BiDi override(\u202A-\u202E, \u2066-\u2069) 제거. tab/newline/HTML 특수문자는 의도적 보존 (React가 자동 escape, 자연 입력 허용).
+
+**수정 파일 5**
+- `src/lib/env.ts`:
+  - n8n webhook URL 5종 (PROJECT_STATUS_CHANGED / PROJECT_COMPLETED / PORTAL_FEEDBACK_RECEIVED / INVOICE_OVERDUE / WEEKLY_SUMMARY) 옵션 등록 (drift 방지). **`.url()` 검증은 의도적으로 빼서** 부가 시스템 1개 오설정으로 전체 앱 부팅 차단되는 운영 risk 회피 (review MED-1 반영).
+  - INVITE_RATE_LIMIT_PER_MINUTE/HOUR 옵션 등록. regex `^[1-9]\d*$`로 `"0"` 거부 (review HIGH-1 반영, limit=0이면 모든 admin 초대 영구 차단 위험).
+- `src/app/dashboard/members/actions.ts`:
+  - INVITE_RATE_LIMITS에 `parseRateLimit` 헬퍼 추가 (env 빈 문자열/NaN/0/음수 fallback to default — review HIGH-1 defense-in-depth).
+  - inviterName + wsName(workspace.name)에 sanitizeFreeText 적용 (이메일 본문 + audit metadata BiDi 스푸핑 차단 — audit-3 + sec MED-3).
+  - createInvitationAction transaction 안 workspaceSettings row missing console.error 알림 (HIGH-4).
+  - 이메일 발송 실패 자동 revoke를 transaction으로 묶어 audit log 동시 INSERT (audit-1, action: workspace_invitation.revoked + metadata.reason: email_send_failed).
+  - revokeInvitationAction metadata에 revokerRoleAtTime 박제 (audit-5).
+- `src/app/invite/[token]/accept-actions.ts`:
+  - workspaceSettings row missing 알림 (HIGH-4 동일 패턴).
+- `src/app/dashboard/members/page.tsx`:
+  - workspaceSettings row missing 알림 (HIGH-4 동일 패턴).
+- `docs/env-setup.md`:
+  - RESEND_FROM_EMAIL 표기 명문화 (LOW-2): "Vercel UI에 따옴표 없이" 사고 이력 + 표준 안내 문구 추가.
+
+**검증**
+- `pnpm tsc/lint/build` 통과 (lint warning 1건 무관).
+- sanitize 단위 동작 확인 (Bash 1줄):
+  - control char "Hello\\x07World" → "HelloWorld" ✅
+  - BiDi "Hello\\u202EWorld" → "HelloWorld" ✅
+  - newline/tab/HTML chars 보존 (의도) ✅
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL 0, HIGH 1 (code, 두 리뷰 공통 지적) → **즉시 반영 3건**:
+  - HIGH-1 (code) / MED-1 (sec): INVITE_RATE_LIMITS env 빈 문자열/0/NaN 처리 부재 → parseRateLimit 헬퍼 + env.ts regex `^[1-9]\d*$` 강화. fail-closed라 보안은 안전하지만 운영 가용성 0 회귀 위험.
+  - MEDIUM-1 (code): n8n URL .url() fail-fast 정책 → A안 채택 (`.url()` 제거, client.ts graceful 처리에 위임).
+  - MEDIUM-3 (sec): wsRow.name(workspace.name)도 sanitize 적용 (이메일 본문 BiDi 스푸핑 defense-in-depth).
+- **잔여 ToDo 추가** (다음 정리 묶음 또는 운영 시점에):
+  - cleanup-1: console.error 형식 통일 (`event: "..."` 구조화 로그) — 모니터링 일관성 (code MED-2)
+  - cleanup-2: revoke transaction에 isNull(revokedAt) 가드 추가 (code LOW-1)
+  - cleanup-3: revoke transaction ROLLBACK 시 stuck row alert 강화 (sec MED-2)
+
+### 차기 Task 등록 (Phase 5.5 잔여 2건 + 후속 11건)
+1. **Resend Sending Access key 발급/회전** (Jayden 수동, 개발 완료 후 — 2026-04-22 결정)
+2. **Phase 5 Epic 5-3** 진입 검토 (PRD 재확인 필요)
+
+후속 (잔여 기술 부채 — 운영 시점에 자연 검증 또는 별도 Task):
+- Task 5-5-1 잔여: MEDIUM-4 instrumentation 부팅 차단 실증 / LOW-1 vitest 이관
+- Task 5-5-2 잔여: HIGH-1 page.tsx race / HIGH-2 hashtext 32-bit 충돌 / Existing-over-limit 정책
+- Task 5-5-3 잔여: audit-2 활동 피드 정책 / audit-4 PII 라이프사이클 (Phase 5.5 빌링과 함께)
+- Task 5-5-4 잔여: rate-1 cleanup cron / rate-3 Promise.all 보류 / rate-4 추가 엔드포인트 확장
+- Task 5-5-5 cleanup-1/2/3: 구조화 로그 / revoke isNull 가드 / stuck row alert
+
+---
+
+## Task 5-5-4 ✅ 완료 (createInvitationAction rate limit — fixed window counter)
 
 ## Task 5-5-4 ✅ 완료 (createInvitationAction rate limit — fixed window counter)
 

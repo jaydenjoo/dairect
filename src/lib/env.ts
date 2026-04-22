@@ -40,6 +40,26 @@ const envSchema = z
     ANTHROPIC_API_KEY: z.string().optional(),
     CRON_SECRET: z.string().optional(),
     N8N_WEBHOOK_SECRET: z.string().optional(),
+    // n8n webhook URL 5종 (Task 5-5-1 MEDIUM-2 반영, drift 방지).
+    // 형식 검증(.url())은 의도적으로 빼서 부가 시스템 1개 오설정으로 전체 앱 부팅 차단되는
+    // 운영 risk 회피 (Task 5-5-5 review MED-1 반영). client.ts에 이미 new URL() try/catch
+    // graceful 처리 있어 잘못된 형식이면 해당 워크플로만 no-op + console.warn 로그.
+    N8N_WEBHOOK_URL_PROJECT_STATUS_CHANGED: z.string().optional(),
+    N8N_WEBHOOK_URL_PROJECT_COMPLETED: z.string().optional(),
+    N8N_WEBHOOK_URL_PORTAL_FEEDBACK_RECEIVED: z.string().optional(),
+    N8N_WEBHOOK_URL_INVOICE_OVERDUE: z.string().optional(),
+    N8N_WEBHOOK_URL_WEEKLY_SUMMARY: z.string().optional(),
+    // Phase 5.5 Task 5-5-4 후속 (rate-2 반영): 한도값 운영 중 조정용 옵션.
+    // 미설정 시 actions.ts default(분 5 / 시간 20) 사용. 형식: 1 이상 양의 정수.
+    // regex가 "0" 거부 (Task 5-5-5 review HIGH-1 반영) — limit=0이면 모든 admin 초대 영구 차단 위험.
+    INVITE_RATE_LIMIT_PER_MINUTE: z
+      .string()
+      .regex(/^[1-9]\d*$/, "1 이상 양의 정수 문자열이어야 함")
+      .optional(),
+    INVITE_RATE_LIMIT_PER_HOUR: z
+      .string()
+      .regex(/^[1-9]\d*$/, "1 이상 양의 정수 문자열이어야 함")
+      .optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== "production") return;

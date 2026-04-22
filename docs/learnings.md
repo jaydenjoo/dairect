@@ -1,5 +1,28 @@
 # Dairect — 교훈 기록
 
+## 2026-04-22 밤 — Fail-fast의 양면성 — startup 검증을 부가 시스템에 적용하면 1개 오설정으로 전체 앱 부팅 차단되는 가용성 회귀 + env 한도값은 빈 문자열/0/NaN 가드 + zod regex 이중 방어 (Task 5-5-5 review HIGH-1 + MED-1)
+
+- **상황**: Task 5-5-5에서 잔여 정리 7건 묶음 처리 중 두 가지 fail-fast 관련 결정에 대해 reviewer가 다른 권고를 함:
+  - **Case A — 핵심 시스템 (rate limit env)**: `INVITE_RATE_LIMIT_PER_MINUTE/HOUR`에 `Number(process.env.X ?? 5)` 만 사용 → env가 `""`/`"0"`/`"NaN"`이면 limit=0 → 모든 admin 첫 초대부터 RATE_LIMITED 차단. **fail-closed로 보안은 안전하지만 운영 가용성 0**. 두 리뷰 모두 HIGH로 지적.
+  - **Case B — 부가 시스템 (n8n webhook URL)**: env.ts에 `z.string().url().optional()`로 형식 강제 → 운영자가 잘못된 URL 1개 입력 시 production 부팅 차단 → **n8n과 무관한 dashboard도 죽음**. code reviewer MED.
+- **두 케이스의 핵심 차이**:
+  - Case A: 한도값이 의도와 다르면 즉시 모든 사용자 영향 → fail-closed가 위험. 가드 추가 필요.
+  - Case B: 부가 시스템 오설정은 본래 client.ts의 `new URL(raw)` try/catch graceful 처리로 해당 워크플로만 no-op 가능. startup fail-fast가 graceful한 기존 정책을 역전시켜 가용성 risk 증대.
+- **해결**:
+  - Case A: parseRateLimit 헬퍼 추가 (`!envVal || !Number.isFinite(n) || n <= 0` → fallback to default) + env.ts regex `^[1-9]\d*$`로 zod 단계에서도 "0" 거부. **두 곳에서 같은 invariant 강제 (defense-in-depth)** — env.ts 우회 시나리오/race 모두 방어.
+  - Case B: env.ts에서 `.url()` 제거하고 `z.string().optional()`로만. graceful 처리에 위임. 정책 결정을 코드 주석에 명시.
+- **규칙**:
+  1. **Fail-fast의 적용 대상은 "이 값이 잘못되면 시스템 핵심 기능이 정상 작동 못 하는 경우"로 한정**. 핵심: Supabase URL, DATABASE_URL, RESEND production. 부가: n8n webhook, optional integration → graceful 처리에 위임.
+  2. **부가 시스템에 fail-fast를 추가하기 전 "기존 graceful 처리가 있는가?" 확인**. 있으면 fail-fast가 graceful을 역전 → 운영 risk ↑. 없으면 fail-fast가 첫 가드 → OK.
+  3. **env 한도/임계값 변수화 시 항상 가드 4종**:
+     - 빈 문자열 → fallback (`if (!envVal) return fallback`)
+     - 비숫자/NaN → fallback (`!Number.isFinite(n)`)
+     - 0 이하 → fallback (`n <= 0`)
+     - 정수 강제 (`Math.floor(n)`)
+  4. **zod env 검증 + 코드 fallback은 중복이 아닌 이중 방어**. zod가 env.ts 단계에서 부팅 차단해도 코드의 fallback이 race/우회/typo 모두 방어. 같은 invariant를 두 곳에서 강제하는 게 비용 < 가용성 가치.
+  5. **fail-closed가 운영 가용성 0이 되는 경우는 fail-open으로 전환 검토**. rate limit limit=0이면 모든 사용자 차단보다 default(5)로 fallback이 안전. 단 이 정책은 보안 리뷰와 함께 결정 — 무조건적인 fail-open은 abuse 위험.
+  6. **fail-fast 정책 변경(Case B)은 learnings.md에 명시**. "왜 .url() 검증을 안 두었는지" 후속 개발자가 추가하려는 시도를 사전에 차단 (반복 검토 비용 절감).
+
 ## 2026-04-22 밤 — Multi-tier rate limit(분/시간)에서 양쪽 카운트 동시 증가는 정상 user 부당 차단 → short-circuit으로 정상 user 보호 우선 (Task 5-5-4 리뷰 HIGH-1)
 
 - **상황**: createInvitationAction abuse 방어로 fixed window counter(Supabase 기반) 도입. 분당 5회 + 시간당 20회 두 단계 한도. 초안에서는 두 체크를 독립 await으로 호출 → 분 한도 차단 시에도 시간 카운트도 +1. code-reviewer가 "정상 admin이 abuser 트래픽 직후 합법 사용 시 시간 한도(20)에 부당 도달"을 HIGH로 지적.

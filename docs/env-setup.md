@@ -55,9 +55,12 @@ Resend 트랜잭션 메일 API 키 (Phase 5 멤버 초대 이메일).
 ### `RESEND_FROM_EMAIL` (production 필수)
 Resend가 verified한 발신자 이메일 주소.
 
+- **권장값**: `invite@send.dairect.kr` (주소만 — 가장 안전)
+- **inbox 표시 이름 포함 시**: `Dairect <invite@send.dairect.kr>` 형식. **단 Vercel UI에 따옴표 없이 raw 그대로** 입력. `.env.local` shell escape용 `"..."`는 Vercel UI에 복사 금지.
+- **사고 이력 (2026-04-22)**: Vercel UI에 `"Dairect <invite@send.dairect.kr>"` (따옴표 포함) 입력 → 따옴표가 값 일부로 저장 → Resend API from 파싱 거부 → 발송 전면 실패. Redeploy + 따옴표 제거로 복구.
 - **현재값(2026-04-22 verified)**: `invite@send.dairect.kr`
-- **형식 주의**: 주소만 입력 (`invite@send.dairect.kr`). `"Name <email>"` 형식은 dotenv 따옴표 leak 사고 발생 이력이 있어 사용 시 Vercel UI 입력 시 따옴표 절대 포함 금지 — 권장은 주소만.
-- **Vercel 입력 시 주의**: `.env.local` 안내에 적힌 따옴표(`"..."`)는 shell escape용. **Vercel Environment Variables UI에는 따옴표 없이 raw 값만 입력**. 따옴표가 값 일부로 저장되면 Resend API가 from 파싱 거부 → 발송 전면 실패.
+- **변경 안내 표준 문구 (Jayden 안내 시 그대로 사용)**:
+  > Vercel → Project Settings → Environment Variables → `RESEND_FROM_EMAIL` → 값 = `invite@send.dairect.kr` (따옴표 없이) → Save → **Redeploy 클릭** (Save만으론 warm Lambda가 구 값 유지)
 
 ---
 

@@ -167,6 +167,12 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
           .from(workspaceSettings)
           .where(eq(workspaceSettings.workspaceId, existing.workspaceId))
           .limit(1);
+        // Task 5-5-5 HIGH-4: workspace_settings row 누락 시 silent fallback 대신 알림.
+        if (!settingsRow) {
+          console.error("[acceptInvitationAction] workspace_settings row missing — fallback to 'free'", {
+            workspaceId: existing.workspaceId,
+          });
+        }
         const plan = settingsRow?.plan ?? "free";
         const limit = getMaxMembers(plan);
 

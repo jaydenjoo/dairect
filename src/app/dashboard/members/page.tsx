@@ -99,6 +99,12 @@ export default async function MembersPage() {
     .from(workspaceSettings)
     .where(eq(workspaceSettings.workspaceId, workspaceId))
     .limit(1);
+  // Task 5-5-5 HIGH-4: workspace_settings row 누락 시 silent fallback 대신 알림.
+  if (!settingsRow) {
+    console.error("[members/page] workspace_settings row missing — fallback to 'free'", {
+      workspaceId,
+    });
+  }
   const plan = settingsRow?.plan ?? "free";
   const planLabel = getPlanLabel(plan);
   const upgradeTarget = suggestUpgradeTarget(plan);
