@@ -1,5 +1,37 @@
 # Dairect — 교훈 기록
 
+## 2026-04-22 — 이메일 발송 경로의 3중 방어선: URL fail-fast / Subject 제어문자 / revoke double-fault (Task 5-2-4 초대 발송)
+
+- **상황**: workspace 멤버 초대 발송(`createInvitationAction` + `sendInvitationEmail`) 구현 후 code-reviewer + security-reviewer 병렬 리뷰. CRITICAL 0이지만 HIGH 2건이 **운영 안정성 + 감사 일관성**에 직결되어 즉시 반영 결정. 세 방어선을 묶어서 교훈화.
+- **방어선 1 — `buildInviteUrl` fail-fast**:
+  - 문제: `NEXT_PUBLIC_APP_URL` 미설정 시 `'' + '/invite/<token>'` = 상대경로 `/invite/<token>`만 이메일 href에 박힘. Gmail/Outlook에서 클릭 시 해석 불가. DB에는 "발송됨" row만 남아 감사는 정상으로 보이지만 사용자 수락 경로 완전 끊김 → 지원 요청 받아야 인지.
+  - 수정: env 미설정 또는 `http(s)://` 아닌 값이면 throw. **DB INSERT 전에 호출**해 early throw → row 생성 자체 안 됨. Server Action은 UNKNOWN 에러 반환.
+- **방어선 2 — Subject 제어문자 제거**:
+  - 문제: `const subject = \`[dairect] ${workspaceName} 워크스페이스 초대\`` — workspaceName에 CRLF(`\r\n`) 포함 시 Resend SDK가 SMTP 경로에서 **추가 헤더(Bcc/CC)로 해석할 이론적 위험**(RFC 5322 헤더 인젝션). Resend 내부에서 대부분 sanitize하지만 이중 방어.
+  - 수정: `stripHeaderControlChars = v.replace(/[\r\n\u0000-\u001F\u007F\u2028\u2029]/g, "")` 유틸 추가. Subject에만 적용 (HTML body는 escapeHtml이 이미 담당).
+- **방어선 3 — revoke 중첩 try/catch**:
+  - 문제: 이메일 발송 실패 시 `revokedAt = NOW()` UPDATE로 soft revoke 수행 → 재초대 경로 열림. 그러나 이 UPDATE 자체가 DB 플랩으로 2차 실패하면 상위에서 throw → row는 pending으로 남고 `workspace_invitations_pending_idx`가 active 상태 유지 → **같은 email 재초대 시 23505 Duplicate만 반환** → 관리자는 취소 버튼을 계속 눌러야 하는 교착.
+  - 수정: revoke UPDATE를 자체 try/catch로 감싸 double-fault는 로그만 남기고 외부 catch는 항상 EMAIL_FAILED 반환. 관리자가 UI에서 pending 초대를 수동 취소 가능 상태 유지.
+- **규칙**:
+  1. **"환경변수 기반 URL 생성" 함수는 반드시 fail-fast**. `|| ""` 같은 fallback은 silent 실패 경로를 만든다. 상대 경로가 이메일/SMS/Slack 등 외부 채널로 나가면 복구 불가능한 UX 데미지.
+  2. **"DB write → 외부 호출" 순서보다 "외부 호출 전제 검증 → DB write → 외부 호출" 순서 선호**. DB row 생성 후 외부 호출이 실패하면 롤백/보상 코드가 필요. 검증 가능한 부분은 write 전에 끝낸다.
+  3. **헤더 필드는 Body와 별개로 sanitize**. HTML escape는 Body(`<a>`, `<p>`)에 유효하지만 Subject/From/To 같은 헤더는 control character 제거가 주 방어. 두 레이어를 혼동하면 한쪽만 방어하는 구멍이 생김.
+  4. **"보상 트랜잭션 실패" 경로는 항상 중첩 try/catch**. 외부 호출 실패 + 보상 쿼리 실패의 2중 장애 시 상위 응답이 일관되어야 운영자 대응 단순화. 교착 상태(partial unique idx 잠금 등)는 코드로 방어 가능하면 코드에서, 안 되면 UI에 "수동 취소 후 재시도" 버튼 노출.
+  5. **리뷰 findings 중 "확률 낮지만 영구 교착" 부류는 HIGH로 올려 즉시 반영**. 확률 10%라도 한 번 터지면 수동 DB 조작 외에 복구 경로가 없으면 low-frequency-high-cost → 바로 수정. MEDIUM으로 미루면 인시던트 발생 시 "2주 전에 알고 있었는데" 패턴.
+
+## 2026-04-22 — 미인증 리다이렉트 이원화: middleware + page.tsx redirect guard + Server Action 권한 체크 3중 방어 (Task 5-2-4 /dashboard/members)
+
+- **상황**: `/dashboard/members`는 owner/admin만 접근 가능한 민감 페이지 (멤버 초대/관리). 브라우저가 실질적으로 거치는 guard 경로 3개:
+  1. **middleware** — 미인증 시 `/login` 리다이렉트 (전 /dashboard/* 공통)
+  2. **layout.tsx** — user/workspace 누락 시 redirect + `ensureDefaultWorkspace`
+  3. **page.tsx** — `role === "owner" || role === "admin"` 아니면 `/dashboard` redirect
+  4. **Server Action(actions.ts)** — UI 우회 경유 직접 호출 시 canManageMembers 재검증
+- **규칙**:
+  1. **UI prop(canSeeMembers) = UI 렌더링 전용**, 실제 권한 enforcement는 Server Action의 독립 재검증이 담당. Devtools로 prop 조작해도 서버는 믿지 않음.
+  2. **페이지 redirect guard + Server Action guard 이원화**가 표준 — layout과 page가 같은 role 조건을 2번 쓰는 게 중복이 아니라 "다른 공격 표면을 각각 막는 구조". layout가 없어도 page.tsx가, page.tsx가 없어도 Server Action이 막아야 완결.
+  3. **`getCurrentWorkspaceRole` 같은 role 조회 helper는 React cache()로 request 스코프 메모이제이션**. 같은 요청에서 layout + page + action이 각각 호출해도 DB hit은 1회. 이원화의 성능 비용을 낮춰 guard를 중복 유지할 명분 확보.
+  4. **middleware는 "인증됐는가"만 확인, role 체크는 page에서**. middleware는 공통 빠른 필터라 role 조회 DB hit을 넣으면 전체 navigation latency 영향. middleware + layout + page 각자 담당 분리.
+
 ## 2026-04-21 심야 4 — "빈 분기 뼈대"만으로도 Phase 전환 블로커는 즉시 해소된다 (Task 5-2-2i workspace plan 분기)
 
 - **상황**: C-H1(AI_DAILY_LIMIT 상수 → workspace plan 분기)은 Phase 5.5 billing에 딸린 과제로 미뤄져 있었음. Phase C(5-2-4/5 초대) 진입 직전에야 "멤버 N명 체감 200/N 희석"이 실제 블로커로 드러남. 선택지:

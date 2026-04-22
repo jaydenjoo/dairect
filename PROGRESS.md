@@ -1,7 +1,70 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-21 심야 4 (Task 5-2-2i 완료 — workspace_settings.plan 도입 + AI 한도 plan 분기 설계 + code/security 리뷰 PASS)
-> 현재 위치: **Phase 5 Epic 5-2 Phase A+B + 5-2-2b/c/d/e/f/g/h/i + C-H1 plan 분기/C-H2 완료**. 남은 것: Phase C(초대 5-2-4~5-2-5, Resend 필요). 멀티 멤버 workspace 진입 블로커 전부 해소 + Phase 5.5 billing 호환 레이어 확보.
+> 최종 업데이트: 2026-04-22 (Task 5-2-4 완료 — workspace 멤버 초대 생성 + Resend 이메일 발송 + review HIGH 2건 반영)
+> 현재 위치: **Phase 5 Epic 5-2 Phase C 진입 (5-2-4 완료)**. 남은 것: 5-2-5 `/invite/[token]` 수락 플로우. Resend sandbox 발신자(onboarding@resend.dev)로 테스트 가능, dairect.kr 도메인 verify 후 `.env` 교체만 남음.
+
+## Task 5-2-4 ✅ 완료 (workspace 멤버 초대 생성 + Resend 이메일 발송)
+
+**배경** (PRD-phase5.md:247 + PRD 섹션 10 C2):
+- workspace_invitations 테이블은 Phase 5-1-1에서 이미 생성. 이번 Task는 write/list/revoke 경로 + 이메일 발송 계층 구축.
+- 5-2-5 수락 플로우(`/invite/[token]`)는 다음 Task로 분리.
+
+**결정 사항**:
+- UI 위치: `/dashboard/members` 신규 페이지 (설정 탭 대신 독립)
+- 토큰: `crypto.randomUUID()` 122-bit 엔트로피 (portal_tokens 패턴 재사용, DB unique 저장 → 별도 HMAC 불필요)
+- TTL: UTC +7일 (PRD B1)
+- Resend 발신자 초기: `onboarding@resend.dev` (sandbox) + Reply-To=`hidream72@gmail.com`. `dairect.kr` domain verify 후 `.env` 값만 교체 예정.
+- role 화이트리스트: `admin | member` (owner는 workspace 생성자 1명 고정, 초대 불가)
+
+**신규 파일 6**
+- `src/lib/email/templates/invitation.ts` — HTML + plain text 템플릿. escapeHtml + Subject 제어문자 제거(stripHeaderControlChars)
+- `src/lib/email/resend.ts` — Resend SDK v6.12.2 singleton + sendInvitationEmail. replyTo camelCase
+- `src/lib/validation/invitation.ts` — email(trim+toLowerCase) + role(admin|member) zod
+- `src/app/dashboard/members/actions.ts` — createInvitationAction / revokeInvitationAction. PG code 23505 중복 처리 + soft revoke 복구 + 중첩 try/catch double-fault 방어
+- `src/app/dashboard/members/page.tsx` — SSR 멤버+초대 목록 조회, 미인증/미권한 redirect guard
+- `src/app/dashboard/members/members-client.tsx` — 초대 폼 + 목록 + 취소 버튼. status 판정을 client에서 수행 (RSC purity 규칙)
+
+**수정 파일 4**
+- `src/components/dashboard/sidebar.tsx` — "팀 멤버" 메뉴 + `canSeeMembers` prop 추가 (Users2 아이콘)
+- `src/app/dashboard/layout.tsx` — isManager(owner|admin) 계산 → canSeeSettings + canSeeMembers 동시 전달
+- `package.json` / `pnpm-lock.yaml` — resend 6.12.2 의존성 추가
+
+**검증**
+- `pnpm tsc --noEmit` → 0 error
+- `pnpm lint` → 신규 경고 0 (기존 estimate-form `_id` warning 1건만)
+- `pnpm build` → postbuild SW artifact 포함 성공
+- 라우팅 보호: `/dashboard/members` 미인증 진입 → `/login` 리다이렉트 (middleware + page.tsx guard 이원화)
+- **code-reviewer**: Ship as-is, HIGH 1건(NEXT_PUBLIC_APP_URL fail-fast) + MEDIUM 3건(hydration/revoke 응답/토스트 정규화)
+- **security-reviewer**: CRITICAL 0, HIGH 2건(H1 email 실패 revoke 2차 예외 / H2 env fail-fast), MEDIUM 4건, Phase 5.5 ToDo 8건 별도 기록
+
+**리뷰 HIGH findings 반영 (2026-04-22 즉시 수정)**
+1. `buildInviteUrl` fail-fast 전환 — NEXT_PUBLIC_APP_URL 미설정 또는 상대경로면 throw. DB INSERT 전에 미리 호출해 early throw → row도 생성 안 되게 순서 조정.
+2. 이메일 실패 시 `revokedAt` UPDATE에 중첩 try/catch — 2차 예외 로그로만 남기고 상위는 EMAIL_FAILED 반환 유지 (pending idx 영구 잠금 방지).
+3. Subject 헤더 인젝션 방어 — `stripHeaderControlChars`로 CRLF/NUL/line separator 제거. workspaceName에 제어문자 섞여도 Subject 헤더 인젝션 불가.
+
+**환경변수 (Jayden 세팅 완료 / 확인됨)**
+- **로컬 `.env.local`**: 로그인 후 Jayden 직접 확인 + 초대 발송 테스트 항목 (5개 중 이미 있는 것 제외)
+  - `RESEND_API_KEY=re_xxx` (발급 완료)
+  - `RESEND_FROM_EMAIL=onboarding@resend.dev` (sandbox)
+  - `RESEND_REPLY_TO=hidream72@gmail.com`
+  - `NEXT_PUBLIC_APP_URL=http://localhost:3700` (로컬)
+- **Vercel 환경변수**: Jayden 확인 완료 — `NEXT_PUBLIC_APP_URL=https://dairect.kr` + 나머지 3개 세팅됨
+
+**남은 수동 검증 (push 후 Vercel 배포 완료 시점)**
+- https://dairect.kr/dashboard/members 접속 → 사이드바 "팀 멤버" 메뉴 노출
+- 본인 Gmail로 테스트 초대 발송 → Resend 대시보드 Delivered + 실제 메일 수신 + 버튼 URL 확인 (`https://dairect.kr/invite/<token>`)
+- 5-2-5 페이지 아직 없으므로 링크 클릭 시 404가 나야 정상 (다음 Task에서 구현)
+
+### 차기 Task
+- **5-2-5**: `/invite/[token]` 페이지 — 토큰 검증 + 로그인/가입 분기 + workspace_members 가입 트랜잭션
+- **dairect.kr domain verify**: Vercel DNS 등록 후 Resend Verified → `.env` 교체(코드 무변경)
+
+### 남은 HIGH 외 리뷰 findings (Phase 5.5 or 별도 Task)
+- code-reviewer MEDIUM 1(hydration mismatch — 7일 TTL 경계), 2(revoke 응답에 email 반환), 3(토스트 정규화 일관성)
+- security-reviewer MEDIUM 2(URL 스킴 화이트리스트 방어층), 3(replyTo 형식 검증), 4(getUserId PII 로그)
+- Phase 5.5 8건: pending idx lower(email) 교체 / Resend Sending Access 전용 key / .env startup 검증 / 공통 sanitize util / rate limit / activity_logs 감사 / referrer=no-referrer / 멤버 수 상한 게이트
+
+---
 
 ## Task 5-2-2i ✅ 완료 (workspace_settings.plan 도입 — C-H1 해소 + AI 한도 plan 분기 설계)
 

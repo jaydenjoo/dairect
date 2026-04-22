@@ -69,17 +69,19 @@ export default async function DashboardLayout({
   const unreadFeedbackTotal = await getTotalUnreadFeedbackForUser();
 
   // Phase 5 Task 5-2-2: owner/admin만 사이드바에 "설정" 메뉴 노출.
+  // Phase 5 Task 5-2-4: "팀 멤버" 메뉴도 동일 조건 (초대/관리 권한 canManageMembers와 정합).
   const workspaceId = await getCurrentWorkspaceId();
   const role = workspaceId
     ? await getCurrentWorkspaceRole(user.id, workspaceId)
     : null;
-  const canSeeSettings = role === "owner" || role === "admin";
+  const isManager = role === "owner" || role === "admin";
 
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar
         unreadProjectCount={unreadFeedbackTotal}
-        canSeeSettings={canSeeSettings}
+        canSeeSettings={isManager}
+        canSeeMembers={isManager}
       />
 
       {/* Main content area */}

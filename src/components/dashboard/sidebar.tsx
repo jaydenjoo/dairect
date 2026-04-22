@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   FolderKanban,
   Users,
+  Users2,
   UserPlus,
   FileText,
   FileSignature,
@@ -53,6 +54,8 @@ type Props = {
   // Phase 5 Task 5-2-2: owner/admin만 설정 메뉴 노출 (민감정보 방어).
   // /demo 등 workspace 맥락 없는 layout에선 true로 기본 허용.
   canSeeSettings?: boolean;
+  // Phase 5 Task 5-2-4: owner/admin만 팀 멤버 메뉴 노출 (초대 권한 동일 조건).
+  canSeeMembers?: boolean;
 };
 
 // 사이드바 뱃지가 "99+"로 잘리도록 상한 숫자 렌더 (UI 레이아웃 안정성).
@@ -67,6 +70,7 @@ export function Sidebar({
   basePath = "/dashboard",
   unreadProjectCount = 0,
   canSeeSettings = true,
+  canSeeMembers = true,
 }: Props) {
   const pathname = usePathname();
 
@@ -119,20 +123,35 @@ export function Sidebar({
           </ul>
         </nav>
 
-        {/* Settings (bottom) — owner/admin만 노출 */}
-        {canSeeSettings && (
-          <div className="px-3 py-4">
-            <Link
-              href={`${basePath}/settings`}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                isActive(pathname, `${basePath}/settings`, basePath)
-                  ? "bg-sidebar-accent text-sidebar-foreground"
-                  : "text-sidebar-foreground/40 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80"
-              }`}
-            >
-              <Settings className="h-[18px] w-[18px] shrink-0" />
-              설정
-            </Link>
+        {/* 관리 섹션 (팀/설정) — owner/admin만 노출 */}
+        {(canSeeMembers || canSeeSettings) && (
+          <div className="space-y-1 px-3 py-4">
+            {canSeeMembers && (
+              <Link
+                href={`${basePath}/members`}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isActive(pathname, `${basePath}/members`, basePath)
+                    ? "bg-sidebar-accent text-sidebar-foreground"
+                    : "text-sidebar-foreground/40 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80"
+                }`}
+              >
+                <Users2 className="h-[18px] w-[18px] shrink-0" />
+                팀 멤버
+              </Link>
+            )}
+            {canSeeSettings && (
+              <Link
+                href={`${basePath}/settings`}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isActive(pathname, `${basePath}/settings`, basePath)
+                    ? "bg-sidebar-accent text-sidebar-foreground"
+                    : "text-sidebar-foreground/40 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80"
+                }`}
+              >
+                <Settings className="h-[18px] w-[18px] shrink-0" />
+                설정
+              </Link>
+            )}
           </div>
         )}
       </aside>
