@@ -139,18 +139,23 @@ export async function createInvitationAction(formData: FormData): Promise<Action
       expiresAt,
     });
   } catch (err) {
-    // 중복 활성 초대 판정 — postgres.js / Drizzle 에러 shape이 버전·래핑 경로별로 다를 수 있어 3중 매칭.
-    // 운영 중 단일 조건(err.code === "23505")만 보면 shape 변동 시 UNKNOWN fallback으로 묻힘 (2026-04-22 발견).
-    //   (1) err.code === "23505" — postgres.js PostgresError 표준
-    //   (2) error.message에 Postgres 표준 문구 "duplicate key value violates unique constraint"
+    // 중복 활성 초대 판정 — Drizzle ORM은 원본 PostgresError를 err.cause에 담고
+    // 자체 "Failed query: ..." 메시지로 wrap함 (name="Error"). 최상위 err.code는 null.
+    // 2026-04-22 1차 hotfix(7618c0d)가 최상위만 봐서 miss 확인 → cause까지 unwrap.
+    //   (1) err.code === "23505" || err.cause.code === "23505"
+    //   (2) err.message + err.cause.message 결합에서 PG 표준 문구 매칭
     //   (3) constraint 이름 "workspace_invitations_pending_idx" 포함
-    // pgCode는 로그에 함께 기록해 다음 인시던트에서 실제 shape를 즉시 확정.
-    const pgCode = (err as { code?: unknown })?.code;
+    const rootCause = (err as { cause?: unknown })?.cause;
+    const pgCode =
+      (err as { code?: unknown })?.code ??
+      (rootCause as { code?: unknown })?.code;
     const errMsg = err instanceof Error ? err.message : String(err);
+    const causeMsg = rootCause instanceof Error ? rootCause.message : "";
+    const combinedMsg = `${errMsg}\n${causeMsg}`;
     const isDuplicate =
       pgCode === "23505" ||
-      /duplicate key value violates unique constraint/i.test(errMsg) ||
-      /workspace_invitations_pending_idx/.test(errMsg);
+      /duplicate key value violates unique constraint/i.test(combinedMsg) ||
+      /workspace_invitations_pending_idx/.test(combinedMsg);
     if (isDuplicate) {
       return {
         success: false,
@@ -162,6 +167,8 @@ export async function createInvitationAction(formData: FormData): Promise<Action
       name: err instanceof Error ? err.name : typeof err,
       message: errMsg.slice(0, 200),
       pgCode: typeof pgCode === "string" ? pgCode : null,
+      causeName: rootCause instanceof Error ? rootCause.name : null,
+      causeMessage: causeMsg.slice(0, 200),
     });
     return { success: false, error: "초대 생성 중 오류가 발생했습니다", code: "UNKNOWN" };
   }
