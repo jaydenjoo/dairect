@@ -18,7 +18,7 @@ import { getCurrentWorkspaceRole } from "@/lib/auth/get-workspace-role";
 import { canManageMembers } from "@/lib/auth/workspace-permissions";
 import { sendInvitationEmail } from "@/lib/email/resend";
 import { getMaxMembers, getPlanLabel, suggestUpgradeTarget } from "@/lib/plans";
-import { checkAndIncrementRateLimit } from "@/lib/rate-limit";
+import { checkAndIncrementRateLimit, parseRateLimit } from "@/lib/rate-limit";
 import { sanitizeFreeText, sanitizeLogMessage } from "@/lib/utils/sanitize";
 import {
   createInvitationInputSchema,
@@ -62,15 +62,7 @@ type ActionResult =
 //   시간당 20회: 단일 admin이 정상 운영 충분 + 누적 abuse 방어 (INVITE_RATE_LIMIT_PER_HOUR)
 // Task 5-5-5 rate-2: env 변수화 — 운영 중 abuse 발견 시 코드 수정 없이 조정 가능.
 //
-// parseRateLimit 가드 (Task 5-5-5 review HIGH-1): env가 빈 문자열/NaN/0/음수면 default fallback.
-// env.ts zod가 양의 정수만 허용하지만, env.ts가 우회되거나 zod 통과 후 race로 변경되는
-// 시나리오 방어 + 두 곳에서 같은 invariant 강제 (defense-in-depth).
-function parseRateLimit(envVal: string | undefined, fallback: number): number {
-  if (!envVal) return fallback;
-  const n = Number(envVal);
-  if (!Number.isFinite(n) || n <= 0) return fallback;
-  return Math.floor(n);
-}
+// parseRateLimit: src/lib/rate-limit.ts (defense-in-depth).
 
 const INVITE_RATE_LIMITS = {
   perMinute: {

@@ -60,6 +60,16 @@ const envSchema = z
       .string()
       .regex(/^[1-9]\d*$/, "1 이상 양의 정수 문자열이어야 함")
       .optional(),
+    // Phase 5.5 Task 5-5-4 rate-4(inquiry 확장): 랜딩 contact form IP 기반 한도.
+    // 미설정 시 about/actions.ts default(분 3 / 시간 20) 사용. 형식: 1 이상 양의 정수.
+    INQUIRY_RATE_LIMIT_PER_MINUTE: z
+      .string()
+      .regex(/^[1-9]\d*$/, "1 이상 양의 정수 문자열이어야 함")
+      .optional(),
+    INQUIRY_RATE_LIMIT_PER_HOUR: z
+      .string()
+      .regex(/^[1-9]\d*$/, "1 이상 양의 정수 문자열이어야 함")
+      .optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== "production") return;

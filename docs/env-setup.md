@@ -79,6 +79,20 @@ Vercel Cron 호출 인증 시크릿 (`/api/cron/*` 보호).
 - **출처**: 직접 생성. `openssl rand -hex 32`
 - **누락 시**: Cron 엔드포인트가 401 반환. 미설정이면 Vercel Cron 자체 비활성.
 
+### `INVITE_RATE_LIMIT_PER_MINUTE` / `INVITE_RATE_LIMIT_PER_HOUR`
+멤버 초대(`createInvitationAction`) 발송 한도 운영 중 조정용 (Phase 5.5 Task 5-5-4).
+
+- **default (미설정 시)**: 분 5회 / 시간 20회 (userId 기반)
+- **형식**: 1 이상 양의 정수 문자열 (예: `10`). `"0"` 또는 음수는 zod regex 차단
+- **조정 시점**: abuse 탐지 시 값을 낮추거나, 대규모 온보딩 시 일시 상향
+
+### `INQUIRY_RATE_LIMIT_PER_MINUTE` / `INQUIRY_RATE_LIMIT_PER_HOUR`
+랜딩 contact form(`submitInquiryAction`) IP 기반 한도 운영 중 조정용 (Phase 5.5 Task 5-5-4 rate-4).
+
+- **default (미설정 시)**: 분 3회 / 시간 20회 (IP 기반, `x-forwarded-for` 우측 파싱)
+- **형식**: 1 이상 양의 정수 문자열
+- **조정 시점**: 봇 공격 감지 시 값을 낮춤. XFF 미설정 요청은 `unknown` 버킷에 묶여 별도 제한
+
 ---
 
 ## 🛡️ Resend key 권한 분리 (Phase 5.5 보안 강화)
@@ -102,6 +116,41 @@ Vercel Cron 호출 인증 시크릿 (`/api/cron/*` 보호).
 ### 주기적 회전 권장
 - 분기 1회 또는 의심 사고 시 새 key 발급 → env 교체 → Redeploy → 구 key revoke
 - Vercel 배포 로그/Resend Sending Logs에서 "구 key 사용 중인 함수 없음" 확인 후 revoke
+
+---
+
+## 🛡️ Supabase GoTrue Auth Rate Limit (Phase 5.5 Task 5-5-4 rate-4)
+
+**원칙**: login / signup / password reset 등 client-side `supabase.auth.*` 호출은 Dairect 서버를 경유하지 않고 브라우저에서 Supabase URL로 직접 전송됨 → 앱 레벨 rate limit 주입 불가. **Supabase GoTrue 자체 정책에 위임**하여 기본 방어선 유지.
+
+### 설정 위치
+- Supabase Dashboard → **Authentication → Rate Limits**
+
+### 주요 항목 (Supabase 공식 정책 위임)
+
+Supabase Authentication rate limit은 **Dashboard → Authentication → Rate Limits**에서 현재 적용값 직접 확인. 플랜(Free/Pro/Enterprise) 및 Supabase UI 업데이트에 따라 수치 변동 가능 → 이 문서에 박제 금지.
+
+대략적 카테고리 (변경 가능, 최신값은 공식 문서 참조):
+- **Sign up / Sign in (password)**: IP당 단시간 N회 (`signInWithPassword`, `signUp`)
+- **Email confirmations / OTP**: 이메일당 시간 단위 제한 (가입 확인 메일, Magic Link)
+- **Password reset**: 이메일당 시간 단위 제한 (`resetPasswordForEmail`)
+- **Token verifications**: IP당 단시간 N회 (`verifyOtp`)
+
+참고 링크:
+- Supabase Going Into Prod: https://supabase.com/docs/guides/platform/going-into-prod
+- Auth Rate Limits 가이드: https://supabase.com/docs/guides/auth/auth-rate-limits
+
+> 운영 중 abuse 탐지 시 Dashboard에서 값을 낮춰 즉시 반영. 별도 코드 변경 불요.
+> 분기 점검 시 현재값 + 점검 날짜를 이 문서 하단에 기록 권장.
+
+### 왜 Dairect 레벨이 아닌가
+- login/signup 폼이 `"use client"` + `createClient().auth.signIn/Up`을 직접 호출 → 서버 Action 미경유 → `checkAndIncrementRateLimit`을 주입할 위치가 없음
+- Server Action으로 리팩토링은 SSR cookie 흐름 재설계 필요 → ROI 낮음 (GoTrue 기본 정책이 동등한 방어 제공)
+- 단 **`createInvitationAction`(멤버 초대)** 과 **`submitInquiryAction`(랜딩 contact form)** 은 Server Action이라 별도 한도 적용됨 (위 INVITE/INQUIRY env)
+
+### 주기적 점검
+- **분기 1회**: Supabase Dashboard → Authentication → Logs에서 "too many requests" 빈도 확인
+- 과다하면 Dairect 측 env 값(INVITE/INQUIRY)과 Supabase 정책 둘 다 재조정
 
 ---
 

@@ -15,6 +15,7 @@
 //
 // key 컨벤션 (충돌 방지 위해 prefix 강제)
 //  - "invite:user:{userId}:m" / ":h" — createInvitationAction 분/시간 한도
+//  - "inquiry:ip:{ip}:m" / ":h" — submitInquiryAction(랜딩 contact form) IP 기반 한도
 //  - 향후: "login:ip:{ip}:m", "signup:email:{email}:h" 등 prefix 패턴 확장.
 //
 // Phase 5.5+ ToDo
@@ -23,6 +24,16 @@
 
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+
+// Task 5-5-4 rate-2 + Task 5-5-5 review HIGH-1 반영: env 문자열을 양의 정수로 안전 파싱.
+// 빈 문자열/NaN/0/음수면 default fallback — limit=0이면 모든 요청 영구 차단 위험 방어.
+// env.ts zod regex `^[1-9]\d*$`와 2중 방어 (defense-in-depth).
+export function parseRateLimit(envVal: string | undefined, fallback: number): number {
+  if (!envVal) return fallback;
+  const n = Number(envVal);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.floor(n);
+}
 
 export type RateLimitResult = {
   allowed: boolean;
