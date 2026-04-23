@@ -1,5 +1,55 @@
 # Dairect — 교훈 기록
 
+## 2026-04-23 — 구조화 로그 `event` 필드 표준 + 민감값 제외 + sanitize 유틸 분리 (Task 5-5-5 cleanup 묶음 + reviewer)
+
+- **상황**: Task 5-5-5 cleanup에서 `console.error` 9군데가 "일기장" 스타일(`"[file/action] message", { name, ... }`)로 흩어져 있어 Vercel/Datadog에서 grep/필터링 어려움. 운영 중 "어떤 카테고리 에러가 가장 많이 발생하나?" 질문에 답하려면 한 군데씩 수동 집계해야 함. 동시에 stuck row(email 실패 + revoke 실패 double-fault) 발생 시 `invitationId`/`workspaceId` 등 복구 컨텍스트가 로그에 없어 수동 복구 불가.
+- **해결**:
+  1. **`event: "domain.action"` 네임스페이스 표준 도입**. 로그 객체 최상단 필드에 `invitation.url_build_error`, `invitation.insert_error`, `invitation.revoke_stuck_row`, `workspace_settings.missing_fallback` 등 도메인 접두어로 분류. grep 1회로 "event=invitation." prefix 전체 쿼리 가능.
+  2. **민감값 제외 원칙 유지**: email/token 로그 금지, server-only UUID(`invitationId`)만 박제. stuck row 운영자는 `invitationId`로 DB SELECT 1회면 수동 정리 가능.
+  3. **sanitize 유틸 분리 (`sanitizeFreeText` vs `sanitizeLogMessage`)**:
+     - `sanitizeFreeText`(기존): 사용자 자유 텍스트 — tab/newline 보존 (자연 입력 허용).
+     - `sanitizeLogMessage`(신규): 로그 전용 — tab/newline/ANSI escape 모두 공백 치환 (한 줄 로그 오염 방지 + 로그 인젝션 차단).
+     - 두 유틸이 같은 파일에 공존하되 정책 차이(tab/newline 처리)가 목적 차이(자연 입력 vs 로그 라인)에서 기원.
+- **규칙**:
+  1. **새 `console.error` 도입 시 `event: "domain.action"` 필드 필수**. 도메인 접두어 명명: `invitation.*`, `workspace_settings.*`, `portal.*`, `payment.*` 등 1-depth 그룹 유지 (`invitation.revoke.stuck_row` 같은 2-depth는 피함 — grep 복잡).
+  2. **로그 객체 최상단 4필드 순서 표준**: `event` → `invitationId`/`workspaceId` 등 식별자 → `reason`(정책 분기) → 에러 상세(`name`/`message`/`pgCode`). 운영자가 필드 위치로 의미 즉시 파악.
+  3. **외부 유입 문자열(`err.message`, `causeMessage`)은 `sanitizeLogMessage` 후 `.slice(200)`** 체인. sanitize → slice 순서 (sanitize가 길이 증가시키지 않으므로 순서 무관하지만 관례로 통일).
+  4. **민감값 분리 정책 유지**: server-only UUID(`invitationId`, `workspaceId`) = 로그 허용. PII/토큰(email, auth token, password) = 로그 금지. 중간 영역(`pgCode`, `causeName`)은 Postgres 표준 코드라 허용.
+  5. **stuck row(double-fault) 같은 복구 필요 상황은 `event`로 구분 가능하게 + 운영자가 DB로 찾아가는 데 필요한 최소 식별자만 박제**. Sentry/Datadog 실시간 알림은 별도 Task(인프라 레벨).
+  6. **revoke/delete 류 `UPDATE WHERE` 쿼리는 수동/자동 경로 모두 `isNull(revokedAt)+isNull(acceptedAt)` 가드 패턴 통일**. race로 이미 처리된 row를 재처리하면 audit log 중복/오기록. 가드 추가 비용 거의 0, invariant 일관성 가치 큼.
+
+## 2026-04-23 — Rate limit IP null 정책 — 공유 "unknown" 버킷은 false positive 비용이 abuse 방어 가치보다 큼 (Task rate-4 review code MED-2 + sec MED-1)
+
+- **상황**: Task 5-5-4 rate-4로 contact form(`submitInquiryAction`)에 IP 기반 rate limit 도입. 초안에서는 `extractClientIp()`가 null 반환 시 `"unknown"` 공유 버킷(`inquiry:ip:unknown:m`)으로 묶어 전역 제한. 의도는 "헤더 조작으로 우회 시도하는 봇도 unknown에 묶여 차단". code + security reviewer 모두 MEDIUM으로 지적:
+  - Vercel 환경에서는 XFF 자동 주입되어 null 가능성 낮으나, **self-hosted/로컬/비표준 proxy**에서는 모든 사용자가 unknown 한 버킷에 묶임.
+  - 분 3회 한도 공유 → 정상 사용자 3명이 각 1회 전송하면 4번째 사용자부터 차단.
+  - 모바일 앱이 XFF 미설정으로 요청하는 케이스도 잠재적 피해.
+- **trade-off 분석**:
+  - **공유 버킷 유지**: 이론상 헤더 제거 봇 차단. 실제로는 봇도 IP 하나는 있고 CDN이 주입 → 효과 제한적. false positive(정상 희생) 피해 큼.
+  - **IP null skip**: false positive 0. 봇 방어는 1차선(honeypot + timing guard + Zod)에 위임 — timing 3초 하한이 대다수 봇 차단.
+  - 소규모 서비스(dairect 베타)는 정상 사용자 희생이 치명적 → **skip 채택**.
+- **해결**: `if (ipAddress) { ... rate limit 검사 ... }` — IP 있을 때만 rate limit 적용. null은 1차선 방어에 위임.
+- **규칙**:
+  1. **Rate limit 식별자가 null일 때의 정책은 명시적 결정**. 공유 버킷(묶기)/skip(패스)/reject(무조건 차단) 3가지 중 서비스 규모 + 1차선 방어 강도로 선택. 소규모 + 1차선 강함 → skip이 default.
+  2. **공유 버킷은 false positive 비용을 먼저 계산**. 한도(분 N)를 "공유하는 정상 사용자 수"로 나눈 값이 한 사람당 실질 한도. 3명이 분 3 공유 = 1인당 분 1회 — 너무 빡빡함.
+  3. **1차선 방어가 있으면 rate limit은 "추가 레이어"로 설계**. 1차선(honeypot/timing/Zod)만으로도 봇 방어 가능하면 rate limit null skip은 안전. 1차선이 없는 엔드포인트는 null skip 대신 reject(무조건 차단) 고려.
+  4. **IPv6 /64 그룹핑은 공통 인프라 Task로 분리**. 수천 IP로 rate limit 우회는 IP 기반 엔드포인트 전체 엣지 — 개별 엔드포인트가 아닌 `rate-limit.ts` 레벨에서 처리.
+  5. **검사 순서: honeypot/timing 먼저 → rate limit → Zod parse**. 봇은 1차선에서 `success: true` fake로 탈락해 카운터 소진 안 함 → 정상 사용자의 실질 한도 보호.
+
+## 2026-04-23 — 3rd party 정책 수치는 문서에 박제 금지 — 링크 + 날짜 스탬프로 문서 rot 방지 (Task rate-4 review sec MED-3)
+
+- **상황**: Task rate-4에서 env-setup.md에 Supabase GoTrue Auth Rate Limit 가이드 섹션 신설. 초안에서는 "Sign up / Sign in (password): 30/5min per IP" 등 구체 수치를 표로 박제. security-reviewer가 MEDIUM으로 지적:
+  - Supabase는 플랜(Free/Pro/Enterprise)에 따라 수치가 다르고 Dashboard UI에서 hourly 단위로 표시 (분 단위 표기와 괴리).
+  - 문서에 박제된 수치가 실제 현재값과 불일치하면 운영자가 오인식 → abuse 탐지 시 잘못된 한도 기준으로 판단.
+  - 외부 정책은 공급자 정책 변경에 따라 자동 drift → 문서 rot가 시간 지남에 따라 악화.
+- **해결**: 수치 박제 제거 → Supabase Dashboard 참조 + 공식 링크 2건(`going-into-prod`, `auth-rate-limits`) + "현재값은 Dashboard에서 확인" + "분기 점검 시 현재값 + 점검 날짜 기록 권장" 문구로 교체.
+- **규칙**:
+  1. **3rd party 공급자 정책 수치는 내부 문서에 박제 금지**. 공급자 Dashboard/공식 문서 링크로 대체. 수치는 "대략적 카테고리"(IP당 단시간 N회, 이메일당 시간 단위 제한)로만 표기.
+  2. **박제가 불가피하면 날짜 스탬프 필수**: "2026-04-23 기준 Supabase Free plan 기본값 X" 형식. 스탬프 없으면 문서 rot 시 아무도 오류를 인지 못 함.
+  3. **운영 가이드에 "분기 점검 + 현재값 기록" 루틴 명시**. 공급자 정책 변경을 선제 감지하려면 subject(운영자)가 주기적 확인을 해야 함. 문서가 루틴을 안내.
+  4. **공급자 공식 링크 2건 이상 첨부**(going-into-prod + 해당 기능 상세). 링크 하나만이면 rot(404) 리스크. 여러 경로로 진입 가능하게.
+  5. **반대로 자체 앱의 한도값(INVITE/INQUIRY env 기본값)은 박제 OK**. 내부에서 통제하므로 drift 없음 + env 설정 참조 가치 있음. 외부 vs 내부 구분 중요.
+
 ## 2026-04-22 밤 — Fail-fast의 양면성 — startup 검증을 부가 시스템에 적용하면 1개 오설정으로 전체 앱 부팅 차단되는 가용성 회귀 + env 한도값은 빈 문자열/0/NaN 가드 + zod regex 이중 방어 (Task 5-5-5 review HIGH-1 + MED-1)
 
 - **상황**: Task 5-5-5에서 잔여 정리 7건 묶음 처리 중 두 가지 fail-fast 관련 결정에 대해 reviewer가 다른 권고를 함:

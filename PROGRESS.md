@@ -1,7 +1,76 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-22 밤 (Task 5-5-5 ✅ Phase 5.5 잔여 정리 묶음 — 7건 + reviewer HIGH-1 + MED 정책 변경 즉시 반영)
-> 현재 위치: **Phase 5.5 진행 중**. Task 5-5-1~5 완료 (보안/한도/audit/rate limit/잔여 정리). 남은 Phase 5.5 ToDo 2건 + 후속 8건(아래).
+> 최종 업데이트: 2026-04-23 (Task 5-5-5 cleanup 묶음 3건 + Task 5-5-4 rate-4 contact form rate limit — reviewer MEDIUM 총 7건 즉시 반영)
+> 현재 위치: **Phase 5.5 진행 중**. Task 5-5-1~5 + cleanup 묶음 + rate-4 확장 완료. 남은 Phase 5.5 ToDo 2건 + 후속 11건(아래).
+
+## 세션 2026-04-23 (Task 5-5-5 cleanup + Task 5-5-4 rate-4 contact form — 커밋 2건)
+
+### Task 5-5-5 cleanup 묶음 ✅ 완료 (cdf0073 — 로그 구조화 + revoke 가드 + stuck row + reviewer MEDIUM 4건)
+
+**범위**: Task 5-5-5 잔여 ToDo 3건(cleanup-1/2/3) + 리뷰 MEDIUM 4건 즉시 반영.
+
+**수정 파일 5**
+- `src/lib/utils/sanitize.ts` — `sanitizeLogMessage` 신규 export. 제어문자(\x00-\x1F, \x7F) + BiDi override 공백 치환. sanitizeFreeText와 달리 tab/newline/ANSI escape도 제거 (한 줄 로그 오염 방지).
+- `src/app/dashboard/members/actions.ts` — cleanup-1 event 필드 5개, cleanup-2 자동 revoke WHERE `isNull` 가드, cleanup-3 stuck row alert (`createdInvitationId` 상위 스코프 + `workspaceId`/`pgCode`/`causeName` 박제), sec M-2 `revoke_skipped` audit 분기 (race revoked), 6 로그 sanitize 적용.
+- `src/app/dashboard/members/page.tsx` — event 필드.
+- `src/app/invite/[token]/accept-actions.ts` — event 필드 2개 + sanitize.
+- `src/app/invite/[token]/page.tsx` — event 필드 + sanitize.
+
+**검증**: tsc 0 / lint 0 / build 39 routes + SW 정상.
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL 0 / HIGH 0 / MEDIUM 3+3 → **즉시 반영 4건**:
+  - code M-1: stuck row 로그에 `workspaceId` (운영 복구 편의)
+  - code M-2: `email_send_failed`에 `message` 필드 (Resend 장애 분류)
+  - sec M-1: `sanitizeLogMessage` 유틸 + 6 로그 sanitize 적용
+  - sec M-2: cleanup-2 0-row skip 분기에 `invitation.revoke_skipped` 로그 (stuck row와 race-revoked 구분, audit log INSERT는 skip — 실제 DB 변경 없음)
+- **후속 Task로 분리**:
+  - sec M-3: stuck row의 `expires_at` 단축 (triple-fault 리스크 대비 효익 불확실 → 운영 관찰 후)
+  - code L-1: `createdInvitationId` immutable 전환 (transaction return 패턴 리팩토링)
+
+---
+
+### Task 5-5-4 rate-4 contact form ✅ 완료 (8092d29 — submitInquiryAction IP 기반 rate limit + Supabase GoTrue 문서화 + reviewer MEDIUM 3건)
+
+**범위**: Task 5-5-4 잔여 rate-4 (login/signup/password reset/contact form) 중 실질 가능한 contact form만 적용 + 나머지는 Supabase GoTrue 정책 위임.
+
+**발견 (scope 축소 사유)**:
+- login, signup, password reset 모두 `"use client"` + `supabase.auth.*` 직접 호출 → 서버 미경유 → Dairect rate limit 주입 불가.
+- Server Action 리팩토링은 SSR cookie 흐름 재설계 필요 → ROI 낮음.
+- contact form(`submitInquiryAction`)만 Server Action → 즉시 적용 가능.
+
+**수정 파일 5**
+- `src/lib/rate-limit.ts` — `parseRateLimit` 공통 export로 이관 + key 컨벤션 주석에 `inquiry:ip:{ip}:*` 추가.
+- `src/lib/env.ts` — `INQUIRY_RATE_LIMIT_PER_MINUTE/HOUR` 2건 추가 (INVITE_* 동일 regex `^[1-9]\d*$`).
+- `src/app/(public)/about/actions.ts` — submitInquiryAction에 rate limit 주입. honeypot → timing → **rate limit** → zod parse → insert 순서. 분 3 + 시간 20. short-circuit. IP null 시 rate limit skip (review MED-1 반영).
+- `src/app/dashboard/members/actions.ts` — 로컬 `parseRateLimit` 제거 → lib import.
+- `docs/env-setup.md` — INVITE/INQUIRY env 2건 문서화 + 🛡️ Supabase GoTrue Auth Rate Limit 가이드 섹션 신설 (Dashboard 위치 + 대략적 카테고리 + 공식 링크 2건).
+
+**검증**: tsc 0 / lint 0 / build 39 routes + SW 정상.
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL 0 / HIGH 0 / MEDIUM 2+3 → **즉시 반영 3건**:
+  - code MED-1/2 + sec MED-1 통합: IP null 시 rate limit skip (공유 `"unknown"` 버킷 false positive 방어 — 정상 모바일 사용자 보호)
+  - sec MED-3: env-setup.md GoTrue 수치 박제 제거 → Supabase 공식 문서/Dashboard 참조 + 공식 링크 2건
+  - code LOW-2: 이관 흔적 주석 축약
+- **후속 Task로 분리**:
+  - sec MED-2: IPv6 /64 CIDR 그룹핑 (rate-limit.ts 인프라 개선 — 모든 IP 기반 rate-limit 공통 적용)
+  - sec LOW-1: rate limit fake success vs real error 비대칭 정책 결정 (봇이 rate limit 존재 학습 가능 vs 정상 사용자 UX 피해 trade-off)
+
+### 차기 Task 등록 (Phase 5.5 잔여 2건 + 후속 11건)
+
+1. **Resend Sending Access key 발급/회전** (Jayden 수동, 개발 완료 후)
+2. **Phase 5 Epic 5-3** 진입 검토 (PRD 재확인 필요)
+
+후속 (잔여 기술 부채):
+- Task 5-5-1 잔여: MEDIUM-4 instrumentation 부팅 차단 실증 / LOW-1 vitest 이관
+- Task 5-5-2 잔여: HIGH-1 page.tsx race / HIGH-2 hashtext 32-bit 충돌 / Existing-over-limit 정책
+- Task 5-5-3 잔여: audit-2 활동 피드 정책 / audit-4 PII 라이프사이클
+- Task 5-5-4 잔여: rate-1 cleanup cron
+- Task 5-5-5 cleanup 분리: sec M-3 `expires_at` 단축 / code L-1 immutable 리팩토링
+- Task 5-5-4 rate-4 분리: sec MED-2 IPv6 /64 그룹핑 / sec LOW-1 fake success 정책
+
+---
 
 ## Task 5-5-5 ✅ 완료 (Phase 5.5 잔여 정리 묶음 7건 + reviewer 즉시 반영 3건)
 
