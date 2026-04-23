@@ -19,7 +19,7 @@ import { canManageMembers } from "@/lib/auth/workspace-permissions";
 import { sendInvitationEmail } from "@/lib/email/resend";
 import { getMaxMembers, getPlanLabel, suggestUpgradeTarget } from "@/lib/plans";
 import { checkAndIncrementRateLimit } from "@/lib/rate-limit";
-import { sanitizeFreeText } from "@/lib/utils/sanitize";
+import { sanitizeFreeText, sanitizeLogMessage } from "@/lib/utils/sanitize";
 import {
   createInvitationInputSchema,
   invitationIdSchema,
@@ -217,8 +217,9 @@ export async function createInvitationAction(formData: FormData): Promise<Action
     inviteUrl = buildInviteUrl(token);
   } catch (err) {
     console.error("[createInvitationAction] url build error", {
+      event: "invitation.url_build_error",
       name: err instanceof Error ? err.name : typeof err,
-      message: err instanceof Error ? err.message.slice(0, 200) : "",
+      message: err instanceof Error ? sanitizeLogMessage(err.message).slice(0, 200) : "",
     });
     return {
       success: false,
@@ -232,6 +233,10 @@ export async function createInvitationAction(formData: FormData): Promise<Action
   // - workspace_settings.plan SELECT → getMaxMembers로 한도 산출.
   // - workspace_members count + workspace_invitations pending count 합산 → used.
   // - used >= limit이면 MemberLimitExceededError throw → 트랜잭션 ROLLBACK → 외부 catch에서 분기.
+  //
+  // Task 5-5-5 cleanup-3: createdInvitationId — email 실패 → 자동 revoke 실패의 double-fault 시
+  // stuck row(pending 상태로 DB 잔존) 식별자로 사용. transaction 커밋 후에만 세팅됨 (ROLLBACK 경로 null 유지).
+  let createdInvitationId: string | null = null;
   try {
     await db.transaction(async (tx) => {
       // hashtext()는 PG 내장 함수 — bigint 해시 → advisory lock key. xact 변형은 트랜잭션 종료 시 자동 해제.
@@ -246,6 +251,7 @@ export async function createInvitationAction(formData: FormData): Promise<Action
       // 정상 경로에서 발생 불가 — silent fallback 없이 즉시 인지하여 무결성 깨진 워크스페이스 추적.
       if (!settingsRow) {
         console.error("[createInvitationAction] workspace_settings row missing — fallback to 'free'", {
+          event: "workspace_settings.missing_fallback",
           workspaceId,
         });
       }
@@ -287,6 +293,7 @@ export async function createInvitationAction(formData: FormData): Promise<Action
           expiresAt,
         })
         .returning({ id: workspaceInvitations.id });
+      createdInvitationId = inserted.id;
 
       // Phase 5.5 Task 5-5-3: 감사 로그 기록 (같은 transaction → atomicity 보장).
       // metadata에 raw email/role 저장 — RLS로 workspace 멤버만 조회 가능 (PRD-erd:326).
@@ -342,11 +349,12 @@ export async function createInvitationAction(formData: FormData): Promise<Action
       };
     }
     console.error("[createInvitationAction] insert error", {
+      event: "invitation.insert_error",
       name: err instanceof Error ? err.name : typeof err,
-      message: errMsg.slice(0, 200),
+      message: sanitizeLogMessage(errMsg).slice(0, 200),
       pgCode: typeof pgCode === "string" ? pgCode : null,
       causeName: rootCause instanceof Error ? rootCause.name : null,
-      causeMessage: causeMsg.slice(0, 200),
+      causeMessage: sanitizeLogMessage(causeMsg).slice(0, 200),
     });
     return { success: false, error: "초대 생성 중 오류가 발생했습니다", code: "UNKNOWN" };
   }
@@ -368,10 +376,18 @@ export async function createInvitationAction(formData: FormData): Promise<Action
     //                     (action: workspace_invitation.revoked + metadata.reason: email_send_failed).
     try {
       await db.transaction(async (tx) => {
+        // Task 5-5-5 cleanup-2: 수동 revoke(revokeInvitationAction)와 동일한 isNull 가드 통일.
+        // UUID v4 token 충돌 확률 ~0이지만 invariant 강제 → 이중 revoke 방지 + audit trail 일관성.
         const [revokedRow] = await tx
           .update(workspaceInvitations)
           .set({ revokedAt: new Date() })
-          .where(eq(workspaceInvitations.token, token))
+          .where(
+            and(
+              eq(workspaceInvitations.token, token),
+              isNull(workspaceInvitations.revokedAt),
+              isNull(workspaceInvitations.acceptedAt),
+            ),
+          )
           .returning({ id: workspaceInvitations.id });
         if (revokedRow) {
           await tx.insert(activityLogs).values({
@@ -388,15 +404,41 @@ export async function createInvitationAction(formData: FormData): Promise<Action
               originalInviterUserId: userId,
             },
           });
+        } else {
+          // Task 5-5-5 sec M-2: cleanup-2 가드가 skip 시킨 경로 (이미 revoked/accepted by race).
+          // stuck row(double-fault)와 구분하여 운영 가시성 확보. 실제 DB 변경 없으니 audit log skip (멱등성).
+          console.error("[createInvitationAction] auto-revoke skipped — already revoked/accepted", {
+            event: "invitation.revoke_skipped",
+            invitationId: createdInvitationId,
+            workspaceId,
+            reason: "already_revoked_or_accepted",
+          });
         }
       });
     } catch (revokeErr) {
+      // Task 5-5-5 cleanup-3: double-fault 시 stuck row(pending 상태로 DB 잔존) 알림.
+      // 운영자가 event=invitation.revoke_stuck_row 로그로 즉시 감지 → invitationId로 수동 정리.
+      // email/token은 민감값이라 제외. invitationId(server-only UUID)만 박제.
+      const revokeCause = (revokeErr as { cause?: unknown })?.cause;
+      const revokePgCode =
+        (revokeErr as { code?: unknown })?.code ??
+        (revokeCause as { code?: unknown })?.code;
       console.error("[createInvitationAction] revoke after email failure also failed", {
+        event: "invitation.revoke_stuck_row",
+        invitationId: createdInvitationId,
+        workspaceId,
+        reason: "email_send_failed_and_revoke_failed",
         name: revokeErr instanceof Error ? revokeErr.name : typeof revokeErr,
+        message: revokeErr instanceof Error ? sanitizeLogMessage(revokeErr.message).slice(0, 200) : "",
+        pgCode: typeof revokePgCode === "string" ? revokePgCode : null,
+        causeName: revokeCause instanceof Error ? revokeCause.name : null,
       });
     }
     console.error("[createInvitationAction] email error", {
+      event: "invitation.email_send_failed",
+      invitationId: createdInvitationId,
       name: err instanceof Error ? err.name : typeof err,
+      message: err instanceof Error ? sanitizeLogMessage(err.message).slice(0, 200) : "",
     });
     return {
       success: false,

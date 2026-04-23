@@ -10,6 +10,7 @@ import {
   workspaceMembers,
   workspaces,
 } from "@/lib/db/schema";
+import { sanitizeLogMessage } from "@/lib/utils/sanitize";
 import { AcceptButton } from "./accept-button";
 
 export const metadata: Metadata = {
@@ -69,8 +70,9 @@ export default async function InvitePage(props: PageProps) {
 
     // token은 로그에 기록 금지 — message/name만.
     console.error("[invite/page] error", {
+      event: "invitation.page_load_error",
       name: err instanceof Error ? err.name : typeof err,
-      message: err instanceof Error ? err.message.slice(0, 200) : "",
+      message: err instanceof Error ? sanitizeLogMessage(err.message).slice(0, 200) : "",
     });
     return (
       <ErrorCard

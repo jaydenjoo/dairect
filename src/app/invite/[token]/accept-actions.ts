@@ -13,6 +13,7 @@ import {
 import { getUserId } from "@/lib/auth/get-user-id";
 import { getMaxMembers, getPlanLabel, suggestUpgradeTarget } from "@/lib/plans";
 import { createClient } from "@/lib/supabase/server";
+import { sanitizeLogMessage } from "@/lib/utils/sanitize";
 import { acceptInvitationInputSchema } from "@/lib/validation/invite-accept";
 
 // Phase 5 Task 5-2-5: 초대 수락 Server Action.
@@ -170,6 +171,7 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
         // Task 5-5-5 HIGH-4: workspace_settings row 누락 시 silent fallback 대신 알림.
         if (!settingsRow) {
           console.error("[acceptInvitationAction] workspace_settings row missing — fallback to 'free'", {
+            event: "workspace_settings.missing_fallback",
             workspaceId: existing.workspaceId,
           });
         }
@@ -291,8 +293,9 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
     }
     // 에러 로그에 token 포함 금지 — Vercel 로그 유출 시 무자격 수락 위험.
     console.error("[acceptInvitationAction] error", {
+      event: "invitation.accept_error",
       name: err instanceof Error ? err.name : typeof err,
-      message: err instanceof Error ? err.message.slice(0, 200) : "",
+      message: err instanceof Error ? sanitizeLogMessage(err.message).slice(0, 200) : "",
     });
     return {
       success: false,

@@ -102,6 +102,7 @@ export default async function MembersPage() {
   // Task 5-5-5 HIGH-4: workspace_settings row 누락 시 silent fallback 대신 알림.
   if (!settingsRow) {
     console.error("[members/page] workspace_settings row missing — fallback to 'free'", {
+      event: "workspace_settings.missing_fallback",
       workspaceId,
     });
   }

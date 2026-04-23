@@ -29,3 +29,20 @@ export function sanitizeFreeTextOrNull(text: string | null | undefined): string 
   if (!text) return null;
   return sanitizeFreeText(text);
 }
+
+// ─── 로그 전용 sanitize ───
+//
+// Task 5-5-5 sec M-1: console.error 로 넘기는 외부 유입 문자열(err.message, causeMessage 등)에
+// 적용. Vercel/Datadog 로그 sink에서의 라인 오염 + ANSI escape 인젝션 + BiDi 스푸핑 방어.
+//
+// sanitizeFreeText와의 차이 — tab/newline/CR/ANSI escape(\x1B)까지 모두 공백으로 치환.
+// 자연 입력 보존 대상이 아니라 "한 줄 로그"가 되어야 하므로.
+//
+// 사용 패턴:
+//   err instanceof Error ? sanitizeLogMessage(err.message).slice(0, 200) : ""
+//   (sanitize 후 slice — sanitize가 길이를 늘리지 않으므로 순서 무관)
+const LOG_UNSAFE_CHARS = /[\x00-\x1F\x7F]/g;
+
+export function sanitizeLogMessage(text: string): string {
+  return text.replace(LOG_UNSAFE_CHARS, " ").replace(BIDI_OVERRIDES, "");
+}
