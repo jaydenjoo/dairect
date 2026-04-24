@@ -1,8 +1,15 @@
 # Dairect PRD v4.0 — Phase 5 Multi-tenant 전환
 
-> **상태**: 초안 (2026-04-20 킥오프) · **2026-04-24 업데이트**: Phase 5.5 Billing 전면 취소
+> ⚠️ **2026-04-24 末 업데이트**: 현재 유효한 상위 PRD는 **[PRD-v3.2-single-user.md](./PRD-v3.2-single-user.md)**.
+> 이 문서(v4.0)의 Multi-tenant 설계는 **구현 완료 자산으로 보존** (2차 진입 시 UI만 풀면 재활성화).
+> 1차 범위(Jayden 1인 사용)에서는 workspaces/members/invitations 등 multi-tenant 기능 UI를 **잠금** 처리.
+> 본 문서는 2차 서비스 제공 모드를 위한 설계 레퍼런스로 활용.
+
+---
+
+> **상태**: 초안 (2026-04-20 킥오프) · **2026-04-24 업데이트**: Phase 5.5 Billing 전면 취소 + v3.2로 상위 이관
 > **범위**: Phase 5.0 (Multi-tenant 기반) · ~~Phase 5.5 (Billing)~~ **취소**
-> **관련**: PRD v3.1 (Phase 0~4), PROGRESS.md Phase 3 cron 종결 후속
+> **관련**: [PRD-v3.2-single-user.md](./PRD-v3.2-single-user.md) (1차 상위), PRD v3.1 (Phase 0~4), PROGRESS.md
 > **보안 등급**: 🟡 (Phase 5.0) · ~~🔴 (Phase 5.5)~~ **취소**
 
 ---

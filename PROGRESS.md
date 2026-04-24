@@ -1,7 +1,83 @@
-# Dairect v3.1 — 진행 현황
+# Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-24 末 (Task-S1 — SaaS 구독 계획 폐기 문서 정리 — billing-mock archived + PRD-phase5 Epic 5-3 deprecated + PII lifecycle 재라벨)
-> 현재 위치: **Phase 5.5 마무리 + SaaS 구독 모델 취소 결정**. Task-S1(문서 정리) 완료 → **Task-S2(코드 제거)** 진입 대기.
+> 최종 업데이트: 2026-04-24 末 (**v3.2 수정 PRD 확정** — 옵션 B: Jayden 1인 사용 모드로 개발 범위 축소, 서비스 제공은 2차 이관)
+> 현재 위치: **1차 범위 확정 (v3.2 Single-user Mode)**. Task-S2a~S2g (총 ~7h) 실행 대기.
+> 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
+
+## 세션 2026-04-24 末-2 (v3.2 수정 PRD 확정 — 옵션 B 1차 범위 + Task-S2a~g 분해)
+
+### 배경: 범위 축소 결정
+Jayden 판단: "서비스 제공 완성까지 8~13주 vs Jayden 혼자 사용 완성까지 2~3주. 1~2개월 일찍 실사용 시작하고 2차는 dogfooding 후 재설계."
+
+### 시간 비교 (PROGRESS 전체 스캔 결과)
+| 옵션 | 순수 개발 | 법적 준비 | QA | 총 |
+|---|---|---|---|---|
+| A (서비스 제공) | 37~49h | 1~2주 | 2~3주 베타 | **8~13주** |
+| B (1인 사용) | 7~8h | 불필요 | 1~2주 dogfooding | **2~3주** |
+
+### 4건 결정 (Jayden 승인)
+1. 멤버/AI 한도: B안 — 단일 고정 (전원 동일, 남용 방어용)
+2. DB 컬럼: B안 — 유지 + 읽지 않기
+3. billing-mock-design.md: B안 — archived 이동
+4. Task 분할: ①안 2단계 (S1 문서 + S2 코드)
+
+### 3건 경계선 결정 (Jayden 승인)
+1. `/dashboard/members` — **(a) 유지 + 본인만 접근** (Jayden 하청 초대 용도)
+2. 공개 랜딩 — **(a) 노출 유지 + CTA "문의하기"로 교체** (SI 수주 창구)
+3. 고객 포털 — **(a) 그대로 유지** (1차 핵심)
+
+### Task-S1 세션 결과 (완료)
+- `docs/billing-mock-design.md` → `docs/archived/`로 이동 + 폐기 헤더
+- `docs/PRD-phase5.md` Phase 5.5 / Epic 5-3 ⛔ deprecated 인라인 표시
+- `docs/PRD-phase5-erd.md` `subscription_status`/`stripe_customer_id` 컬럼 주석 업데이트
+- `docs/pii-lifecycle.md` "빌링과 함께" 언급 7건 → "향후 필요 시"
+- `docs/PRD.md` 상단 업데이트 박스 + 플랜/결제 섹션 폐기 표시
+- 커밋: `8703fbf`
+
+### v3.2 세션 결과 (이번 세션 — 수정 PRD 작성)
+
+**신규 파일 1**
+- `docs/PRD-v3.2-single-user.md` (9 섹션, 1차 범위 확정 + Task-S2a~g 분해 + 2차 복구 전략)
+
+**수정 파일 3**
+- `docs/PRD.md` — v3.2 이관 안내 상단 배너
+- `docs/PRD-phase5.md` — v3.2 이관 + "자산 보존" 명시
+- `PROGRESS.md` — 방향 전환 기록 + 1차 완료 기준 반영
+
+### 코드베이스 전면 스캔 결과 (현재 자산)
+- **공개 라우트**: 21개 (pricing 삭제 1 + signup/onboarding/invite 잠금 3 + 나머지 유지)
+- **대시보드 라우트**: 18개 전부 유지
+- **API 라우트**: 2개 (cron) 전부 유지
+- **Server Actions**: 18개 전부 유지 (잠긴 라우트 액션은 코드만 보존)
+- **DB 테이블**: 22개 전부 유지 (multi-tenant 자산 보존)
+- **마이그레이션**: 38개 (0037까지)
+
+### Task-S2 분해 (v3.2 §4에 상세)
+
+| Task | 내용 | 예상 | 상태 |
+|---|---|---|---|
+| **S2a** | plan 차등 제거 + AI 한도 단일화 (`AI_DAILY_LIMIT=200`, `MAX_MEMBERS=10`) + schema `@deprecated` | 1.5h | 대기 |
+| **S2b** | `/signup` + `/onboarding` UI 잠금 + `WorkspacePicker` 숨김 | 1h | 대기 |
+| **S2c** | `/invite/[token]` 라우트 잠금 | 0.5h | 대기 |
+| **S2d** | `/pricing` 삭제 + `PricingSummarySection` 제거 + 랜딩 CTA "문의하기" | 1h | 대기 |
+| **S2e** | `/dashboard/members` 본인 접근 가드 강화 | 0.5h | 대기 |
+| **S2f** | PRD/PROGRESS 1차 완료 기준 갱신 + 2차 unlock 체크리스트 작성 | 1h | 대기 |
+| **S2g** | `docs/dogfooding-checklist.md` 작성 | 1h | 대기 |
+| **합계** | | **~7h** | |
+
+### 세션 분할 권장
+- **다음 세션 (세션 1)**: S2a + S2b (2.5h) — 핵심 코드 정리
+- **세션 2**: S2c + S2d + S2e (2.5h) — UI 잠금/삭제
+- **세션 3**: S2f + S2g (2h) — 문서 마감 + dogfooding 시작
+
+### 1차 완료 기준 (v3.2 §2)
+- [ ] S2a~g 전부 완료
+- [ ] tsc/lint/build/db:check 통과
+- [ ] 잠근 라우트 직접 접근 시 404
+- [ ] Jayden 1~2주 실업무 dogfooding (견적/계약/청구/AI/포털 1건 이상)
+- [ ] 발견 버그 정리 + 우선순위별 수정
+
+---
 
 ## 세션 2026-04-24 末 (Task-S1 — SaaS 구독 계획 폐기: 문서 정리)
 
