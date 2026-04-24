@@ -42,13 +42,13 @@ export function LandingFooter() {
 
           {/* 연락 */}
           <div className="flex flex-col gap-3">
-            <a
-              href="#contact"
+            <Link
+              href="/about#contact"
               className="group flex items-center gap-2 text-sm text-white/60 transition-colors hover:text-primary"
             >
               <MessageCircle className="h-4 w-4 transition-transform group-hover:scale-110" />
               카카오톡 상담
-            </a>
+            </Link>
             <div className="flex items-center gap-2 text-sm text-white/60">
               <Mail className="h-4 w-4" />
               hello@dairect.kr
