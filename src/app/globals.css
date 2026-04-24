@@ -6,11 +6,13 @@
  * Studio Anthem 번들 CSS (2026-04-24 이식)
  * - landing.css: 섹션별 스타일 + 토큰 (:root --canvas/--ink/--signal 등)
  * - editorial.css: PATCH LAYER — Fraunces italic 강조 + Korean-in-mono 처리
+ * - projects.css: /projects 전용 (p-hero, p-row, p-index, p-cta)
  * - a11y-patch.css: 접근성 보정
- * 순서 중요: landing → editorial → a11y-patch (번들 저자 지정)
+ * 순서 중요: landing → editorial → projects → a11y-patch (번들 저자 지정)
  */
 @import "../styles/studio-anthem/landing.css";
 @import "../styles/studio-anthem/editorial.css";
+@import "../styles/studio-anthem/projects.css";
 @import "../styles/studio-anthem/a11y-patch.css";
 
 @custom-variant dark (&:is(.dark *));
