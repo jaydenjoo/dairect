@@ -1,7 +1,105 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-23 (Task 5-5-5 cleanup 묶음 3건 + Task 5-5-4 rate-4 contact form rate limit — reviewer MEDIUM 총 7건 즉시 반영)
-> 현재 위치: **Phase 5.5 진행 중**. Task 5-5-1~5 + cleanup 묶음 + rate-4 확장 완료. 남은 Phase 5.5 ToDo 2건 + 후속 11건(아래).
+> 최종 업데이트: 2026-04-24 (Task 5-5-2 후속 HIGH 2건 + Task 5-5-1 MED-4 instrumentation 부팅 차단 실증 + Task 5-5-4 rate-1 cleanup cron — reviewer 즉시 반영 6건)
+> 현재 위치: **Phase 5.5 진행 중**. Task 5-5-1~5 + cleanup 묶음 + rate-4 확장 + rate-1 cron + HIGH 2건 후속 완료. 남은 Phase 5.5 ToDo 2건 + 후속 8건(아래).
+
+## 세션 2026-04-24 (Task 5-5-2 후속 HIGH 2건 + MED-4 실증 + rate-1 cron — 커밋 2건)
+
+### Task 5-5-2 후속 HIGH 2건 ✅ 완료 (d676d69 — page race + hashtextextended + reviewer 즉시 반영 3건)
+
+**범위**: Task 5-5-2(멤버 한도 게이트) 잔여 HIGH 2건 묶음 + reviewer 즉시 반영 3건.
+
+**수정 파일 3**
+- `src/app/dashboard/members/page.tsx` — HIGH-1 race 가드:
+  - 기존 4개 독립 SELECT(memberRows / invitationRows / settingsRow / pendingCountRow) → 단일 `db.transaction` + REPEATABLE READ snapshot 고정.
+  - code LOW-1 반영: 수동 `SET TRANSACTION...` 제거 → Drizzle 공식 config 인자(`{ isolationLevel: "repeatable read", accessMode: "read only" }`) 채택. accessMode="read only"로 실수 INSERT/UPDATE 이중 방어.
+  - sec M1 반영: `SET LOCAL statement_timeout = '3s'` 추가 → 병렬 탭/스크립트 DoS 경화.
+  - sec M3 반영: NOW() = transaction_timestamp() 고정 시점 주석 보완 (snapshot 시점 통일성 명시).
+  - console.error(settings row 누락 알림)은 transaction 밖으로 이동 (side effect 커밋 후 처리).
+- `src/app/dashboard/members/actions.ts` — HIGH-2 advisory lock 공간 확장:
+  - `pg_advisory_xact_lock(hashtext(workspaceId))` → `pg_advisory_xact_lock(hashtextextended(workspaceId, 0))`.
+  - hashtext(int4 32-bit) → hashtextextended(bigint 64-bit). 공간 2^32 → 2^64 — ~65536 ws 50% 충돌 → ~42억 ws.
+- `src/app/invite/[token]/accept-actions.ts` — HIGH-2 동일 패턴. 발송/수락 양측 같은 lock key space 공유 유지 (멤버 한도 invariant 직렬화 의도).
+
+**검증**
+- `pnpm tsc/lint/build` 0 errors (무관 기존 warning 1).
+- Cloud Supabase SQL:
+  - `pg_typeof(hashtextextended('test-uuid', 0)) = 'bigint'` 확인.
+  - `pg_advisory_xact_lock(hashtextextended(...))` 획득 + COMMIT 후 `pg_locks` 0건 (xact 자동 해제 정상).
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL 0 / HIGH 0. 즉시 반영 3건 모두 반영.
+- 잔여 (후속 Task):
+  - code LOW-2: RR connection 점유 모니터링 (관측 선행, 별도 Task 불필요)
+  - sec M2 논의: 2-arg advisory lock 격리 — 이미 hashtextextended 64-bit로 해결된 범위, 추가 격리는 공간 축소 역행이라 기각
+  - sec M3 stuck row expires_at 단축 — 운영 관찰 후
+
+### Task 5-5-1 MED-4 instrumentation 부팅 차단 실증 ✅ 완료 (코드 변경 없음)
+
+**범위**: Task 5-5-1 잔여 MED-4 — env.ts validateEnv가 실제 Next.js 부팅을 차단하는지 실증.
+
+**실증 방법 2단**
+1. **envSchema 단위 검증** (일회성 스크립트, 실행 후 삭제):
+   - 4 시나리오 모두 PASS — NEXT_PUBLIC_APP_URL 누락 / DATABASE_URL 빈 문자열 / production + RESEND 누락 / INVITE_RATE_LIMIT_PER_MINUTE=0 regex 거부
+2. **실제 `pnpm start` 부팅 차단 관측**:
+   - shell `NEXT_PUBLIC_APP_URL=''` override로 .env.local 무수정 검증
+   - 로그: `Failed to prepare server Error: An error occurred while loading instrumentation hook: [env] 환경변수 검증 실패 (NODE_ENV=production) - NEXT_PUBLIC_APP_URL: ...` + `unhandledRejection` → 프로세스 exit
+   - 한국어 에러 + 누락 key 명시 + 해결법 안내 모두 정상 노출
+
+**발견 (learnings.md 기록)**
+- Next.js 16.2 async instrumentation hook은 "Ready in 99ms" 메시지 뒤에 평가되는 경로 존재 → HTTP 포트는 바인드된 상태에서 async fail → crash
+- 운영 로그 패턴 "Ready 직후 dying"은 env validation 실패 우선 의심
+- `next build`는 register()를 호출하지 않음 — env validation 실증은 `next start`/`next dev` 필수
+
+### Task 5-5-4 rate-1 cleanup cron ✅ 완료 (2026c5f — pg_cron 매시 정각 + reviewer 즉시 반영 3건)
+
+**범위**: `rate_limit_counters` 자동 정리 cron — rate limit row의 영구 잔존 방지.
+
+**신규 파일 1**
+- `src/lib/db/migrations/0035_rate_limit_counters_cleanup_cron.sql` — pg_cron extension 설치 + 매시 정각 cleanup job 등록
+  - 주기: `0 * * * *` (매시)
+  - 임계: `window_start < NOW() - INTERVAL '2 hours'` (최장 window 3600s + 1h buffer)
+  - 멱등: DO $$ 블록으로 기존 동일 이름 job unschedule 후 재등록
+  - sec M2 반영: unschedule fail-soft (`EXCEPTION WHEN OTHERS THEN RAISE NOTICE`) → migration rerun 안전
+  - code MED-2 반영: 롤백 순서 주석 명시 (0035 unschedule 먼저 → 0034 table drop)
+  - sec L1 반영: DROP EXTENSION pg_cron 금지 경고 강화 (Supabase plan extension, 다른 tenant/후속 cron 영향)
+
+**검증**
+- `apply_migration` 성공 (최초) + `execute_sql` 재적용 성공 (3건 반영 후)
+- cron.job 등록 확인 (jobid=2, active=true, schedule/command 정상)
+- Functional test: 3 row(3h/1.5h/now) 삽입 후 DELETE 실행
+  - age=10800s(3h) → 삭제 ✅
+  - age=5400s(1.5h) → 보존 ✅ (2h buffer 안)
+  - age=0s → 보존 ✅
+- 테스트 row 정리 후 total_rows=0
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL 0 / HIGH 0. 즉시 반영 3건 완료.
+- 후속 (잔여 기술 부채 — 운영 시점에 자연 검증 또는 별도 Task):
+  - Drizzle journal 0032~0035 미갱신 (Task 5-2-2g 반복 — 제도적 해결 필요)
+  - cron 실패 모니터링 (cron.job_run_details 주기 점검)
+  - 정각 thundering herd (향후 rate-1 확장 시 분 offset)
+  - 2h buffer 재검토 (더 긴 window 도입 시 상향)
+
+### 교훈 기록 4건 (docs/learnings.md)
+1. Drizzle 공식 `db.transaction(..., { isolationLevel, accessMode })` config가 수동 `SET TRANSACTION`보다 안전
+2. `pg_advisory_xact_lock`의 32-bit 공간 한계 — 2-key 변형은 네임스페이스 상수일 때 효과 없음, `hashtextextended`로 64-bit 확장이 본질적 해결
+3. Next.js 16.2 async instrumentation hook은 "Ready" 메시지 뒤에 평가 — "Ready 직후 dying" 로그 패턴은 env validation 실패 우선 의심
+4. pg_cron cleanup cron 임계는 "최장 활성 window + buffer", DROP EXTENSION은 Supabase plan extension이라 절대 금지
+
+### 차기 Task 등록 (Phase 5.5 잔여 2건 + 후속 8건)
+
+1. **Resend Sending Access key 발급/회전** (Jayden 수동, 개발 완료 후)
+2. **Phase 5 Epic 5-3** 진입 검토 (PRD 재확인 필요)
+
+후속 (잔여 기술 부채):
+- Task 5-5-1 잔여: LOW-1 vitest 이관
+- Task 5-5-2 잔여: Existing-over-limit 정책 (Phase 5.5 billing과 함께)
+- Task 5-5-3 잔여: audit-2 활동 피드 정책 / audit-4 PII 라이프사이클
+- Task 5-5-4 잔여: sec MED-2 IPv6 /64 그룹핑 / sec LOW-1 fake success 정책 / cron 실패 모니터링 / Drizzle journal 미갱신 (0032~0035)
+- Task 5-5-5 cleanup 분리: sec M-3 `expires_at` 단축 / code L-1 immutable 리팩토링
+
+---
 
 ## 세션 2026-04-23 (Task 5-5-5 cleanup + Task 5-5-4 rate-4 contact form — 커밋 2건)
 

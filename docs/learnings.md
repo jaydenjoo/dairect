@@ -1,5 +1,78 @@
 # Dairect — 교훈 기록
 
+## 2026-04-24 — Drizzle `db.transaction(..., { isolationLevel, accessMode })` 공식 config가 수동 `SET TRANSACTION`보다 안전 — 오탈자/순서 실수 원천 차단 (Task 5-5-2 후속 HIGH-1 reviewer LOW-1)
+
+- **상황**: Task 5-5-2 후속 HIGH-1으로 `/dashboard/members/page.tsx`의 4개 독립 SELECT(memberRows / invitationRows / settingsRow / pendingCountRow)를 단일 transaction + REPEATABLE READ snapshot으로 묶어 race 가드. 초안에서 `db.transaction(async (tx) => { await tx.execute(sql\`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ\`); ...})` 으로 수동 SET. code-reviewer가 "Drizzle 공식 API가 config 인자로 같은 기능을 더 안전하게 제공 (`{ isolationLevel: "repeatable read", accessMode: "read only" }`)"을 LOW-1로 제안.
+- **수동 SET vs 공식 config 비교**:
+  - 수동: 문자열 오탈자(e.g. "REPEATABLE-READ" 하이픈) 리스크, BEGIN 직후 첫 statement로 실행돼야 snapshot 고정 유효 — callback 첫 줄에서 await 순서 실수 가능.
+  - 공식 config: Drizzle이 `BEGIN` 직후 `SET TRANSACTION` 자동 발행 + **`accessMode: "read only"` 추가 시 INSERT/UPDATE가 섞이면 PG가 거부** → read-only 의도를 타입/런타임 양쪽에서 강제.
+- **해결**: `db.transaction(async (tx) => { ... }, { isolationLevel: "repeatable read", accessMode: "read only" })`으로 전환. 수동 `SET TRANSACTION` 제거. 별도로 `statement_timeout = '3s'` (sec M1)는 여전히 `tx.execute(sql\`SET LOCAL ...\`)`로 처리 — isolation level/accessMode와 별개 축.
+- **규칙**:
+  1. **Drizzle transaction에서 isolation level/accessMode 강제가 필요하면 config 인자 사용**. 수동 `SET TRANSACTION`은 "Drizzle API가 제공하지 않는 케이스"(e.g. `SET LOCAL statement_timeout`)에만. 두 방법 혼용하되 역할 분리 명확.
+  2. **Read-only transaction은 `accessMode: "read only"` 명시가 이중 방어**. read-only 의도 코드에 실수로 INSERT/UPDATE가 섞이는 회귀를 PG 레벨에서 차단. 성능 오버헤드 거의 0.
+  3. **REPEATABLE READ snapshot은 transaction 시작 시점에 고정** — callback 안 SELECT 순서 무관. read-only 부하에서는 serialization failure/write skew 위험 0.
+  4. **side effect(`console.error` 등)는 transaction 밖으로 이동** — transaction abort 시 로그 소실 방지 + snapshot 순수성 유지. transaction 안에서 snapshot 데이터만 뽑아 return → 밖에서 가공/로깅.
+
+## 2026-04-24 — `pg_advisory_xact_lock(hashtext(uuid))`의 32-bit 공간 한계 — 2-key 변형은 네임스페이스 상수일 때 효과 없음, `hashtextextended`로 64-bit 확장이 본질적 해결 (Task 5-5-2 후속 HIGH-2)
+
+- **상황**: Task 5-5-2 `createInvitationAction`/`acceptInvitationAction`에서 `pg_advisory_xact_lock(hashtext(workspaceId))`로 동시 멤버 추가 race 방어. `hashtext`는 int4(32-bit) 반환 → sqrt(2^32) ≈ 65536 워크스페이스 시점에 생일 역설로 50% 충돌. 충돌 시 무관한 ws가 불필요하게 직렬화되어 latency 영향 (데이터 정합 영향 없음). PROGRESS.md 후속 Task로 "2-key advisory lock 전환"이 적혀있었으나 실제 분석 결과 방향 재검토 필요.
+- **2-key 방식의 함정**:
+  - PG advisory lock signature: `pg_advisory_xact_lock(key1 int4, key2 int4)` — 두 32-bit를 **독립 키 공간의 한 좌표**로 인식. 즉 (1, 0) ≠ (1, 1).
+  - 그러나 `key2`를 상수(e.g. `hashtext('workspace-members')`)로 두면 실질 사용 공간은 key1의 2^32 — **공간 확장 효과 없음**. 2-key를 유의미하게 쓰려면 key2에도 variable 필요 (e.g. `(uuid_top32, uuid_bottom32)` UUID 분할) — 복잡도 ↑.
+  - PG 공식 문서: "The two key spaces are distinct from each other, i.e., keys in one space cannot conflict with keys in the other" — 오독 시 "상수 key2로 확장" 착각 유발.
+- **해결**: `pg_advisory_xact_lock(hashtextextended(${workspaceId}, 0))`. PG 11+ 표준 64-bit 해시(`hashtextextended(text, bigint) → bigint`). `pg_advisory_xact_lock(bigint)` signature와 직접 매칭. 공간 2^32 → 2^64 → ~42억 ws 시점 50% 충돌 — 실질 0. Cloud Supabase에서 `pg_typeof(hashtextextended(text, 0)) = 'bigint'` + xact lock 획득/자동 해제 검증 완료.
+- **규칙**:
+  1. **PostgreSQL advisory lock 공간 확장은 `hashtextextended(text, 0)` 우선**. `pg_advisory_xact_lock(bigint)` signature와 자연 매칭 + 한 줄 변경. PG 11+ 기본 내장이라 extension 불필요.
+  2. **2-key `(int4, int4)` 변형은 key1/key2 둘 다 가변일 때만 공간 확장**. 상수 네임스페이스로 2-key를 쓰는 건 의미 없는 코드 복잡도 — 개선 효과 0.
+  3. **advisory lock seed 상수 선택은 네임스페이스 격리 vs 공간 효율 trade-off**. `hashtextextended(uuid, 0)`처럼 seed=0 통일이 발송/수락 양측 같은 key space 공유 (invariant 직렬화 의도). 서로 다른 resource면 seed 분리하되 `hashtextextended`는 seed=bigint라 풍부한 분리 공간 확보.
+  4. **이 유형의 개선은 "기존 설계의 대체"가 아닌 "내부 함수만 swap"** — 한 줄 변경, 기존 locking semantic 유지, 회귀 리스크 최소. 공간 확장은 생일 역설로 시각화 → 1만 ws 시점(50% 충돌) → 선제 조치가 저비용.
+
+## 2026-04-24 — Next.js 16.2 async instrumentation hook은 "Ready" 메시지 뒤에 평가 — "Ready 직후 dying" 로그 패턴은 env validation 실패 우선 의심 (Task 5-5-1 MED-4 실증)
+
+- **상황**: Phase 5.5 Task 5-5-1 MED-4 "instrumentation 부팅 차단 실증"을 위해 `NEXT_PUBLIC_APP_URL=''` shell env override + `pnpm start` 실행. 출력 로그:
+  ```
+  ▲ Next.js 16.2.4
+  - Local:         http://localhost:3700
+  ✓ Ready in 99ms
+  ...
+  Failed to prepare server Error: An error occurred while loading instrumentation hook:
+  [env] 환경변수 검증 실패 (NODE_ENV=production):
+    - NEXT_PUBLIC_APP_URL: 앱 베이스 URL — 초대/포털 링크 생성에 사용
+  ...
+  ⨯ unhandledRejection: Error: An error occurred while loading instrumentation hook:
+  ```
+- **관찰**: "Ready in 99ms" 메시지가 먼저 출력된 후 instrumentation hook async loading 실패. HTTP 포트는 바인드된 상태에서 instrumentation hook async 평가가 실패 → `Failed to prepare server` → `unhandledRejection` → 프로세스 exit. 즉 **Next.js 16+ instrumentation은 HTTP listen 후 평가되는 비동기 경로 존재**.
+- **운영 의미**:
+  - 헬스체크 도구가 "`/` 도달 전 포트 open" 만으로 ready 판정하면 false positive 가능.
+  - 로그에 "Ready in 99ms" 다음 "Failed to prepare server" 조합이 나타나면 **env validation 실패 우선 의심** (다른 instrumentation 에러보다 흔함 — 배포 시 env 누락이 가장 빈번).
+  - `unhandledRejection` 스택 트레이스에 `instrumentation.js` 경로가 보이면 → `register()` 내부 throw → 우리 `src/instrumentation.ts` → `src/lib/env.ts` `validateEnv()` 체인 추적.
+- **실증 방법론 교훈**:
+  - `next build`는 `register()`를 호출하지 않음 → env validation 실증 불가. `next start`/`next dev`가 실제 경로.
+  - shell `VAR=''` override로 `.env.local` 값을 덮어 쓸 수 있음 (shell env > .env 파일 우선순위). 단 **Next.js가 빈 문자열을 "set"으로 인식 → `z.string().url()` 등 포맷 검증 실패**. 이 경로로 .env.local 수정 없이 검증 가능.
+  - envSchema 단위 검증(시나리오 4건, 임시 스크립트)도 병행 실시 후 스크립트 즉시 삭제(schema duplication drift 리스크 회피).
+- **규칙**:
+  1. **운영 로그에서 "Ready 직후 dying" 패턴은 instrumentation 에러 우선 의심**. `unhandledRejection` + `instrumentation hook` 키워드 조합 로그 grep을 모니터링 룰로 추가 고려.
+  2. **Next.js instrumentation 변경은 `next start` 또는 `next dev` 로컬 실증 필수**. `next build` 통과는 register() 동작 보증 안 함. CI 파이프라인에 "env 누락 시 start 실패" 검증 단계 추가 고려 (별도 Task).
+  3. **env-level 실증은 shell override로 충분** — `.env.local` 직접 수정보다 안전. `VAR=''` 또는 Node `--env-file` + `delete process.env.X` 조합.
+  4. **임시 검증 스크립트는 schema 복제 → 사용 직후 삭제**. 영구 CI 테스트로 승격 시 env.ts와 schema 공유 (zod export) — drift 방지 필수.
+
+## 2026-04-24 — pg_cron cleanup cron 임계는 "최장 활성 window + buffer", DROP EXTENSION은 Supabase plan extension이라 절대 금지 (Task 5-5-4 rate-1)
+
+- **상황**: Task 5-5-4 rate-1으로 `rate_limit_counters` 자동 정리 cron 도입. 순진한 접근은 "최장 활성 window(3600s=1h) 초과 row 삭제" — 즉 `NOW() - INTERVAL '1 hour'`. 그러나 경계 race(cron 실행 tick과 마지막 UPSERT 사이 1초 내 활성 row가 `1h - 1s`였다가 cron이 `1h + 1ms` 시점에 판단 → 아직 사용 중인 row 삭제 가능성) 위험. 동시에 롤백/확장 경로 설계 필요.
+- **해결 3축**:
+  1. **임계 = 최장 활성 window + buffer** → `NOW() - INTERVAL '2 hours'` (1h + 1h buffer). 활성 row 실수 삭제 risk 0, 저장 낭비는 2h분이라 베타 트래픽에서 무시 가능. 규칙: buffer는 최소 cron 주기와 동일 이상 (매시 cron → 1h buffer).
+  2. **cron 주기는 비용/row 잔존 시간 trade-off** → `0 * * * *` (매시 정각). row 잔존 < 1h + 매시 DELETE 비용 미미. 확장 시 thundering herd 대비해 후속 job은 offset(`5 * * * *`, `15 * * * *`) 권장.
+  3. **DO $$ 블록 unschedule 실패 시 EXCEPTION WHEN OTHERS THEN RAISE NOTICE fail-soft** → production migration rerun이 중간 실패로 차단되는 경로(incident 대응 지연) 봉쇄. schedule 단계는 fail-fast 유지 — 실제 문제 노출이 맞음.
+- **DROP EXTENSION 금지 원칙** (sec L1):
+  - Supabase Cloud의 `pg_cron`은 **plan extension** — 내부 관리 cron job들이 의존 (realtime / pgsodium 등). `DROP EXTENSION pg_cron`은 프로젝트 전체 cron 인프라 파괴.
+  - 후속 Task(cleanup cron 추가)도 같은 extension 공유 → 한 곳에서 drop하면 모두 파괴.
+  - 롤백 주석에 "⚠️ DROP EXTENSION pg_cron 절대 금지" 명시 필수. 정리 필요 시 Supabase Support 경유.
+- **규칙**:
+  1. **Cleanup cron 임계 = 최장 활성 window + cron 주기 이상 buffer**. 경계 race + clock skew + lock contention으로 인한 활성 row 실수 삭제 방어. buffer 없는 1h 임계는 간헐적 rate limit 무효화 위험.
+  2. **멱등 migration의 unschedule류 destructive step은 EXCEPTION fail-soft**. schedule/create류는 fail-fast 유지 (실제 의도 실패 노출). 두 방향이 혼재하면 재적용 시 절반 실패 → stuck state.
+  3. **Supabase Cloud plan extension(`pg_cron`, `pg_net`, `pgsodium` 등)은 migration에서 DROP 절대 금지** — 내부 관리 cron/function 파괴. 롤백 주석에 명시 + 후속 Task 검토 시 재확인. extension 자체를 정리해야 하면 Support 티켓.
+  4. **Drizzle journal 미갱신 수동 SQL 패턴(이 프로젝트 0032~0035)은 팀 규모 확장 시 혼란 리스크**. 신규 환경(staging/CI)에서 `drizzle-kit migrate`가 0034/0035 재apply 가능 (멱등 SQL이라 문제 없지만 상태 추적 불가). 제도적 해결(migrations/README + drizzle journal 수동 갱신) 필요 — Phase 5.5 후속 Task로 분리 (Task 5-2-2g와 동일 패턴 반복).
+
 ## 2026-04-23 — 구조화 로그 `event` 필드 표준 + 민감값 제외 + sanitize 유틸 분리 (Task 5-5-5 cleanup 묶음 + reviewer)
 
 - **상황**: Task 5-5-5 cleanup에서 `console.error` 9군데가 "일기장" 스타일(`"[file/action] message", { name, ... }`)로 흩어져 있어 Vercel/Datadog에서 grep/필터링 어려움. 운영 중 "어떤 카테고리 에러가 가장 많이 발생하나?" 질문에 답하려면 한 군데씩 수동 집계해야 함. 동시에 stuck row(email 실패 + revoke 실패 double-fault) 발생 시 `invitationId`/`workspaceId` 등 복구 컨텍스트가 로그에 없어 수동 복구 불가.
