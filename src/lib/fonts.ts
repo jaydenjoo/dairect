@@ -5,8 +5,8 @@ import localFont from "next/font/local";
 
 export const fraunces = Fraunces({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
   style: ["normal", "italic"],
+  axes: ["opsz", "SOFT"],
   display: "swap",
   variable: "--font-fraunces",
 });
