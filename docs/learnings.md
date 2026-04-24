@@ -1,5 +1,22 @@
 # Dairect — 교훈 기록
 
+## 2026-04-25 — Studio Anthem 리디자인 5가지 교훈 (Epic 1~7 종합)
+
+1. **Next.js `next/font/google`에서 `axes`와 `weight` 배열은 상호 배타적** — Fraunces의 opsz/SOFT axis를 사용하려면 `weight: ["300","400",...]` 배열을 제거하고 variable font 모드로 로드해야 함. 시도 시 에러: "Axes can only be defined for variable fonts when the weight property is nonexistent or set to `variable`". Etymology 섹션의 RECT 글자 폭 이슈(127→144px, 1000px wrap 초과) → axis 활성화 후 번들 수치(436px) 정확 매칭.
+   - **규칙**: 가변축(axes)을 사용하려면 weight 배열을 비우거나 `"variable"`로 설정. 특정 weight 고정이 필요하면 axes를 포기.
+
+2. **번들 CSS 전면 이식 > Tailwind 수동 번역** — Etymology 섹션 초기에 Tailwind 유틸로 재작성 시도 시 번들과 시각 차이 발생. Jayden "핸드오프 번들과 동일한 디자인으로 만들어줘" 지시 후 전략 변경: 번들 CSS를 `src/styles/studio-anthem/`로 통째 복사 + JSX는 `className`만 일치시킴 → 재작업 0.
+   - **규칙**: 디자이너가 넘긴 CSS 번들(Handoff bundle)은 그대로 이식하되 명명 규칙만 프로젝트 레이어(Tailwind `@theme inline`, CSS vars)와 조화시킨다. 픽셀 단위 재현은 수동 번역으로 불가능.
+
+3. **Nav over-dark 가독성 이슈 — prop 기반 solid 강제** — About 페이지처럼 hero가 section-dark(#141414)이면 fixed Nav의 ink 텍스트가 ink 배경과 동일 색상이라 **완전 비가시**. scroll detection이 동작하기 전(scrollY=0) 상태에서 발생. 해결: `<Nav solidAlways />` prop 추가로 초기에도 `scrolled` 클래스 강제 적용.
+   - **규칙**: fixed/sticky chrome의 초기 상태가 투명이라면, 어떤 hero bg와 조합돼도 작동하는지 체크. 예외 페이지는 prop/variant로 opt-in solid 강제.
+
+4. **shadcn `:root` 토큰 재매핑 한 번 수정으로 대시보드 전체 재스킨** — `--primary`/`--accent`/`--ring`/`--chart-*`/`--sidebar`/`--radius-*` 교체만으로 Button/Card/Badge/Table/Recharts/Sidebar가 즉시 Studio Anthem 색상으로 전환. 개별 컴포넌트 수정 불필요. **단, Recharts 인라인 hex(`<Bar fill="#4F46E5">`)는 별도 grep + 교체 필수** — 토큰 외부로 빠진 하드코딩 색상은 shadcn 변경에 반응 안 함.
+   - **규칙**: 디자인 시스템 교체는 `:root` 변수 재정의부터. 그 후 `grep -r "bg-indigo\|#4F46E5\|#3525CD\|soul-gradient"`로 누수 탐지. status color 매핑(`bg-blue-50 text-blue-700`)도 별도 grep 대상.
+
+5. **기존 컴포넌트 overwrite 전 Read 필수 (Write 보호막)** — `components/chrome/Footer.tsx`가 이미 존재하는 상태에서 바로 Write → "File has not been read yet" 에러. 이전 세션에서 생성된 파일을 잊고 새 구현 작성 시 데이터 손실 위험이 있어 런타임에서 차단됨.
+   - **규칙**: `ls` / `Glob`으로 디렉토리 내용 확인 후 Write, 또는 Read 후 overwrite. 특히 chrome/layout처럼 여러 세션에 걸쳐 진화하는 파일.
+
 ## 2026-04-24 — 같은 문제 2번 재발 = 문서·체크리스트로는 부족, **자동 게이트(스크립트 + 검증 체인 편입)로 제도화**해야 근본 해결 (Task A — drizzle journal MCP drift)
 
 - **증상**: Phase 5 이후 MCP `apply_migration`으로 cloud에 SQL 직접 적용 → `.sql` 파일만 수동 추가 → `_journal.json` 갱신 누락. 2026-04-21 Task 5-2-2h에서 `0031_phase5_resync_marker` noop marker로 1차 해결. 3일 뒤 0032~0035가 다시 같은 경로로 쌓여 **재발**. `pnpm db:generate` 실행 시 drizzle이 누적 drift를 재합성한 SQL이 기존 0032 번호와 충돌하는 시한폭탄 상태.

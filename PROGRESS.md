@@ -1,10 +1,62 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-24 末 (**Task-S2a~g 전체 완료** — v3.2 1차 구현 마감, Jayden dogfooding 착수 준비 완료)
-> 현재 위치: **v3.2 Single-user Mode 1차 완료** → **Jayden 1~2주 dogfooding 단계 진입**
+> 최종 업데이트: 2026-04-25 (**Studio Anthem 리디자인 Epic 1~7 전체 완료** — 공개 영역 + 대시보드 디자인 시스템 전환)
+> 현재 위치: **v3.2 Single-user Mode + Studio Anthem 디자인 시스템 적용 완료** → main PR 대기
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
+> BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
 > dogfooding 가이드: [docs/dogfooding-checklist.md](docs/dogfooding-checklist.md) 🧪
-> 2차 unlock 가이드: [docs/2차-unlock-checklist.md](docs/2차-unlock-checklist.md) 🔓
+
+## 세션 2026-04-24~25 (Studio Anthem 리디자인 Epic 1~7 — 전체 공개 영역 + 대시보드 교체)
+
+### 배경
+Jayden이 claude.ai design에게 의뢰한 Handoff 번들(`~/Downloads/dairect (2)/`)을 전면 도입 결정.
+기존 "The Intelligent Sanctuary" (Indigo + Soul Gradient + glassmorphism) ⛔ → **"The Studio Anthem"** (Warm Brutalism + editorial serif + amber signal).
+
+### Epic 1~3 ✅ 완료 (이전 세션)
+의존성 설치 + 토큰/폰트 교체 (Fraunces serif + Geist sans/mono + Pretendard) + chrome primitives (Nav/Footer 뼈대).
+
+### Epic 4 ✅ 완료 — 랜딩 9 섹션 번들 CSS 전면 이식 (10 커밋)
+Hero / Etymology / Manifesto / Proof / Services / Work / Pricing / Founder / FinalCTA + page.tsx 조립 + Footer.
+번들 `landing.css` 1721줄 + `editorial.css` 361줄 + `a11y-patch.css` 187줄 통째 이식.
+Fraunces opsz/SOFT axis 활성화를 위해 `weight` 배열 제거 → `axes: ["opsz","SOFT"]`.
+
+### Epic 5 ✅ 완료 — 공개 라우트 재생성 (6 커밋)
+- `/pricing` → `/#pricing` permanentRedirect (308)
+- `/projects` 번들 P-01/P-02/P-04 이식 + `projects.css` 784줄 + 10 정적 프로젝트
+- `/about` 번들 A-HERO~A-CTA 5섹션 + `about.css` 764줄 + 9 milestones + 3 essays. ContactSection 유지
+- `/login` Warm Brutalism 재스킨 (paper card + 4px hard shadow)
+- `/terms` + `/privacy` 재스킨 + Nav/Footer 추가
+- Nav `solidAlways` prop — dark hero 가독성 이슈 해결
+
+### Epic 6 ✅ 완료 — 대시보드 재스킨 (1 커밋)
+shadcn `:root` 토큰 전면 재매핑:
+- `--primary` indigo-600 → ink #141414 / `--accent` → signal amber / `--ring` → signal
+- `--chart-1~5` indigo spectrum → ink/signal/dust/rust/smoke
+- `--sidebar` dark indigo → ink + canvas fg + signal primary
+- `--radius-sm/md/lg/xl` 6/8/12/16px → 2/2/4/6px (sharp corners)
+- Recharts 인라인 색상 (`<Bar fill="#4F46E5">` 등) → Studio Anthem 팔레트
+- 상태 뱃지 7개 (estimates/contracts/invoices/projects/leads) amber+rust 통일
+
+### Epic 7 ✅ 완료 — 정리 + 검증 (3 커밋)
+- `components/landing/` 전체 (7 파일) + `components/pricing/` 전체 (3 파일) + `about/hero-section.tsx` 삭제
+- 검증 게이트 전부 통과: tsc noEmit + eslint + pnpm build + Serwist SW 빌드
+- E2E smoke 12 라우트 모두 예상 상태코드
+
+### 숫자로 보는 작업량
+- 커밋 수: **20+** (Epic 4=10 + Epic 5=6 + Epic 6=1 + Epic 7=3)
+- 생성: 12 컴포넌트 + 4 CSS (landing/editorial/projects/about) + Footer 재작성
+- 삭제: 11 레거시 파일 (landing/* 7 + pricing/* 3 + about hero-section)
+- 순 코드 증감: +4,600줄 / -1,320줄
+
+### 핵심 배운 점 (docs/learnings.md에 이관)
+
+1. **Next.js `next/font/google`에서 `axes`와 `weight` 배열은 상호 배타적**. Fraunces opsz/SOFT axis를 사용하려면 `weight` 배열을 제거해야 variable font 모드로 로드됨.
+2. **번들 CSS 전면 이식 > Tailwind 수동 번역**. 시각 정합성 추구 시 번들 CSS를 `src/styles/<brand>/`로 통째 복사하고 JSX는 className 일치만 맞추는 편이 재작업 최소화.
+3. **Nav over-dark 가독성**. Dark hero 페이지에서 fixed Nav 투명 배경이면 ink 텍스트가 ink 배경과 동일해 보이지 않음 → prop 기반 solid 강제.
+4. **shadcn `:root` 한 번 수정이 대시보드 전체 재스킨**. `--primary/--accent/--chart-*` 교체만으로 Button/Card/Badge/Table/Recharts가 동시 전환. 단, **인라인 hex 색상은 별도 grep + 교체 필수** (Recharts Bar fill 등).
+5. **Footer.tsx 기존 존재 시 덮어쓰기 전 Read 필수**. Write 직접 실행 시 "File has not been read yet" 보호막 발동.
+
+---
 
 ## 세션 2026-04-24 末-3 (Task-S2a~f — 코드 잠금 실행 + PRD 갱신)
 
