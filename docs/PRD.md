@@ -2,10 +2,26 @@
 
 > **프로젝트명:** Dairect (dairect.kr) — 서비스 사이트 + 프리랜서 PM 대시보드
 > **포트폴리오 번호:** Portfolio #3 (dairect_si_portfolio.md 기준)
-> **버전:** 3.1 (리브랜딩 반영판)
+> **버전:** 3.1 (리브랜딩 반영판) · **2026-04-24 업데이트**: Phase 5.5 Billing / SaaS 구독 전면 취소
 > **작성일:** 2026-04-16
 > **작성자:** Jayden + Claude (Chief PM)
 > **보안 등급:** 🟡 부분 보안 (고객 비즈니스 데이터 + 정산 정보)
+
+---
+
+## ⛔ 2026-04-24 PRD 업데이트: SaaS 구독 모델 취소
+
+**Jayden 결정**: Dairect에 SaaS 구독 도입하지 않음.
+- `Free / Pro / Team` 플랜 차등 **폐기**
+- Stripe / 한국 PG(토스페이먼츠/포트원) 연동 **취소**
+- 프리랜서 사용자에게 월 구독료를 받지 않음 (영구 무료 또는 향후 별도 수익 모델 재검토)
+- 멤버 수 / AI 일일 호출 한도는 **단일 고정 정책** (전원 동일 규칙 — 남용 방어용 하드리밋만) — `src/lib/plans.ts` 단일 소스
+- DB 컬럼(`workspaces.subscription_status` / `stripe_customer_id` / `workspace_settings.plan`)은 **DB에 유지하되 읽지 않음** (재도입 여지 남김)
+- 관련 설계 문서: [`docs/archived/billing-mock-design.md`](archived/billing-mock-design.md) (역사 기록)
+
+본 PRD에서 "SaaS 전환" / "Phase 5+ Billing" / "Stripe" 언급은 대부분 **폐기됨**. 아래 본문에 `~~strikethrough~~` + 인라인 ⛔ 표시로 보존. (단, "개인 사용 → SaaS 전환 가능 구조" 같은 **미래 가능성**을 언급하는 추상적 표현은 보존 — Jayden 결정 2 "나중에 여지 남김")
+
+---
 > **통합 출처:**
 >   - PRD v1.0 (첨부, 2026-04-15): 리드 CRM + 계약서 + 마일스톤 + n8n + 고객 포털
 >   - 이전 대화 v2.0: 칸반보드 + 자동 견적 산정
@@ -1026,16 +1042,18 @@ Task 4-4: PWA 지원 (0.5일)
   - 완료 기준: 모바일에서 PWA 설치 가능
 ```
 
-### Phase 5: SaaS 전환 준비 [의존성: Phase 4] — 약 11주
+### Phase 5: Multi-tenant 전환 [의존성: Phase 4] — 약 8주 (Phase 5.5 Billing 취소 반영)
 
 > 🆕 **Phase 5 상세는 [PRD v4.0 (docs/PRD-phase5.md)](./PRD-phase5.md)로 분리되었다.** 이 섹션은 v3.1의 초안 스케치(2~3일)를 대체한다.
+>
+> ⛔ **2026-04-24 업데이트**: Phase 5.5 Billing 전면 취소. Phase 5.0 Multi-tenant만 진행.
 
 **v3.1 → v4.0 변경 요약:**
-- **범위 확장**: 단일 문서 2~3일 스케치 → 별도 PRD로 분리, 11주 타임라인 (Phase 5.0 + 베타 + Phase 5.5)
-- **2단계 전환**: Phase 5.0 (Multi-tenant 기반, 🟡) → 지인 베타 → Phase 5.5 (Billing, 🔴)
-- **5 Epic / 36 Task**: Data Model / Onboarding / Billing / 기존 기능 확장 / Admin+Observability
-- **결제 스택 변경**: TossPayments → **Stripe 우선** (토스페이먼츠는 Phase 5.6+ 재검토)
-- **보안 설계 강화**: Workspace 기반 RLS 전면 재작성 (12테이블 × 4 policy = 48개), Stripe Webhook idempotency, Feature flag `MULTITENANT_ENABLED` 점진 릴리스
+- **범위**: 단일 문서 2~3일 스케치 → 별도 PRD로 분리. ~~11주 타임라인 (Phase 5.0 + 베타 + Phase 5.5)~~ → **8주 (Phase 5.0 + 베타, 5.5 취소)**
+- ~~**2단계 전환**: Phase 5.0 (Multi-tenant 기반, 🟡) → 지인 베타 → Phase 5.5 (Billing, 🔴)~~ → **Phase 5.0 Multi-tenant만 (🟡 유지)**
+- ~~**5 Epic / 36 Task**: Data Model / Onboarding / Billing / 기존 기능 확장 / Admin+Observability~~ → **4 Epic / 26 Task** (Billing Epic 5-3 10 Task 제거)
+- ~~**결제 스택 변경**: TossPayments → Stripe 우선 (토스페이먼츠는 Phase 5.6+ 재검토)~~ ⛔ **폐기**
+- **보안 설계 강화**: Workspace 기반 RLS 전면 재작성 (12테이블 × 4 policy = 48개), ~~Stripe Webhook idempotency~~, Feature flag `MULTITENANT_ENABLED` 점진 릴리스
 
 **참조:**
 - [PRD-phase5.md](./PRD-phase5.md) — 12개 섹션 (개요 / 목적 / 만들지 않을 것 14개 / Epic → Task / DoD / 리스크 7개 / 의존성 / 타임라인 / 후속 결정 / 리뷰 체크리스트)
@@ -1724,13 +1742,14 @@ src/
 - 무료 피드백 수집
 - SaaS 전환 여부 판단 근거
 
-### Phase 5+: SaaS 전환 → [PRD v4.0 (docs/PRD-phase5.md)](./PRD-phase5.md) 참조
+### Phase 5+: Multi-tenant 전환 → [PRD v4.0 (docs/PRD-phase5.md)](./PRD-phase5.md) 참조
 
-- **타이밍**: Phase 4 완료 직후 Phase 5.0 (Multi-tenant 기반, 🟡) 착수 → 지인 베타 2~3명(2주) → Phase 5.5 (Billing, Stripe, 🔴)
-- **플랜 구성**: Free / Pro (15,000원/월) / Team (30,000원/멤버/월) — 상세는 [PRD-phase5.md](./PRD-phase5.md) 섹션 4 Epic 5-3. **베타 피드백 후 Phase 5.5 착수 직전 재확정**
-- **결제 스택**: Stripe 우선 (토스페이먼츠는 Phase 5.6+ 한국 사용자 비중 확인 후)
+- **타이밍**: Phase 4 완료 직후 Phase 5.0 (Multi-tenant 기반, 🟡) 착수 → 지인 베타 2~3명(2주) → ~~Phase 5.5 (Billing, Stripe, 🔴)~~ ⛔ **폐기 2026-04-24**
+- ~~**플랜 구성**: Free / Pro (15,000원/월) / Team (30,000원/멤버/월)~~ ⛔ **폐기**. 단일 고정 한도 정책으로 전환 (`src/lib/plans.ts` 단일 소스)
+- ~~**결제 스택**: Stripe 우선 (토스페이먼츠는 Phase 5.6+ 한국 사용자 비중 확인 후)~~ ⛔ **폐기** (결제 도입 안 함)
 
 > **v3.1 가격표(₩9,900/29,900) + "Jayden 3개월 실사용 후 결정" 조건은 v4.0으로 대체됨.** git log에서 확인 가능.
+> **2026-04-24**: v4.0 Phase 5.5 Billing 자체도 취소됨. 본 섹션의 플랜/결제 언급은 역사 기록.
 
 ---
 

@@ -1,9 +1,13 @@
 # Dairect Phase 5.0 — Multi-tenant ERD
 
-> **상태**: 초안 (2026-04-20)
+> **상태**: 초안 (2026-04-20) · **2026-04-24 업데이트**: Phase 5.5 Billing 취소 반영
 > **범위**: Phase 5.0 Epic 5-1 Data Model 착수 전 설계 정렬용
 > **관련**: [PRD-phase5.md](./PRD-phase5.md) 섹션 4 Epic 5-1 / 섹션 10 후속 결정
 > **성격**: 설계 초안 — 최종 스키마 아님. Drizzle 소스 자동 변환 X
+
+> ⛔ **2026-04-24 업데이트**: Phase 5.5 Billing / SaaS 구독 취소.
+> `workspaces.subscription_status` / `workspaces.stripe_customer_id` / `workspace_settings.plan` 컬럼은
+> **DB에 유지하되 읽지 않는다** (재도입 여지 남김 — Jayden 결정 2 "B안"). 본 ERD에 `(deprecated 2026-04-24, DB 보존)` 표시.
 
 ---
 
@@ -34,8 +38,8 @@ Phase 5.0은 Dairect를 **single-user → multi-tenant workspace** 모델로 전
 
 | 항목 | 옵션 | 결정 시점 |
 |------|------|-----------|
-| Admin 계정 부여 | env `ADMIN_EMAILS` / `users.is_platform_admin` | Phase 5.0 → 5.5 전환 |
-| `subscription_status` 도입 시점 | Phase 5.0 컬럼 선추가 / Phase 5.5 때 추가 | Phase 5.5 착수 직전 |
+| Admin 계정 부여 | env `ADMIN_EMAILS` / `users.is_platform_admin` | Phase 5.0 유지 (5.5 취소됨) |
+| ~~`subscription_status` 도입 시점~~ | ~~Phase 5.0 컬럼 선추가 / Phase 5.5 때 추가~~ | ⛔ 폐기 2026-04-24 (Billing 취소, 컬럼은 DB 보존) |
 
 ---
 
@@ -70,8 +74,8 @@ erDiagram
         uuid id PK
         text name
         text slug UK
-        text subscription_status "Phase 5.5"
-        text stripe_customer_id "Phase 5.5"
+        text subscription_status "⛔ deprecated 2026-04-24 (DB 보존)"
+        text stripe_customer_id "⛔ deprecated 2026-04-24 (DB 보존)"
         timestamp created_at
         timestamp deleted_at "soft delete"
     }
@@ -214,15 +218,15 @@ erDiagram
 id                   uuid PK (gen_random_uuid)
 name                 text NOT NULL
 slug                 text UNIQUE NOT NULL        -- URL-safe 식별자 (예: /invite/[token] 라우팅에 사용)
-subscription_status  text DEFAULT 'free'           -- Phase 5.5: 'free'|'active'|'past_due'|'canceled'|'paused'
-stripe_customer_id   text                          -- Phase 5.5
+subscription_status  text DEFAULT 'free'           -- ⛔ deprecated 2026-04-24 (DB 보존, 읽지 않음)
+stripe_customer_id   text                          -- ⛔ deprecated 2026-04-24 (DB 보존, 읽지 않음)
 created_at           timestamp DEFAULT now()
 updated_at           timestamp
 deleted_at           timestamp                     -- soft delete (30일 유예, R7)
 ```
 
 - **인덱스**: `slug` UNIQUE, `deleted_at IS NULL` 부분 인덱스
-- **CHECK**: `subscription_status IN ('free', 'active', 'past_due', 'canceled', 'paused')`
+- **CHECK**: `subscription_status IN ('free', 'active', 'past_due', 'canceled', 'paused')` — ⛔ deprecated 2026-04-24 (CHECK 제약 유지, 컬럼 읽지 않음)
 - **설정 필드는 `workspace_settings` 독립 테이블로 분리** (섹션 3-4, A1 결정)
 
 ### 3-2. `workspace_members`
@@ -471,7 +475,7 @@ CREATE POLICY milestones_select ON milestones FOR SELECT USING (
 
 ```
 5-1-1 스키마 생성 (workspaces/members/invitations/settings 4 테이블)
-      ├─ workspaces 테이블 + CHECK (subscription_status)
+      ├─ workspaces 테이블 + CHECK (subscription_status — ⛔ deprecated 2026-04-24, 컬럼 보존)
       ├─ workspace_members 테이블 + UNIQUE (workspace_id, user_id) + CHECK (role)
       ├─ workspace_invitations 테이블 + 부분 인덱스 + 7일 TTL 기본
       └─ workspace_settings 테이블 (A1 독립 1:1) + 기본값 (EST/CON/INV prefix, 700000 daily_rate 등)
@@ -510,8 +514,8 @@ CREATE POLICY milestones_select ON milestones FOR SELECT USING (
 
 | ERD 영향 | 섹션 10 결정 항목 | 영향 범위 |
 |----------|-------------------|-----------|
-| Admin 계정 부여 방식 | env `ADMIN_EMAILS` / DB `users.is_platform_admin` flag | Phase 5.0 → 5.5 전환 시점 |
-| `subscription_status` 도입 시점 | Phase 5.0 컬럼 선추가 / Phase 5.5 때 추가 | 섹션 3-1 `workspaces` |
+| Admin 계정 부여 방식 | env `ADMIN_EMAILS` / DB `users.is_platform_admin` flag | Phase 5.0 유지 (5.5 취소됨) |
+| ~~`subscription_status` 도입 시점~~ | ~~Phase 5.0 컬럼 선추가 / Phase 5.5 때 추가~~ | ⛔ 폐기 2026-04-24 (컬럼은 DB 보존) |
 | Workspace picker UX | dropdown / 사이드바 panel | Epic 5-2 착수 전 |
 | Multi-workspace 기본 선택 | 마지막 접속 workspace / 알파벳 순 / 대시보드 설정 | Epic 5-2-3 |
 
@@ -533,4 +537,4 @@ CREATE POLICY milestones_select ON milestones FOR SELECT USING (
 **다음 단계**:
 1. ✅ Jayden 리뷰 + 3개 결정 확정 (A1/B1/C2, 2026-04-20)
 2. Epic 5-1 Task 5-1-1 착수 → 이 ERD를 Drizzle 스키마로 구현
-3. 남은 섹션 10 결정 항목(Admin 방식 / subscription_status 도입 / Workspace picker UX / Multi-workspace 기본 선택)은 각 Epic 착수 시점에 확정
+3. 남은 섹션 10 결정 항목(Admin 방식 / ~~subscription_status 도입~~ ⛔ 폐기 / Workspace picker UX / Multi-workspace 기본 선택)은 각 Epic 착수 시점에 확정

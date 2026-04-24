@@ -1,7 +1,49 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-24 (Task A~D 4건 — Drizzle journal 제도적 해결 + PII 라이프사이클 정책 + Billing Mock 설계 + immutable 리팩토링. reviewer 즉시 반영 19건)
-> 현재 위치: **Phase 5.5 마무리 단계 + Epic 5-3 진입 준비**. Task C 설계 Jayden 검토 대기. Mock 기반 Billing 구현 대기.
+> 최종 업데이트: 2026-04-24 末 (Task-S1 — SaaS 구독 계획 폐기 문서 정리 — billing-mock archived + PRD-phase5 Epic 5-3 deprecated + PII lifecycle 재라벨)
+> 현재 위치: **Phase 5.5 마무리 + SaaS 구독 모델 취소 결정**. Task-S1(문서 정리) 완료 → **Task-S2(코드 제거)** 진입 대기.
+
+## 세션 2026-04-24 末 (Task-S1 — SaaS 구독 계획 폐기: 문서 정리)
+
+### 배경 / Jayden 결정
+- Jayden: "saas구독 자체를 삭제해줘 계획에서 삭제 Billing Mock및 구독에 적용되는 개발항목도 모두 삭제해줘 구독을 진행하지 않을거야"
+- 프로젝트 타겟 재확인: **한국 IT 프리랜서 / 소규모 에이전시** (맞음)
+- Dairect에 두 가지 돈 흐름이 있었음:
+  - (A) **Dairect SaaS 구독료** (프리랜서 → Dairect) ← Task C Billing Mock이 다루던 것 → **전면 취소**
+  - (B) **프리랜서-고객 프로젝트 계약 비용** ← 이미 Phase 1-2 estimates/contracts/invoices로 구현됨 (변경 없음)
+
+### 4건 결정 (Jayden 승인)
+1. **멤버/AI 한도**: B안 — 단일 고정 한도 유지 (전원 동일 규칙, 남용 방어용)
+2. **DB 컬럼**: B안 — 유지 + 읽지 않기 (재도입 여지 남김)
+3. **billing-mock-design.md**: B안 — `docs/archived/`로 이동 + "폐기됨" 헤더
+4. **Task 분할**: ①안 — 2단계 (Task-S1 문서 + Task-S2 코드). DB Drop 안 함으로 S3 제거
+
+### Task-S1 완료 내역 (6개 문서)
+
+**이동 1**
+- `docs/billing-mock-design.md` → `docs/archived/billing-mock-design.md` (+ 폐기 헤더)
+
+**수정 5**
+- `docs/PRD-phase5.md` — 상단 폐기 배너 + Phase 5.5 / Epic 5-3 / Billing / Stripe 언급 모두 ⛔ deprecated 인라인 표시 (원문은 `<details>`로 참고용 보존). 타임라인 11주 → 8주, 5 Epic → 4 Epic(Billing 제거)
+- `docs/PRD-phase5-erd.md` — `subscription_status` / `stripe_customer_id` 컬럼에 `(⛔ deprecated 2026-04-24, DB 보존)` 주석. CHECK 제약 주석도 동일
+- `docs/pii-lifecycle.md` — "Phase 5.5 빌링과 함께" 언급 전 건수(§1-1/§1-2/§2-2/§2-4/§2-5/§5/§8) "향후 필요 시 재결정"으로 재라벨
+- `docs/PRD.md` — 상단에 2026-04-24 업데이트 박스 추가 + Phase 5 마일스톤 개요 / Phase 5+ SaaS 전환 섹션 플랜/결제 부분 ⛔ 폐기 표시. "개인 사용 → SaaS 전환 가능 구조" 같은 추상적 가능성 표현은 보존 (Jayden 결정 2 "나중에 여지 남김")
+- `PROGRESS.md` — 본 세션 기록 추가 + 차기 Task 등록 Epic 5-3 항목 제거
+
+### 설계 보존 원칙
+- billing-mock-design.md의 PaymentProvider 인터페이스 / Mock checkout 플로우 / provider-중립 DB 스키마 설계는 **역사 기록으로 보존** (재도입 시 참고 가능)
+- DB 컬럼 `subscription_status` / `stripe_customer_id` / `workspace_settings.plan`은 **DROP하지 않음** (재도입 여지)
+- 부수 "SaaS 전환" 언급(추상적 가능성)은 PRD.md에서 삭제하지 않음
+
+### Task-S2 진입 준비 (다음 세션)
+- `src/lib/plans.ts` (73줄) — 플랜 차등 제거하고 단일 고정 한도로 전환 (Jayden 결정 1)
+- `src/lib/validation/ai-estimate.ts` — `workspacePlans` / `PLAN_AI_DAILY_LIMITS` 정리
+- `src/app/dashboard/members/*` — plan 분기/표시 UI 제거
+- `src/app/invite/[token]/accept-actions.ts` — 수락 게이트 plan 로직 정리
+- `src/lib/ai/*` — AI 일일 한도 단일 값으로 통합
+- schema.ts 컬럼은 유지하되 `@deprecated` 주석만 추가 (읽지 않기)
+
+---
 
 ## 세션 2026-04-24 후반 (Task A~D — Phase 5.5 제도적 해결 + Epic 5-3 설계 진입)
 
@@ -115,18 +157,19 @@
 
 ### 차기 Task 등록
 
-**즉시 진행 가능**:
-1. **Epic 5-3 Mock 구현 착수** — Task C 설계 검토 + Jayden 결정 5건 확정 후 5-3-1' (PaymentProvider 인터페이스 + MockPaymentProvider) 진입 (예상 2~3시간)
+**즉시 진행 가능** (2026-04-24 末 업데이트):
+1. ~~**Epic 5-3 Mock 구현 착수**~~ ⛔ **폐기 2026-04-24** (SaaS 구독 모델 취소 → Task-S1/S2로 대체)
+2. **Task-S2 코드 제거** — plans.ts 단일 고정 한도화 + plan 분기 제거 (예상 1.5~2시간, Task-S1 승인 후 진입)
 
 **Jayden 수동 작업 대기**:
 1. Resend Sending Access key 발급/회전
-2. Task C 설계 검토 + 결정 5건 응답
+2. ~~Task C 설계 검토 + 결정 5건 응답~~ ⛔ 완료됨 (2026-04-24 末 — 구독 계획 취소로 종결)
 3. `PII_PSEUDONYM_SALT` production 값 설정 (`openssl rand -hex 32`)
 
 **후속 (기술 부채)**:
 - Task A 후속: MED-1 try-catch UX / MED-2 drizzle-kit 업그레이드 재확인 / LOW-1 0036 `duplicate_object` 경고 보강
-- Task B 후속: H3 scrub 실패 탐지 주기 health check (빌링 cron과 함께) / L3 `pseudonymizeEmail` vitest unit / L4 `entityId` 부분 인덱스 / §2-4 보존 기간 확정 / §2-5 탈퇴 플로우 연동
-- 이전 세션 이월: Task 5-5-1 LOW-1 vitest 이관, Task 5-5-2 Existing-over-limit (Billing과 함께), Task 5-5-3 audit-2 활동 피드 정책, Task 5-5-4 sec MED-2 IPv6 /64 / sec LOW-1 fake success
+- Task B 후속: ~~H3 scrub 실패 탐지 주기 health check (빌링 cron과 함께)~~ → 별도 cron 도입 시 / L3 `pseudonymizeEmail` vitest unit / L4 `entityId` 부분 인덱스 / §2-4 보존 기간 확정 / §2-5 탈퇴 플로우 연동
+- 이전 세션 이월: Task 5-5-1 LOW-1 vitest 이관, ~~Task 5-5-2 Existing-over-limit (Billing과 함께)~~ ⛔ 불필요 (플랜 차등 제거로 downgrade 시나리오 소멸), Task 5-5-3 audit-2 활동 피드 정책, Task 5-5-4 sec MED-2 IPv6 /64 / sec LOW-1 fake success
 
 ---
 

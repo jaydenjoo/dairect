@@ -2,7 +2,9 @@
 
 > Dairect는 감사 추적(audit trail)을 위해 일부 감사 로그에 이메일·이름 같은 개인정보(PII)를 평문으로 기록한다. 이 문서는 그 PII의 수명(lifecycle)을 명시해 규제 리스크와 code/정책 drift를 방지한다.
 >
-> **현재 상태**: Phase 5.5 Task 5-5-3 audit-4 (1차 정책). 보존 기간과 자동 만료 cron은 Phase 5.5 빌링 구현 시점에 확정.
+> **현재 상태**: Phase 5.5 Task 5-5-3 audit-4 (1차 정책). 보존 기간과 자동 만료 cron은 **향후 정책 필요 시 재결정**.
+>
+> **2026-04-24 업데이트**: Phase 5.5 Billing 취소됨. 기존 "빌링과 함께 확정" 표현은 "향후 필요 시"로 재라벨.
 
 ## 1. 저장되는 PII 목록
 
@@ -13,14 +15,14 @@
 | 이벤트 (action) | PII 필드 | 현재 scrub 대상? | 출처 |
 |----------------|----------|------------------|------|
 | `workspace_invitation.created` | `metadata.email` | ✅ 대상 (즉시 이벤트 기반) | 초대 발송자가 입력 |
-| `workspace_invitation.created` | `metadata.inviterName` | ❌ TBD (Phase 5.5 빌링) | user.name 원본 |
+| `workspace_invitation.created` | `metadata.inviterName` | ❌ TBD (향후 탈퇴/삭제 플로우 구현 시) | user.name 원본 |
 | `workspace_invitation.revoked` | `metadata.email` | ✅ 대상 | 초대 row의 기존 값 복사 |
 | `workspace_invitation.revoked` | `metadata.reason` | ❌ 대상 아님 (enum 성격) | `email_send_failed` 등 고정 사유 |
 | `workspace_invitation.revoke_skipped` | `metadata.email` | ❌ 해당 action은 실제 DB INSERT 안 함 (로그만) | — |
 | `workspace_invitation.accepted` | `metadata.email` | ✅ 대상 | invitation.email 그대로 |
 | `workspace_invitation.accepted` | `metadata.inviteeUserId` | ❌ 대상 아님 (FK 식별자, PII 아님) | 수락자 UUID |
 
-> 주: `inviterName`과 `workspace_invitations.email`(§1-2)은 **정책상 PII**이지만 Phase 5.5 빌링 시점에 "사용자 탈퇴 연동(§2-5)"과 함께 scrub하도록 분리. 현재 구현은 `email`만.
+> 주: `inviterName`과 `workspace_invitations.email`(§1-2)은 **정책상 PII**이지만 "사용자 탈퇴 연동(§2-5)" 플로우 구현 시점에 함께 scrub하도록 분리. 현재 구현은 `email`만.
 
 ### 1-2. `workspace_invitations.email` (text) — 초대 본체
 
@@ -28,7 +30,7 @@
 
 - **현재 상태**: 평문 보존 (scrub 대상 아님)
 - **사유**: 동일 email에 대한 재초대 UNIQUE 제약 · 만료 후 재발송 UX 등 운영 경로가 `email` 컬럼 자체를 참조
-- **향후 (Phase 5.5 빌링)**: 사용자 탈퇴/workspace 삭제 플로우 구현 시 이 컬럼도 함께 scrub 또는 삭제. §2-5 참조
+- **향후 (탈퇴/삭제 플로우 구현 시)**: 사용자 탈퇴/workspace 삭제 플로우 구현 시 이 컬럼도 함께 scrub 또는 삭제. §2-5 참조
 
 ### 1-3. 기타 (본 정책 대상 아님)
 
@@ -53,7 +55,7 @@
 | 초대 수락 (`acceptInvitation`) | 동일 `invitationId`의 이전 `workspace_invitation.created` | ✅ 구현됨 |
 | 초대 취소 (수동 `revokeInvitationAction`) | 동일 `invitationId`의 이전 `workspace_invitation.created` | ✅ 구현됨 |
 | 초대 자동 취소 (email 발송 실패) | 방금 생성한 `workspace_invitation.created` | ✅ 구현됨 |
-| 초대 만료 cleanup (기한 도달 후 일괄 scrub) | 동일 `invitationId`의 이전 `workspace_invitation.created` | ❌ TBD — Phase 5.5 빌링 cron과 함께 §7 |
+| 초대 만료 cleanup (기한 도달 후 일괄 scrub) | 동일 `invitationId`의 이전 `workspace_invitation.created` | ❌ TBD — 별도 cron 도입 시 §7 |
 
 **원칙**: 이메일이 "누구에게 보냈는지" 증명의 가치가 이벤트 종료로 소진되는 시점에 **평문을 pseudonym으로 치환**. audit_log row는 삭제하지 않음 (감사 증거 보존).
 
@@ -68,14 +70,14 @@ pseudonym = "pii:" + sha256(lowercase(email) + ":" + workspaceId + ":" + env.PII
 - **salt**: `PII_PSEUDONYM_SALT` 환경변수 (64자 이상 랜덤). production에만 필수, dev는 fallback 허용
 - **16자 hex prefix**: 2^64 공간 → workspace 내부 충돌 실질 0
 
-### 2-4. 보존 기간 정책 — **TBD (Phase 5.5 빌링 확정 전 보류)**
+### 2-4. 보존 기간 정책 — **TBD (정책 필요 시 재결정)**
 
-현재는 **평문 → pseudonym 치환만** 수행하고 row 자체는 영구 보존. 빌링/계약 요건 확정 후 아래 중 하나로 확정:
+현재는 **평문 → pseudonym 치환만** 수행하고 row 자체는 영구 보존. 요건 발생 시 아래 중 하나로 확정:
 - (a) pseudonym 포함 row도 N개월 후 완전 삭제
 - (b) pseudonym은 무기한 보존 (익명화된 상태라 삭제 불필요)
 - (c) 계정 탈퇴/workspace 삭제 시점에만 일괄 삭제
 
-### 2-5. 워크스페이스/사용자 삭제 연동 — **TBD (Phase 5.5 빌링과 함께)**
+### 2-5. 워크스페이스/사용자 삭제 연동 — **TBD (탈퇴/삭제 플로우 구현 시)**
 
 현재 Dairect는 user 탈퇴/workspace 삭제 플로우가 **미구현**. 구현 시점에 아래 규칙을 **동시** 추가:
 - user 탈퇴 → 해당 user가 발송한 모든 `workspace_invitation.created`의 `metadata.inviterName` 익명화
@@ -118,7 +120,7 @@ export async function scrubInvitationMetadata(
 - 64자+ 랜덤 hex
 - production **필수** — env.ts validation에서 production일 때만 enforce
 - dev/test에서는 hardcoded fallback(`"dev-only-salt-do-not-use-in-prod"`) 허용 + console.warn
-- 회전(rotation) 시 기존 pseudonym과 불일치 발생 — 회전은 신중하게 설계 (Phase 5.5 빌링 확정 시)
+- 회전(rotation) 시 기존 pseudonym과 불일치 발생 — 회전은 신중하게 설계 (회전 필요 시 per-email translation table 선행)
 
 ## 6. 금지 사항
 
@@ -127,7 +129,7 @@ export async function scrubInvitationMetadata(
 - ❌ 같은 email을 다른 salt로 hash한 pseudonym을 나중에 재발급 — 이전 추적성 끊김 (4-3 멱등 가드)
 - ❌ metadata에 평문 email과 pseudonym을 같이 저장 (둘 중 하나, 치환이 원칙)
 - ❌ production에서 `PII_PSEUDONYM_SALT` 누락 시 익명화 skip — 반드시 env validation에서 부팅 차단
-- ❌ **프로덕션 `PII_PSEUDONYM_SALT` 회전 사실상 금지** — salt가 바뀌면 같은 email이 다른 pseudonym으로 생성되어 기존 scrub된 row와 서로 다른 pseudonym이 공존. 감사 추적성 단절. 반드시 필요하면 Phase 5.5 빌링 Task에서 per-email translation table을 먼저 도입 후 수행
+- ❌ **프로덕션 `PII_PSEUDONYM_SALT` 회전 사실상 금지** — salt가 바뀌면 같은 email이 다른 pseudonym으로 생성되어 기존 scrub된 row와 서로 다른 pseudonym이 공존. 감사 추적성 단절. 반드시 필요하면 **별도 Task로 per-email translation table을 먼저 도입** 후 수행
 - ❌ production에 dev fallback 문자열(`"dev-only-salt-do-not-use-in-prod"`)을 실수로 설정 — env.ts superRefine에서 명시 차단됨
 
 ## 7. 추후 확장 (TBD)
@@ -142,4 +144,5 @@ export async function scrubInvitationMetadata(
 
 - **2026-04-22 Task 5-5-5**: audit-4 최초 식별 — metadata.email 평문 저장 정책 미비
 - **2026-04-24 Task B**: 1차 정책 확정 + `pii_scrubbed_at` 컬럼 도입 + 3개 경로 즉시 익명화 구현
-- **향후 Phase 5.5 빌링**: 보존 기간 / 삭제 플로우 / cron 확정
+- **2026-04-24 Task-S1**: Phase 5.5 Billing 취소 반영 — "빌링과 함께 확정" 표현을 "향후 필요 시 재결정"으로 재라벨
+- **향후 (TBD)**: 보존 기간 정책 / 탈퇴·삭제 플로우 연동 / cleanup cron

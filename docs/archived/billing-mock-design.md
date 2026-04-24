@@ -1,5 +1,13 @@
 # Billing Mock Design — Epic 5-3 Phase A (PG 계약 전)
 
+> ⛔ **폐기됨 (2026-04-24)**: Jayden 결정으로 Dairect SaaS 구독 모델 자체를 도입하지 않기로 함.
+> 이 문서는 재도입 여지를 남기기 위한 **역사 기록**이며, 현재 로드맵에서는 사용하지 않는다.
+> 현재 유효한 정책은 `src/lib/plans.ts`의 **단일 고정 한도**(전원 동일 규칙)로 대체.
+> 이 문서의 PaymentProvider 인터페이스 / Mock checkout 플로우 / provider-중립 DB 스키마 설계는
+> 향후 정책 재검토 시 참고 가능.
+>
+> ---
+>
 > Dairect는 한국 PG사(토스페이먼츠/포트원 등)와 계약 예정. 계약 체결 전까지는 Mock Payment Provider로 전체 결제 플로우(Checkout → Webhook → 구독 상태 동기화 → Portal)를 구현해 계약 완료 시 **Provider 구현체만 교체**하면 되는 구조로 만든다.
 >
 > **현재 Phase**: Phase A (Mock). 실 PG 연동은 Phase B (계약 완료 후).
