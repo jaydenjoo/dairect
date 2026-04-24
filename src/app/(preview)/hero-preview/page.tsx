@@ -5,6 +5,7 @@ import { Manifesto } from "@/components/sections/Manifesto";
 import { Proof } from "@/components/sections/Proof";
 import { Services } from "@/components/sections/Services";
 import { Work } from "@/components/sections/Work";
+import { Pricing } from "@/components/sections/Pricing";
 
 export default function HeroPreviewPage() {
   return (
@@ -17,6 +18,7 @@ export default function HeroPreviewPage() {
         <Proof />
         <Services />
         <Work />
+        <Pricing />
       </main>
     </>
   );
