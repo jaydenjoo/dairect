@@ -1,0 +1,187 @@
+/* ═══════════════════════════════════════════════════════════
+   a11y-patch.css — Accessibility overrides for dairect Landing
+   Fixes: amber contrast on cream, focus-visible, skip link
+   Loaded AFTER landing.css + editorial.css to win cascade.
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  /* Existing --signal kept for decoration (on ink bg, dots, underlines, fills).
+     New token: dark amber for TEXT on cream/paper — WCAG AA PASS.
+     #8B5A00 on #F5F1E8 = 4.78:1 (AA normal text)
+     #8B5A00 on #EDE8DB = 4.42:1 (AA large text — .amber text is ≥28px Fraunces)
+  */
+  --signal-text: #8B5A00;
+}
+
+/* ─── #1  AMBER TEXT ON CREAM → use --signal-text ─────────── */
+/* Cream/paper backgrounds (default sections). These rules raise the
+   amber-text contrast from 1.54:1 → 4.78:1 without touching decoration. */
+
+.kicker.amber,
+.kicker .amber,
+.hero-headline .amber,
+.serif-display .amber,
+.frame .caption .amber,
+.manifesto-head .amber,
+.manifesto-ko .ko-amber,
+.reveal-chars .amber,
+.work-title .it,
+.work-name-tag,
+.work-code,
+.work-findably .wf-score .sub,
+.work-pm .wp-cell .v.amber,
+.pricing-title .it,
+.price-kicker,
+.price-num,
+.founder-quote .amber,
+.founder-metric-v,
+.contact-title .it,
+.field label,
+.founder-etym-en em,
+.founder-etym-ko .mono-amber,
+.founder-etym-glyphs .feg-row-amber,
+.founder-etym-glyphs .feg-row-amber .feg-key,
+.founder-etym-glyphs .feg-row-amber .feg-val,
+.hero-etym-tag .ai,
+.etym-glyph.etym-ai,
+.etym-sep,
+.etym-label-amber,
+.etym-mono-amber,
+.manifesto .kicker {
+  color: var(--signal-text);
+}
+
+/* Decoration using amber as BACKGROUND/FILL/BORDER stays #FFB800 — it's not text.
+   Explicitly re-assert a few that might cascade-break: */
+.etym-bar-amber { background: var(--signal); }
+.findably-chart .bar.on,
+.work-findably .wf-bars .b.on,
+.autovox-wave .tick.accent,
+.work-autovox .wa-wave .t.a,
+.work-chatsio .wc-bub.b { background: var(--signal); }
+
+/* Nav brand dot + footer dot + tiny punctuation — decorative, keep bright */
+.nav .brand .dot,
+.footer-logo .dot,
+.footer-brand .dot { color: var(--signal); }
+
+/* Sections on INK background (footer, section-dark) — amber text on dark
+   = 10.04:1, already passes. Restore bright amber there. */
+.section-dark .kicker.amber,
+.section-dark .kicker .amber,
+.footer-col-title,
+.footer-logo.footer-logo-split .fl-part.fl-ai,
+.footer-logo.footer-logo-split .fl-part.fl-dot,
+.footer .contact-info a:hover,
+.footer-tagline,
+.section-dark .amber {
+  color: var(--signal);
+}
+
+/* Links that turn amber on hover over cream — use dark amber */
+.contact-info a:hover,
+.work-all-link:hover,
+.price-ghost:hover,
+.service-row:hover .service-num {
+  color: var(--signal-text);
+}
+.work-all-link:hover,
+.price-ghost:hover { border-bottom-color: var(--signal-text); }
+
+/* ─── #2  FORM LABEL / RADIOGROUP CONNECTION ──────────────── */
+/* Pure CSS can't add aria-labelledby — HTML edits handle that.
+   Here: ensure the visually-labeled group label is readable. */
+.field > label:not([for]) {
+  display: block;
+  margin-bottom: 14px;
+}
+
+/* ─── #3  FOCUS-VISIBLE — HIGH-CONTRAST RINGS ─────────────── */
+
+/* Global focus ring — cream background (15.44:1) */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* On ink-background sections, flip ring to cream (also 15.44:1) */
+.section-dark a:focus-visible,
+.section-dark button:focus-visible,
+.footer a:focus-visible,
+.footer button:focus-visible {
+  outline-color: var(--canvas);
+}
+
+/* Form underline inputs — override the low-contrast amber focus state */
+.field input:focus,
+.field textarea:focus {
+  border-bottom-color: var(--ink);
+  color: var(--ink);
+}
+.field input:focus-visible,
+.field textarea:focus-visible {
+  outline: none; /* keep inline — border handles it */
+  border-bottom: 2px solid var(--ink);
+  box-shadow: 0 3px 0 -1px var(--signal); /* amber sits below as accent */
+}
+
+/* Radio options — custom label wrapping needs its own ring */
+.radio-opt {
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.radio-opt:has(input:focus-visible) {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+/* Fallback for browsers without :has() — use focus-within */
+.radio-opt:focus-within {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Submit button already dark — cream ring */
+.submit-btn:focus-visible {
+  outline: 2px solid var(--canvas);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px var(--ink);
+}
+
+/* Nav brand focus — keep existing AI-amber affordance, add a ring */
+.nav .brand:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+}
+
+/* ─── #4  SKIP LINK ───────────────────────────────────────── */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 16px;
+  background: var(--ink);
+  color: var(--canvas);
+  padding: 12px 20px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  z-index: 9999;
+  transition: top 160ms ease;
+}
+.skip-link:focus {
+  top: 16px;
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+/* ─── Reduced motion — extra belt-and-braces for skip link ── */
+@media (prefers-reduced-motion: reduce) {
+  .skip-link { transition: none; }
+}

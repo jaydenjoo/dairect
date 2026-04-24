@@ -14,13 +14,15 @@
 - Recharts (차트) + @react-pdf/renderer (PDF)
 - Zod (입력 검증) + Claude API (Phase 3, AI)
 
-## 디자인 시스템
-- **DESIGN.md** ("The Intelligent Sanctuary") — `docs/design-references/redesign-2026/DESIGN.md`
-- **글로벌 design-system.md 적용 금지** — 로컬 DESIGN.md가 Single Source of Truth
-- Primary: Indigo `#4F46E5` / Surface: `#F9F9F7` / Dark: `#111827`
-- 폰트: DM Sans(영문) + Pretendard(한글) + JetBrains Mono(코드)
-- No-Line Rule: 1px 솔리드 테두리 금지, 배경 톤 전환으로만 경계 표현
-- 순수 검정(#000) 금지 → gray-900 #111827
+## 디자인 시스템 — Studio Anthem (2026-04-24 전환)
+- **BRAND.md** ("The Studio Anthem") — [`docs/design-references/redesign-2026-studio-anthem/BRAND.md`](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
+- **번들 원본**: [`docs/design-references/design_handoff_studio_anthem/`](docs/design-references/design_handoff_studio_anthem/)
+- **글로벌 design-system.md 적용 금지** — 로컬 BRAND.md가 Single Source of Truth
+- Palette: Canvas `#F5F1E8` / Paper `#FAF7F0` / Ink `#141414` / Signal(amber) `#FFB800`
+- 폰트: Fraunces(serif, display) + Geist(sans, UI) + Geist Mono(labels) + Pretendard(한글)
+- 1px hairlines / 4px hard shadows (sharp, offset) / 12-col asymmetric grid
+- Forbidden: indigo, violet, purple, blue, teal, soft/blur shadow, pills, glassmorphism
+- 이전: "The Intelligent Sanctuary" (Indigo) ⛔ — [`docs/design-references/redesign-2026/DESIGN.md`](docs/design-references/redesign-2026/DESIGN.md)
 
 ## 폴더 규칙
 - `src/app/(public)/` — 공개 영역 라우트
@@ -42,8 +44,10 @@ pnpm tsc --noEmit && pnpm lint && pnpm build && pnpm db:check
 ```
 
 ## 핵심 참조
-- PRD: docs/PRD.md (v3.1)
-- 디자인: docs/design-references/redesign-2026/DESIGN.md
+- PRD: docs/PRD.md (v3.1) + docs/PRD-v3.2-single-user.md
+- 디자인 (브랜드): docs/design-references/redesign-2026-studio-anthem/BRAND.md
+- 디자인 (번들): docs/design-references/design_handoff_studio_anthem/
+- 마이그레이션: docs/design-references/redesign-2026-studio-anthem/MIGRATION-MAP.md
 - 진행: PROGRESS.md
 
 ## Context Loading

@@ -1,0 +1,381 @@
+/* ═══════════════════════════════════════════════════════════
+   dark.css — Landing B (Dark Mode First)
+   ═══════════════════════════════════════════════════════════
+
+   Direction: The Studio Anthem, inverted.
+   - Base: ink charcoal (#1A1A1A) instead of cream (#F5F1E8)
+   - Serif headlines: canvas cream
+   - CTA + accents: amber signal (#FFB800)
+   - Contrast on ink is forgiving (10.04:1 amber, 15.44:1 canvas),
+     so --signal-text (dark amber) is NOT needed — full amber glows.
+
+   Load AFTER landing.css + editorial.css + a11y-patch.css.
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --canvas: #1A1A1A;
+  --paper: #242424;
+  --ink: #F5F1E8;
+  --dust: #BFB8A8;
+  --rust: #FFB800;
+  --hairline: rgba(245, 241, 232, 0.14);
+  --hairline-canvas: rgba(245, 241, 232, 0.14);
+  --hairline-ink: rgba(245, 241, 232, 0.22);
+  --shadow-sharp: 4px 4px 0 var(--signal);
+  --signal-text: var(--signal); /* full amber is readable on ink, override patch */
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+/* ─── NAV ────────────────────────────────────────────────── */
+.nav {
+  /* Warm Brutalism: solid opaque wash, no frosted glass. */
+  background: rgba(26, 26, 26, 0.97);
+  border-bottom: 1px solid var(--hairline);
+}
+.nav .brand,
+.nav .menu a,
+.nav .menu a:hover {
+  color: var(--ink);
+}
+.nav .brand .dot,
+.nav .brand:hover .bp-ai,
+.nav .brand:focus-visible .bp-ai {
+  color: var(--signal);
+}
+.cta-mini {
+  background: var(--ink);
+  color: var(--canvas);
+}
+.cta-mini:hover {
+  background: var(--signal);
+  color: #1A1A1A;
+}
+
+/* ─── HERO ───────────────────────────────────────────────── */
+.hero {
+  background: var(--canvas);
+}
+.kicker,
+.kicker em,
+.hero-etym-tag,
+.hero-sub,
+.hero-body,
+.trust-row,
+.trust-row .dot { color: var(--dust); }
+
+.kicker em { color: var(--ink); font-style: italic; }
+
+.hero-headline {
+  color: var(--ink);
+}
+.hero-headline .amber,
+.hero-sub em,
+.hero-sub .strong em,
+.hero-body em {
+  color: var(--signal);
+}
+
+.btn-primary {
+  background: var(--signal);
+  color: #1A1A1A;
+  border: 1px solid var(--signal);
+}
+.btn-primary:hover {
+  background: transparent;
+  color: var(--signal);
+  box-shadow: 4px 4px 0 var(--signal);
+}
+.btn-ghost {
+  color: var(--ink);
+  border-bottom: 1px solid var(--ink);
+}
+.btn-ghost:hover { color: var(--signal); border-bottom-color: var(--signal); }
+
+/* Frames — now sit on cream panels for depth */
+.frame { background: var(--ink); color: #1A1A1A; }
+.frame .caption { color: rgba(26,26,26,0.6); }
+.frame .caption .amber { color: #8B5A00; }
+.art-inner { background: var(--ink); }
+
+/* Chatsio frame chat bubbles on frame (still light inside the frame panel) */
+.bubble.user { background: #1A1A1A; color: var(--ink); }
+.bubble.bot { background: rgba(26,26,26,0.08); color: #1A1A1A; }
+.bubble.typing { color: #8B5A00; background: rgba(26,26,26,0.08); }
+
+/* Findably chart inside frame */
+.findably-chart .axis { background: rgba(26,26,26,0.25); }
+.findably-chart .bar { background: rgba(26,26,26,0.35); }
+.findably-chart .bar.on { background: var(--signal); }
+.findably-chart .label { color: #1A1A1A; }
+.findably-chart .sub { color: #8B5A00; }
+
+/* AutoVox wave */
+.autovox-wave .tick { background: #1A1A1A; }
+.autovox-wave .tick.accent { background: var(--signal); }
+.autovox-label { color: #1A1A1A; }
+
+/* ─── ETYMOLOGY ──────────────────────────────────────────── */
+.etymology { background: var(--canvas); border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+.etym-glyph { color: var(--ink); }
+.etym-glyph.etym-ai { color: var(--signal); }
+.etym-sep { color: var(--signal); }
+.etym-label { color: var(--dust); }
+.etym-label-amber { color: var(--signal); }
+.etym-bar { background: var(--hairline); }
+.etym-bar-amber { background: var(--signal); }
+.etym-divider { background: var(--hairline); }
+.etym-slogan,
+.etym-mono-amber { color: var(--signal); }
+.etym-kicker { color: var(--dust); }
+
+/* ─── MANIFESTO ──────────────────────────────────────────── */
+.manifesto { background: var(--canvas); }
+.manifesto .kicker { color: var(--signal); }
+.manifesto-head { color: var(--ink); }
+.manifesto-head .amber { color: var(--signal); }
+.manifesto-ko { color: var(--dust); }
+.manifesto-ko .ko-amber { color: var(--signal); }
+
+/* ─── MARQUEE ────────────────────────────────────────────── */
+.marquee-row {
+  background: var(--paper);
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  color: var(--dust);
+}
+.built-for { color: var(--dust); }
+.marquee-track span { color: var(--dust); }
+
+/* ─── SERVICES ───────────────────────────────────────────── */
+.services { background: var(--canvas); }
+.services-title { color: var(--ink); }
+.services-title .it { color: var(--signal); }
+.services-ko { color: var(--dust); }
+.service-row {
+  border-top: 1px solid var(--hairline);
+  color: var(--ink);
+}
+.service-row:last-child { border-bottom: 1px solid var(--hairline); }
+.service-row:hover { background: var(--paper); border-top-color: var(--signal); }
+.service-row:last-child:hover { border-bottom-color: var(--signal); }
+.service-num { color: var(--dust); }
+.service-row:hover .service-num { color: var(--signal); }
+.service-title { color: var(--ink); }
+.service-desc { color: var(--dust); }
+.service-role {
+  background: rgba(255,184,0,0.12);
+  color: var(--signal);
+  border: 1px solid rgba(255,184,0,0.3);
+}
+
+/* ─── WORK ───────────────────────────────────────────────── */
+.work { background: var(--paper); border-top: 1px solid var(--hairline); }
+.work-title { color: var(--ink); }
+.work-title .it { color: var(--signal); }
+.work-head-desc { color: var(--dust); }
+.work-all-link { color: var(--ink); border-bottom-color: var(--ink); }
+.work-all-link:hover { color: var(--signal); border-bottom-color: var(--signal); }
+
+.work-card { background: var(--canvas); border: 1px solid var(--hairline); }
+.work-card:hover { border-color: var(--signal); }
+.work-meta { color: var(--dust); border-bottom: 1px solid var(--hairline); }
+.work-name-tag,
+.work-code,
+.work-findably .wf-score .sub { color: var(--signal); }
+.work-name { color: var(--ink); }
+.work-name .it { color: var(--signal); }
+.work-desc { color: var(--dust); }
+.work-tag-row span { color: var(--dust); border: 1px solid var(--hairline); }
+
+.work-img { background: #0F0F0F; border-bottom: 1px solid var(--hairline); }
+.work-chatsio .wc-bub.u { background: rgba(245,241,232,0.14); color: var(--ink); }
+.work-chatsio .wc-bub.b { background: var(--signal); color: #1A1A1A; }
+.work-findably .wf-score { color: var(--ink); }
+.work-findably .wf-bars .b { background: rgba(245,241,232,0.35); }
+.work-findably .wf-bars .b.on { background: var(--signal); }
+.work-autovox .wa-wave .t { background: rgba(245,241,232,0.35); }
+.work-autovox .wa-wave .t.a { background: var(--signal); }
+.work-autovox .wa-label { color: var(--ink); }
+.work-pm .wp-cell { background: rgba(245,241,232,0.04); border: 1px solid var(--hairline); }
+.work-pm .wp-cell .v { color: var(--ink); }
+.work-pm .wp-cell .v.amber { color: var(--signal); }
+.work-pm .wp-cell .l { color: var(--dust); }
+
+/* ─── PRICING ────────────────────────────────────────────── */
+.pricing { background: var(--canvas); border-top: 1px solid var(--hairline); }
+.pricing-title { color: var(--ink); }
+.pricing-title .it { color: var(--signal); }
+.pricing-ko { color: var(--dust); }
+.pricing-sub { color: var(--dust); }
+
+.price-card {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+}
+.price-card.featured { border-color: var(--signal); box-shadow: 4px 4px 0 var(--signal); }
+.price-kicker { color: var(--signal); }
+.price-num { color: var(--signal); }
+.price-num .unit { color: var(--dust); }
+.price-desc { color: var(--dust); }
+.price-list li { color: var(--ink); border-top: 1px solid var(--hairline); }
+.price-list li::before { color: var(--signal); }
+.price-ghost { color: var(--ink); border-bottom-color: var(--ink); }
+.price-ghost:hover { color: var(--signal); border-bottom-color: var(--signal); }
+.pricing-note { color: var(--dust); }
+
+/* ─── PROOF ──────────────────────────────────────────────── */
+.proof { background: var(--paper); border-top: 1px solid var(--hairline); }
+.proof-kicker { color: var(--dust); }
+.proof-head { color: var(--ink); }
+.proof-metric { border-top: 1px solid var(--hairline); }
+.proof-metric .num { color: var(--signal); }
+.proof-metric .sub { color: var(--dust); }
+.proof-metric .caption { color: var(--dust); }
+
+/* ─── FOUNDER ────────────────────────────────────────────── */
+.founder { background: var(--canvas); border-top: 1px solid var(--hairline); }
+.founder-kicker { color: var(--dust); }
+.founder-portrait {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+}
+.founder-portrait .tag { color: var(--signal); }
+.founder-portrait .silhouette svg ellipse,
+.founder-portrait .silhouette svg rect,
+.founder-portrait .silhouette svg path { fill: rgba(245,241,232,0.08); }
+
+.founder-quote { color: var(--ink); }
+.founder-quote .amber { color: var(--signal); }
+.founder-body { color: var(--dust); }
+.founder-body em { color: var(--ink); font-style: italic; }
+.founder-etym-en { color: var(--dust); }
+.founder-etym-en em { color: var(--signal); }
+.founder-etym-ko { color: var(--dust); }
+.founder-etym-ko .mono-amber { color: var(--signal); }
+.founder-etym-glyphs { color: var(--dust); }
+.founder-etym-glyphs .feg-row-amber,
+.founder-etym-glyphs .feg-row-amber .feg-key,
+.founder-etym-glyphs .feg-row-amber .feg-val { color: var(--signal); }
+.founder-metrics { border-top: 1px solid var(--hairline); }
+.founder-metric-v { color: var(--signal); }
+.founder-metric-l { color: var(--dust); }
+
+/* ─── CONTACT ────────────────────────────────────────────── */
+.contact { background: var(--paper); border-top: 1px solid var(--hairline); }
+.contact-title { color: var(--ink); }
+.contact-title .it { color: var(--signal); }
+.contact-ko { color: var(--ink); }
+.contact-desc { color: var(--dust); }
+.contact-info { color: var(--dust); }
+.contact-info a { color: var(--ink); }
+.contact-info a:hover { color: var(--signal); }
+.contact-info .muted { color: var(--dust); }
+
+.contact-form { background: var(--canvas); border: 1px solid var(--hairline); padding: 40px; }
+.field label,
+.field-label label,
+.field > span.field-label label { color: var(--signal); }
+.field input,
+.field textarea {
+  background: transparent;
+  color: var(--ink);
+  border-bottom: 1px solid var(--hairline);
+}
+.field input::placeholder,
+.field textarea::placeholder { color: rgba(191,184,168,0.5); }
+.field input:focus,
+.field textarea:focus {
+  border-bottom-color: var(--signal);
+  color: var(--ink);
+}
+.field input:focus-visible,
+.field textarea:focus-visible {
+  border-bottom: 2px solid var(--signal);
+  box-shadow: 0 3px 0 -1px var(--ink);
+}
+.field label .ko { color: var(--dust); }
+
+.radio-opt {
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--ink);
+}
+.radio-opt:has(input:checked) { background: var(--signal); color: #1A1A1A; border-color: var(--signal); }
+.radio-opt .lbl { color: inherit; }
+
+.submit-btn {
+  background: var(--signal);
+  color: #1A1A1A;
+  border: 1px solid var(--signal);
+}
+.submit-btn:hover { background: transparent; color: var(--signal); }
+.submit-sub { color: var(--dust); }
+.form-fine { color: var(--dust); }
+.form-fine a { color: var(--ink); }
+
+/* ─── FOOTER ─────────────────────────────────────────────── */
+.footer { background: #0F0F0F; border-top: 1px solid var(--hairline); }
+.footer-logo { color: var(--ink); }
+.footer-logo .dot { color: var(--signal); }
+.footer-col-title { color: var(--signal); }
+.footer-col a { color: var(--dust); }
+.footer-col a:hover { color: var(--signal); }
+.footer-brand { color: var(--ink); }
+.footer-brand .dot { color: var(--signal); }
+.footer-tag { color: var(--dust); }
+.footer-tagline { color: var(--signal); }
+
+.footer-logo.footer-logo-split .fl-part.fl-d,
+.footer-logo.footer-logo-split .fl-part.fl-rect { color: var(--ink); }
+.footer-logo.footer-logo-split .fl-part.fl-ai,
+.footer-logo.footer-logo-split .fl-part.fl-dot { color: var(--signal); }
+
+/* ─── FILM GRAIN OVERLAY — reduce on dark, grain looks too busy ─── */
+body::before,
+body::after { opacity: 0.35; }
+
+/* ─── FOCUS RINGS — flip default to canvas on dark ──────── */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline-color: var(--signal);
+  outline-offset: 3px;
+}
+.radio-opt:has(input:focus-visible),
+.radio-opt:focus-within {
+  outline-color: var(--signal);
+}
+
+/* Skip link — already dark, just flip its focus ring */
+.skip-link {
+  background: var(--signal);
+  color: #1A1A1A;
+}
+.skip-link:focus { outline-color: var(--ink); }
+
+/* ─── Variant badge (optional) ─────────────────────────── */
+.variant-badge {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 9998;
+  padding: 8px 14px;
+  background: var(--signal);
+  color: #1A1A1A;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 500;
+  text-decoration: none;
+  box-shadow: 3px 3px 0 var(--ink);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.variant-badge:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }

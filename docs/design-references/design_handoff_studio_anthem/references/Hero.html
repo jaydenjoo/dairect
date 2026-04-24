@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>dairect — Hero (Studio Anthem)</title>
+
+<!-- Fonts: Fraunces (serif display) + Geist Sans/Mono + Pretendard -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,300;1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  /* ───── The Studio Anthem — Tokens ───── */
+  :root {
+    --canvas: #F5F1E8;
+    --ink: #141414;
+    --signal: #FFB800;
+    --dust: #8B8680;
+    --rust: #C85A3B;
+    --paper: #FAF7F0;
+    --smoke: #1F1F1F;
+    --hairline-canvas: rgba(20,20,20,0.12);
+    --hairline-ink: rgba(245,241,232,0.12);
+
+    --font-serif: "Fraunces", ui-serif, Georgia, serif;
+    --font-sans:  "Geist", "Pretendard Variable", ui-sans-serif, system-ui, sans-serif;
+    --font-mono:  "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --font-ko:    "Pretendard Variable", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    word-break: keep-all;
+    overflow-x: hidden;
+  }
+
+  /* Film-grain overlay (3% opacity, fixed, subtle) */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    mix-blend-mode: multiply;
+  }
+
+  /* ───── Layout ───── */
+  .page {
+    position: relative;
+    z-index: 2;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 120px 48px 160px;
+  }
+
+  /* Transparent fixed nav placeholder */
+  .nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 48px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+    pointer-events: none;
+  }
+  .nav .brand {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+    text-transform: none;
+  }
+  .nav .brand .dot { color: var(--signal); }
+  .nav .meta { color: var(--dust); text-transform: uppercase; }
+
+  /* Hero grid: 5-7 asymmetric */
+  .hero {
+    display: grid;
+    grid-template-columns: 5fr 7fr;
+    gap: 80px;
+    align-items: start;
+  }
+
+  /* ── LEFT COLUMN ── */
+  .left { display: flex; flex-direction: column; gap: 48px; min-width: 0; }
+
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--dust);
+    margin: 0;
+  }
+
+  /* Headline — Korean display */
+  .headline {
+    font-family: var(--font-ko);
+    font-weight: 900;
+    font-size: clamp(48px, 6.8vw, 96px);
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin: 0;
+  }
+  .headline .amber { color: var(--signal); }
+  .headline .line { display: block; }
+
+  /* Subhead — English Fraunces italic */
+  .subhead {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 300;
+    font-variation-settings: "opsz" 72, "SOFT" 50;
+    font-size: clamp(18px, 1.4vw, 22px);
+    line-height: 1.5;
+    color: rgba(20,20,20,0.75);
+    margin: 0;
+    letter-spacing: -0.005em;
+  }
+  .subhead .strong {
+    font-weight: 500;
+    font-style: italic;
+  }
+
+  /* Body paragraph — Korean */
+  .body {
+    font-family: var(--font-ko);
+    font-weight: 400;
+    font-size: 17px;
+    line-height: 1.75;
+    color: rgba(20,20,20,0.8);
+    margin: 0;
+    max-width: 34em;
+  }
+
+  /* CTA row */
+  .cta-row {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 32px;
+    background: var(--ink);
+    color: var(--canvas);
+    border: none;
+    border-radius: 999px;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 15px;
+    letter-spacing: 0;
+    cursor: pointer;
+    text-decoration: none;
+    transition: box-shadow 180ms cubic-bezier(.2,.9,.2,1),
+                transform   180ms cubic-bezier(.2,.9,.2,1);
+    will-change: transform;
+  }
+  .btn-primary:hover {
+    box-shadow: 4px 4px 0 0 var(--signal);
+    transform: translate(-2px, -2px);
+  }
+  .btn-primary .arrow {
+    transition: transform 180ms cubic-bezier(.2,.9,.2,1);
+  }
+  .btn-primary:hover .arrow { transform: translateX(3px); }
+
+  .btn-ghost {
+    padding: 20px 0;
+    background: transparent;
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    font-size: 15px;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-thickness: 1px;
+    text-decoration-color: rgba(20,20,20,0.35);
+    transition: text-decoration-color 180ms ease;
+  }
+  .btn-ghost:hover { text-decoration-color: var(--ink); }
+
+  /* Trust row */
+  .trust {
+    margin-top: 32px;
+    padding-top: 32px;
+    border-top: 1px solid var(--hairline-canvas);
+    display: flex;
+    gap: 48px;
+    flex-wrap: wrap;
+  }
+  .trust-item { display: flex; flex-direction: column; gap: 8px; }
+  .trust-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--dust);
+  }
+  .trust-label .ko { text-transform: none; letter-spacing: 0; font-family: var(--font-ko); }
+  .trust-value {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-size: 36px;
+    line-height: 1;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  /* ── RIGHT COLUMN — Film Strip ── */
+  .right {
+    position: relative;
+    min-height: 620px;
+  }
+
+  .film-strip {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 620px;
+  }
+
+  .frame {
+    position: absolute;
+    aspect-ratio: 4 / 3;
+    background: var(--paper);
+    border: 1px solid var(--hairline-canvas);
+    overflow: hidden;
+    transition: transform 220ms cubic-bezier(.2,.9,.2,1);
+  }
+  .frame .art {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+  }
+  .frame .caption {
+    position: absolute;
+    left: 12px; bottom: -28px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--dust);
+    text-transform: uppercase;
+  }
+  .frame .caption .amber { color: var(--signal); }
+
+  /* Stacked diagonal from bottom-left to top-right */
+  .frame.f1 {
+    width: 60%;
+    left: 0%;
+    top: 58%;
+    z-index: 1;
+    transform: rotate(-4deg);
+  }
+  .frame.f2 {
+    width: 62%;
+    left: 22%;
+    top: 28%;
+    z-index: 2;
+    transform: rotate(2deg);
+  }
+  .frame.f3 {
+    width: 62%;
+    left: 38%;
+    top: 0%;
+    z-index: 3;
+    transform: rotate(-1.5deg);
+  }
+  .frame.f3::after {
+    /* amber underglow */
+    content: "";
+    position: absolute;
+    inset: -18px;
+    z-index: -1;
+    background: radial-gradient(60% 50% at 50% 70%, rgba(255,184,0,0.38), transparent 70%);
+    filter: blur(18px);
+    pointer-events: none;
+  }
+
+  .frame:hover { transform: translate(-3px, -3px) rotate(0); }
+
+  /* Placeholder art styles */
+  .art-chatsio {
+    background:
+      linear-gradient(180deg, rgba(20,20,20,0.04), rgba(20,20,20,0.01)),
+      var(--paper);
+  }
+  .art-findably {
+    background: var(--ink);
+    color: var(--canvas);
+  }
+  .art-autovox {
+    background: var(--paper);
+  }
+
+  /* Mini illustration inside frames */
+  .art-inner {
+    position: absolute;
+    inset: 0;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .art-inner .head {
+    display: flex;
+    justify-content: space-between;
+    color: var(--dust);
+  }
+  .art-chatsio .art-inner .head { color: var(--dust); }
+  .art-findably .art-inner .head { color: rgba(245,241,232,0.55); }
+  .art-chatsio .chat {
+    margin-top: 6px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .bubble { padding: 8px 10px; font-family: var(--font-ko); font-size: 10px; letter-spacing: 0; text-transform: none; line-height: 1.4;}
+  .bubble.user { align-self: flex-end; background: var(--ink); color: var(--canvas); max-width: 72%; border-radius: 2px 2px 0 2px; }
+  .bubble.bot  { align-self: flex-start; background: rgba(20,20,20,0.06); color: var(--ink); max-width: 80%; border-radius: 2px 2px 2px 0; }
+  .bubble.typing { font-family: var(--font-mono); color: var(--signal); background: rgba(20,20,20,0.06); }
+
+  /* Findably — diagnostic chart */
+  .findably-chart { flex: 1; position: relative; margin-top: 8px; }
+  .findably-chart .axis {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: rgba(245,241,232,0.25);
+  }
+  .findably-chart .bars {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+  }
+  .findably-chart .bar {
+    flex: 1;
+    background: rgba(245,241,232,0.35);
+  }
+  .findably-chart .bar.on { background: var(--signal); }
+  .findably-chart .label {
+    position: absolute;
+    top: 4px; right: 0;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    color: var(--canvas);
+    text-transform: none;
+  }
+  .findably-chart .sub {
+    position: absolute;
+    top: 32px; right: 0;
+    color: var(--signal);
+    font-family: var(--font-mono);
+    font-size: 10px;
+  }
+
+  /* AutoVox — waveform */
+  .autovox-wave {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 6px;
+  }
+  .autovox-wave .tick {
+    flex: 1;
+    background: var(--ink);
+  }
+  .autovox-wave .tick.accent { background: var(--signal); }
+  .autovox-label {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 300;
+    font-size: 20px;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    text-transform: none;
+    margin-top: auto;
+  }
+  .autovox-label .mono {
+    font-family: var(--font-mono);
+    font-style: normal;
+    font-size: 10px;
+    color: var(--dust);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    display: block;
+    margin-top: 4px;
+  }
+
+  /* ── Letter-by-letter reveal ── */
+  .reveal-chars { display: inline; }
+  .reveal-chars .ch {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(0.35em);
+    transition: opacity 520ms cubic-bezier(.2,.9,.2,1),
+                transform 620ms cubic-bezier(.2,.9,.2,1);
+    will-change: transform, opacity;
+  }
+  .reveal-chars .ch.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .reveal-fade {
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 700ms ease 0ms, transform 700ms cubic-bezier(.2,.9,.2,1) 0ms;
+  }
+  .reveal-fade.in { opacity: 1; transform: translateY(0); }
+
+  /* Image mask reveal */
+  .mask-reveal {
+    clip-path: inset(100% 0 0 0);
+    transition: clip-path 900ms cubic-bezier(.6,.02,.2,1);
+    will-change: clip-path;
+  }
+  .mask-reveal.in { clip-path: inset(0 0 0 0); }
+
+  /* Magnetic spring wrapper */
+  .magnetic { display: inline-block; will-change: transform; }
+
+  /* ── Reduced motion ── */
+  @media (prefers-reduced-motion: reduce) {
+    .reveal-chars .ch,
+    .reveal-fade,
+    .mask-reveal { transition: none !important; opacity: 1 !important; transform: none !important; clip-path: inset(0 0 0 0) !important; }
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 1023px) {
+    .page { padding: 100px 36px 120px; }
+    .hero { grid-template-columns: 1fr; gap: 56px; }
+    .right { min-height: 440px; }
+    .frame.f1 { display: none; }
+    .frame.f2 { width: 55%; left: 0; top: 30%; }
+    .frame.f3 { width: 70%; left: 25%; top: 0; }
+  }
+  @media (max-width: 767px) {
+    .page { padding: 88px 24px 96px; }
+    .headline { font-size: clamp(40px, 10vw, 64px); }
+    .right { min-height: 320px; }
+    .frame.f2 { display: none; }
+    .frame.f3 { width: 92%; left: 4%; top: 0; }
+    .trust { gap: 32px; }
+    .trust-value { font-size: 28px; }
+    .nav { padding: 18px 24px; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Transparent nav placeholder -->
+  <nav class="nav" aria-label="Main">
+    <div class="brand">dairect<span class="dot">.</span></div>
+    <div class="meta">EST. 2026 — SEOUL</div>
+  </nav>
+
+  <main class="page">
+    <section class="hero" id="hero">
+
+      <!-- LEFT -->
+      <div class="left">
+
+        <p class="kicker reveal-fade" data-delay="100">EST. 2026 — SEOUL / STUDIO N°03</p>
+
+        <h1 class="headline" aria-label="머릿속 아이디어를 진짜로 만들어드립니다">
+          <span class="line" data-reveal-chars>머릿속 아이디어를</span>
+          <span class="line" data-reveal-chars><span class="amber">진짜로</span> 만들어드립니다</span>
+        </h1>
+
+        <p class="subhead reveal-fade" data-delay="900">
+          Direction by humans. Execution by machines. <span class="strong">Craft by us.</span>
+        </p>
+
+        <p class="body reveal-fade" data-delay="1000">
+          개발을 모르셔도, AI를 못 다루셔도 괜찮습니다.<br/>
+          아이디어만 말씀해주세요. 방향은 저희가 잡고, 코드는 AI가 씁니다.
+        </p>
+
+        <div class="cta-row reveal-fade" data-delay="1150">
+          <span class="magnetic" id="cta-magnetic">
+            <a class="btn-primary" href="#contact">
+              무료 상담 신청하기 <span class="arrow">→</span>
+            </a>
+          </span>
+          <a class="btn-ghost" href="#work">포트폴리오 보기</a>
+        </div>
+
+        <div class="trust reveal-fade" data-delay="1300">
+          <div class="trust-item">
+            <span class="trust-label">PROJECTS / <span class="ko">프로젝트</span></span>
+            <span class="trust-value">10+</span>
+          </div>
+          <div class="trust-item">
+            <span class="trust-label">AVG. DELIVERY / <span class="ko">평균 기간</span></span>
+            <span class="trust-value">2 weeks</span>
+          </div>
+          <div class="trust-item">
+            <span class="trust-label">SATISFACTION / <span class="ko">만족도</span></span>
+            <span class="trust-value">98%</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT — Film Strip -->
+      <div class="right">
+        <div class="film-strip">
+
+          <!-- N°01 Chatsio (bottom-left) -->
+          <div class="frame f1 mask-reveal" data-mask-delay="600">
+            <div class="art art-chatsio">
+              <div class="art-inner">
+                <div class="head">
+                  <span>Chatsio / Inbox</span>
+                  <span>● LIVE</span>
+                </div>
+                <div class="chat">
+                  <div class="bubble bot">배송 언제 도착하나요?</div>
+                  <div class="bubble user">내일 오전 중 도착 예정입니다.</div>
+                  <div class="bubble bot">감사합니다 🙂</div>
+                  <div class="bubble typing">AI responding…</div>
+                </div>
+              </div>
+            </div>
+            <span class="caption"><span class="amber">N°01</span> / CHATSIO</span>
+          </div>
+
+          <!-- N°02 Findably (middle) -->
+          <div class="frame f2 mask-reveal" data-mask-delay="900">
+            <div class="art art-findably">
+              <div class="art-inner">
+                <div class="head">
+                  <span>Findably / Health Score</span>
+                  <span>Q2 · 2025</span>
+                </div>
+                <div class="findably-chart">
+                  <span class="label"><em>Growth signal</em></span>
+                  <span class="sub">+42%</span>
+                  <div class="bars">
+                    <div class="bar" style="height:32%"></div>
+                    <div class="bar" style="height:46%"></div>
+                    <div class="bar" style="height:38%"></div>
+                    <div class="bar" style="height:58%"></div>
+                    <div class="bar" style="height:44%"></div>
+                    <div class="bar on" style="height:72%"></div>
+                    <div class="bar" style="height:52%"></div>
+                    <div class="bar" style="height:64%"></div>
+                  </div>
+                  <div class="axis"></div>
+                </div>
+              </div>
+            </div>
+            <span class="caption"><span class="amber">N°02</span> / FINDABLY</span>
+          </div>
+
+          <!-- N°03 AutoVox (top, amber glow) -->
+          <div class="frame f3 mask-reveal" data-mask-delay="1200">
+            <div class="art art-autovox">
+              <div class="art-inner">
+                <div class="head">
+                  <span>AutoVox / Workflow</span>
+                  <span>▶ 02:14</span>
+                </div>
+                <div class="autovox-wave">
+                  <div class="tick" style="height:28%"></div>
+                  <div class="tick" style="height:44%"></div>
+                  <div class="tick" style="height:62%"></div>
+                  <div class="tick accent" style="height:82%"></div>
+                  <div class="tick" style="height:58%"></div>
+                  <div class="tick" style="height:36%"></div>
+                  <div class="tick accent" style="height:70%"></div>
+                  <div class="tick" style="height:48%"></div>
+                  <div class="tick" style="height:30%"></div>
+                  <div class="tick" style="height:54%"></div>
+                  <div class="tick accent" style="height:76%"></div>
+                  <div class="tick" style="height:42%"></div>
+                  <div class="tick" style="height:24%"></div>
+                  <div class="tick" style="height:58%"></div>
+                  <div class="tick" style="height:36%"></div>
+                </div>
+                <div class="autovox-label">
+                  <em>Voice → action</em>, automated.
+                  <span class="mono">LATENCY · 340ms</span>
+                </div>
+              </div>
+            </div>
+            <span class="caption"><span class="amber">N°03</span> / AUTOVOX</span>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+<script>
+  // ───── Letter-by-letter reveal ─────
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  document.querySelectorAll('[data-reveal-chars]').forEach((el) => {
+    const text = el.innerHTML;
+    // Wrap each char (preserving inner <span class="amber">...)
+    // Simple recursive wrap
+    function wrap(node) {
+      if (node.nodeType === 3) {
+        const frag = document.createDocumentFragment();
+        [...node.textContent].forEach((c) => {
+          const s = document.createElement('span');
+          s.className = 'ch';
+          s.textContent = c;
+          if (c === ' ') s.style.display = 'inline';
+          frag.appendChild(s);
+        });
+        node.replaceWith(frag);
+      } else if (node.nodeType === 1) {
+        [...node.childNodes].forEach(wrap);
+      }
+    }
+    [...el.childNodes].forEach(wrap);
+  });
+
+  // Stagger chars in
+  const chars = document.querySelectorAll('.headline .ch');
+  chars.forEach((c, i) => {
+    setTimeout(() => c.classList.add('in'), reduce ? 0 : 200 + i * 38);
+  });
+
+  // Fade-in groups
+  document.querySelectorAll('.reveal-fade').forEach((el) => {
+    const d = parseInt(el.dataset.delay || '0', 10);
+    setTimeout(() => el.classList.add('in'), reduce ? 0 : d);
+  });
+
+  // Mask reveal for frames
+  document.querySelectorAll('.mask-reveal').forEach((el) => {
+    const d = parseInt(el.dataset.maskDelay || '0', 10);
+    setTimeout(() => el.classList.add('in'), reduce ? 0 : d);
+  });
+
+  // ───── Magnetic CTA ─────
+  (function () {
+    if (reduce) return;
+    const wrap = document.getElementById('cta-magnetic');
+    if (!wrap) return;
+    const btn = wrap.querySelector('.btn-primary');
+    let tx = 0, ty = 0, cx = 0, cy = 0, rafId = null;
+    const maxDrift = 6;
+    const radius = 140;
+
+    function onMove(e) {
+      const r = btn.getBoundingClientRect();
+      const mx = e.clientX - (r.left + r.width / 2);
+      const my = e.clientY - (r.top + r.height / 2);
+      const dist = Math.hypot(mx, my);
+      if (dist < radius) {
+        const k = (1 - dist / radius);
+        tx = (mx / radius) * maxDrift * 1.2 * k;
+        ty = (my / radius) * maxDrift * 1.2 * k;
+      } else {
+        tx = 0; ty = 0;
+      }
+    }
+    function onLeave() { tx = 0; ty = 0; }
+    function loop() {
+      cx += (tx - cx) * 0.15;
+      cy += (ty - cy) * 0.15;
+      wrap.style.transform = `translate(${cx.toFixed(2)}px, ${cy.toFixed(2)}px)`;
+      rafId = requestAnimationFrame(loop);
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerleave', onLeave);
+    loop();
+  })();
+
+  // ───── Scroll-triggered headline ─────
+  (function () {
+    if (reduce) return;
+    const h = document.querySelector('.headline');
+    if (!h) return;
+    function onScroll() {
+      const y = Math.min(window.scrollY, 420);
+      const k = y / 420; // 0..1
+      const scale = 1 - k * 0.08;
+      const op = 1 - k * 0.7;
+      h.style.transform = `scale(${scale})`;
+      h.style.transformOrigin = '0 50%';
+      h.style.opacity = op.toFixed(3);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>
+
+</body>
+</html>

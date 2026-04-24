@@ -1,0 +1,179 @@
+/* ═══════════════════════════════════════════════════════════
+   rhythm.css — Landing C: Section-level inversion (editorial rhythm)
+   ═══════════════════════════════════════════════════════════
+
+   Strategy: keep A (Light) as the canvas, then invert SPECIFIC
+   sections into ink-dark panels — like an editorial magazine
+   where spreads alternate tone for reading rhythm.
+
+   Inverted sections (already carry .section-dark class in markup):
+   - [03] Manifesto — declarative statement, high-contrast pause
+   - [05] Work      — portfolio, dark gallery mode
+   - [07] Founder   — quote spread, intimate night-mode
+   - [10] Footer    — always dark (inherits)
+
+   Light sections stay cream: Hero, Etymology, Proof, Services, Pricing, Contact.
+
+   Load AFTER landing.css + editorial.css + a11y-patch.css.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── Turn on section-dark actual dark background ────────── */
+section.section-dark {
+  background: var(--ink);
+  color: var(--canvas);
+}
+
+/* Subtle band-transition hairlines between cream→ink */
+section.section-dark + section:not(.section-dark),
+section:not(.section-dark) + section.section-dark {
+  border-top: 1px solid var(--hairline-ink);
+}
+
+/* ─── MANIFESTO dark ─────────────────────────────────────── */
+.manifesto.section-dark { background: var(--ink); }
+.manifesto.section-dark .kicker { color: var(--signal); }
+.manifesto.section-dark .manifesto-head { color: var(--canvas); }
+.manifesto.section-dark .manifesto-head .amber { color: var(--signal); }
+.manifesto.section-dark .manifesto-ko { color: rgba(245, 241, 232, 0.66); }
+.manifesto.section-dark .manifesto-ko .ko-amber { color: var(--signal); }
+
+/* ─── WORK dark ──────────────────────────────────────────── */
+.work.section-dark,
+#work.section-dark { background: var(--ink); color: var(--canvas); }
+.work.section-dark .kicker,
+.work.section-dark .kicker.amber { color: var(--signal); }
+.work.section-dark .work-title,
+#work.section-dark .work-title { color: var(--canvas); }
+.work.section-dark .work-title .it,
+#work.section-dark .work-title .it { color: var(--signal); }
+.work.section-dark .work-head-desc,
+#work.section-dark .work-head-desc { color: rgba(245, 241, 232, 0.6); }
+.work.section-dark .work-all-link,
+#work.section-dark .work-all-link {
+  color: var(--canvas);
+  border-bottom-color: var(--canvas);
+}
+.work.section-dark .work-all-link:hover,
+#work.section-dark .work-all-link:hover {
+  color: var(--signal);
+  border-bottom-color: var(--signal);
+}
+
+#work.section-dark .work-card {
+  background: rgba(245, 241, 232, 0.03);
+  border: 1px solid rgba(245, 241, 232, 0.14);
+}
+#work.section-dark .work-card:hover {
+  border-color: var(--signal);
+}
+#work.section-dark .work-meta {
+  color: rgba(245, 241, 232, 0.55);
+  border-top: 1px solid rgba(245, 241, 232, 0.14);
+}
+#work.section-dark .work-name { color: var(--canvas); }
+#work.section-dark .work-name .it { color: var(--signal); }
+#work.section-dark .work-desc { color: rgba(245, 241, 232, 0.7); }
+#work.section-dark .work-stack { color: rgba(245, 241, 232, 0.45); }
+#work.section-dark .work-img { background: #0F0F0F; border-bottom: 1px solid rgba(245, 241, 232, 0.1); }
+#work.section-dark .work-chatsio .wc-bub.u { background: rgba(245, 241, 232, 0.12); color: var(--canvas); }
+#work.section-dark .work-chatsio .wc-bub.b { background: var(--signal); color: var(--ink); }
+#work.section-dark .work-findably .wf-score { color: var(--canvas); }
+#work.section-dark .work-findably .wf-score .sub { color: var(--signal); }
+#work.section-dark .work-findably .wf-bars .b { background: rgba(245, 241, 232, 0.35); }
+#work.section-dark .work-findably .wf-bars .b.on { background: var(--signal); }
+#work.section-dark .work-autovox .wa-wave .t { background: rgba(245, 241, 232, 0.35); }
+#work.section-dark .work-autovox .wa-wave .t.a { background: var(--signal); }
+#work.section-dark .work-autovox .wa-label { color: var(--canvas); }
+#work.section-dark .work-pm .wp-cell {
+  background: rgba(245, 241, 232, 0.04);
+  border: 1px solid rgba(245, 241, 232, 0.1);
+}
+#work.section-dark .work-pm .wp-cell .v { color: var(--canvas); }
+#work.section-dark .work-pm .wp-cell .v.amber { color: var(--signal); }
+#work.section-dark .work-pm .wp-cell .l { color: rgba(245, 241, 232, 0.45); }
+
+/* ─── FOUNDER dark ───────────────────────────────────────── */
+#founder.section-dark { background: var(--ink); }
+#founder.section-dark .kicker,
+#founder.section-dark .kicker.amber { color: var(--signal); }
+#founder.section-dark .founder-name { color: var(--canvas); }
+#founder.section-dark .founder-role { color: rgba(245, 241, 232, 0.55); }
+#founder.section-dark .founder-quote { color: var(--canvas); }
+#founder.section-dark .founder-quote .amber { color: var(--signal); }
+#founder.section-dark .founder-body { color: rgba(245, 241, 232, 0.72); }
+#founder.section-dark .founder-body em { color: var(--canvas); font-style: italic; }
+#founder.section-dark .founder-portrait {
+  background: rgba(245, 241, 232, 0.03);
+  border: 1px solid rgba(245, 241, 232, 0.14);
+}
+#founder.section-dark .founder-portrait .tag { color: var(--signal); }
+#founder.section-dark .founder-portrait .silhouette svg ellipse,
+#founder.section-dark .founder-portrait .silhouette svg rect,
+#founder.section-dark .founder-portrait .silhouette svg path {
+  fill: rgba(245, 241, 232, 0.08);
+}
+#founder.section-dark .founder-etym-en { color: rgba(245, 241, 232, 0.72); }
+#founder.section-dark .founder-etym-en em { color: var(--signal); }
+#founder.section-dark .founder-etym-ko { color: rgba(245, 241, 232, 0.6); }
+#founder.section-dark .founder-etym-ko .mono-amber { color: var(--signal); }
+#founder.section-dark .founder-etym-glyphs { color: rgba(245, 241, 232, 0.55); }
+#founder.section-dark .founder-etym-glyphs .feg-row-amber,
+#founder.section-dark .founder-etym-glyphs .feg-row-amber .feg-key,
+#founder.section-dark .founder-etym-glyphs .feg-row-amber .feg-val { color: var(--signal); }
+#founder.section-dark .founder-metrics {
+  border-top: 1px solid rgba(245, 241, 232, 0.14);
+}
+#founder.section-dark .founder-metric-v { color: var(--signal); }
+#founder.section-dark .founder-metric-l { color: rgba(245, 241, 232, 0.55); }
+
+/* ─── AMBER TEXT INSIDE DARK SECTIONS — reset to full brightness ─ */
+/* a11y-patch.css dimmed all amber text for cream contrast. On ink it
+   should glow. Restore for any .section-dark descendant: */
+section.section-dark .kicker.amber,
+section.section-dark .kicker .amber,
+section.section-dark .manifesto-head .amber,
+section.section-dark .manifesto-ko .ko-amber,
+section.section-dark .work-title .it,
+section.section-dark .work-name-tag,
+section.section-dark .work-code,
+section.section-dark .work-findably .wf-score .sub,
+section.section-dark .work-pm .wp-cell .v.amber,
+section.section-dark .founder-quote .amber,
+section.section-dark .founder-etym-en em,
+section.section-dark .founder-etym-ko .mono-amber,
+section.section-dark .founder-etym-glyphs .feg-row-amber,
+section.section-dark .founder-etym-glyphs .feg-row-amber .feg-key,
+section.section-dark .founder-etym-glyphs .feg-row-amber .feg-val,
+section.section-dark .founder-metric-v {
+  color: var(--signal);
+}
+
+/* ─── Focus ring inside dark sections — cream ring ───────── */
+section.section-dark a:focus-visible,
+section.section-dark button:focus-visible,
+section.section-dark [tabindex]:focus-visible {
+  outline-color: var(--canvas);
+}
+
+/* ─── Variant badge ─────────────────────────────────────── */
+.variant-badge {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 9998;
+  padding: 8px 14px;
+  background: #1A1A1A;
+  color: #F5F1E8;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 500;
+  text-decoration: none;
+  box-shadow: 3px 3px 0 var(--signal);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.variant-badge:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--signal);
+}

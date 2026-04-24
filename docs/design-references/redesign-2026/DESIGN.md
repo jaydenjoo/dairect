@@ -1,5 +1,19 @@
 # Design System Strategy: The Intelligent Sanctuary
 
+> ⛔ **폐기됨 (2026-04-24)**
+>
+> 본 디자인 시스템("The Intelligent Sanctuary" — Indigo + DM Sans)은
+> Studio Anthem(Amber + Fraunces/Geist) 전환으로 대체되었습니다.
+>
+> **현행 브랜드 규칙**: [`redesign-2026-studio-anthem/BRAND.md`](../redesign-2026-studio-anthem/BRAND.md)
+> **번들 원본**: [`design_handoff_studio_anthem/`](../design_handoff_studio_anthem/)
+> **마이그레이션 맵**: [`redesign-2026-studio-anthem/MIGRATION-MAP.md`](../redesign-2026-studio-anthem/MIGRATION-MAP.md)
+>
+> 이 문서는 참조용 히스토리로만 보존합니다 (Epic 7에서 `docs/archived/`로 이동 예정).
+
+---
+
+
 ## 1. Overview & Creative North Star
 The creative North Star for this design system is **"The Guided Sanctuary."** In an era of chaotic, high-density AI tools, this system positions 'dairect' as a calm, architectural space for code direction. It rejects the "dashboard" aesthetic in favor of a **High-End Editorial** experience. 
 
