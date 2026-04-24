@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { WordmarkLogo } from "./WordmarkLogo";
-import { Button } from "@/components/primitives/Button";
 import { cn } from "@/lib/utils";
 
 const menu = [
-  { label: "포트폴리오", href: "/projects" },
-  { label: "가격", href: "/pricing" },
-  { label: "소개", href: "/about" },
+  { label: "Work", href: "/projects" },
+  { label: "Services", href: "/#services" },
+  { label: "Pricing", href: "/#pricing" },
+  { label: "About", href: "/about" },
+  { label: "Journal", href: "/#journal" },
 ] as const;
 
 export function Nav() {
@@ -24,46 +24,35 @@ export function Nav() {
 
   return (
     <nav
+      id="nav"
       aria-label="Primary"
-      className={cn(
-        "fixed top-0 left-0 right-0 z-50",
-        "flex items-center justify-between",
-        "px-6 md:px-12 py-5",
-        "transition-[background,border-color,padding] duration-[240ms] ease-[var(--ease-spring-soft)]",
-        "border-b border-transparent",
-        scrolled
-          ? "bg-paper/97 border-hairline-canvas py-3.5 backdrop-blur-[2px]"
-          : "bg-transparent",
-      )}
+      className={cn("nav", scrolled && "scrolled")}
     >
       <Link
-        href="/"
+        href="/#hero"
+        className="brand"
         aria-label="dairect — Director of AI, working Direct"
         title="D — Director, AI — Artificial Intelligence, RECT — Direct"
-        className="text-ink"
       >
-        <WordmarkLogo variant="default" size="sm" />
+        <span className="bp bp-d">d</span>
+        <span className="bp bp-ai">ai</span>
+        <span className="bp bp-rect">rect</span>
+        <span className="dot">.</span>
       </Link>
-
-      <div
-        role="menubar"
-        className="hidden md:flex items-center gap-10 font-sans text-[15px] font-normal"
-      >
+      <div className="menu" role="menubar">
         {menu.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            role="menuitem"
-            className="text-ink/70 transition-colors duration-[180ms] hover:text-ink"
-          >
+          <Link key={item.href} href={item.href} role="menuitem">
             {item.label}
           </Link>
         ))}
       </div>
-
-      <Button variant="cta-mini" href="/about#contact">
-        문의하기 <span aria-hidden="true">→</span>
-      </Button>
+      <Link
+        href="/about#contact"
+        className="cta-mini magnetic"
+        data-magnetic
+      >
+        Start a project <span aria-hidden="true">→</span>
+      </Link>
     </nav>
   );
 }
