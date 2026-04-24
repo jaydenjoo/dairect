@@ -7,6 +7,7 @@ import { Services } from "@/components/sections/Services";
 import { Work } from "@/components/sections/Work";
 import { Pricing } from "@/components/sections/Pricing";
 import { Founder } from "@/components/sections/Founder";
+import { FinalCTA } from "@/components/sections/FinalCTA";
 
 export default function HeroPreviewPage() {
   return (
@@ -21,6 +22,7 @@ export default function HeroPreviewPage() {
         <Work />
         <Pricing />
         <Founder />
+        <FinalCTA />
       </main>
     </>
   );
