@@ -206,6 +206,11 @@ export const projects = pgTable("projects", {
   publicScreenshotUrl: text("public_screenshot_url"),
   publicLiveUrl: text("public_live_url"),
 
+  // /projects 포트폴리오 번들 전용 메타 (nameAmber, cat, year, dur, stack, status, statusType, badge, meta, order)
+  // 스키마는 src/lib/validation/portfolio.ts의 portfolioMetaSchema 참조.
+  // jsonb 선택 이유: 포트폴리오 표시 전용 필드 10개를 별도 컬럼으로 분리하면 projects 테이블이 무거워짐.
+  portfolioMeta: jsonb("portfolio_meta").default(sql`'{}'::jsonb`),
+
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
   updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
 });

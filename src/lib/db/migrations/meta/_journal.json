@@ -155,6 +155,13 @@
       "when": 1776996109385,
       "tag": "0037_chemical_timeslip",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1777046168100,
+      "tag": "0038_conscious_skin",
+      "breakpoints": true
     }
   ]
 }
