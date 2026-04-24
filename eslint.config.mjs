@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     ".claude/**",
+    // Design handoff reference files (bundle originals, not production code)
+    "docs/**",
     // Serwist / PWA service worker build artifacts (minified output)
     "public/sw.js",
     "public/sw.js.map",
