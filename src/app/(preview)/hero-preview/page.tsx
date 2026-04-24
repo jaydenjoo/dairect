@@ -4,6 +4,7 @@ import { Etymology } from "@/components/sections/Etymology";
 import { Manifesto } from "@/components/sections/Manifesto";
 import { Proof } from "@/components/sections/Proof";
 import { Services } from "@/components/sections/Services";
+import { Work } from "@/components/sections/Work";
 
 export default function HeroPreviewPage() {
   return (
@@ -15,6 +16,7 @@ export default function HeroPreviewPage() {
         <Manifesto />
         <Proof />
         <Services />
+        <Work />
       </main>
     </>
   );
