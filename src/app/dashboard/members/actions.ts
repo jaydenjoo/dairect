@@ -231,8 +231,11 @@ export async function createInvitationAction(formData: FormData): Promise<Action
   let createdInvitationId: string | null = null;
   try {
     await db.transaction(async (tx) => {
-      // hashtext()는 PG 내장 함수 — bigint 해시 → advisory lock key. xact 변형은 트랜잭션 종료 시 자동 해제.
-      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${workspaceId}))`);
+      // Phase 5.5 Task 5-5-2 후속 HIGH-2: hashtextextended(text, bigint)는 PG 11+ 64-bit 해시.
+      // hashtext() 32-bit 공간(~65536 ws에서 생일 역설로 50% 충돌)을 2^64로 확장 — 실질 충돌 ~0.
+      // 충돌 발생 시 다른 ws 작업이 불필요하게 직렬화되어 latency 영향만 있었음 (데이터 정합은 영향 없음).
+      // xact 변형은 트랜잭션 종료 시 자동 해제.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${workspaceId}, 0))`);
 
       const [settingsRow] = await tx
         .select({ plan: workspaceSettings.plan })

@@ -146,8 +146,10 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
     const workspaceId = await db.transaction(async (tx) => {
       // ─── Phase 5.5 Task 5-5-2: 수락 측 plan 한도 게이트 ───
       // advisory lock으로 동시 다수 수락 직렬화 → race로 한도 초과 방지.
-      // hashtext()는 32-bit 해시 (워크스페이스 1만 개 시점에 충돌 우려 — Phase 5.5 ToDo).
-      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${existing.workspaceId}))`);
+      // Phase 5.5 Task 5-5-2 후속 HIGH-2: hashtextextended(text, bigint)는 PG 11+ 64-bit 해시.
+      // hashtext() 32-bit 공간(~65536 ws에서 50% 충돌)을 2^64로 확장 — 실질 충돌 ~0.
+      // actions.ts(createInvitationAction)와 동일 함수를 쓰므로 발송/수락 양측이 같은 lock key 공간 공유.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${existing.workspaceId}, 0))`);
 
       // 이미 멤버라면 한도 체크 skip — onConflictDoNothing이 INSERT skip하므로 idempotent 보장.
       // page render와 accept 사이의 race(동시 다른 탭 수락)에서 한도 도달 false positive 차단.

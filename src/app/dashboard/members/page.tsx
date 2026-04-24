@@ -39,21 +39,82 @@ export default async function MembersPage() {
   const role = await getCurrentWorkspaceRole(userId, workspaceId);
   if (!canManageMembers(role)) redirect("/dashboard");
 
-  // ─── 현재 멤버 목록 (workspace_members + users join) ───
-  const memberRows = await db
-    .select({
-      id: workspaceMembers.userId,
-      email: users.email,
-      name: users.name,
-      role: workspaceMembers.role,
-      joinedAt: workspaceMembers.joinedAt,
-    })
-    .from(workspaceMembers)
-    .innerJoin(users, eq(users.id, workspaceMembers.userId))
-    .where(eq(workspaceMembers.workspaceId, workspaceId))
-    .orderBy(desc(workspaceMembers.joinedAt));
+  // ─── Phase 5.5 Task 5-5-2 후속 HIGH-1: 4개 SELECT를 단일 transaction + REPEATABLE READ로 묶음 ───
+  // 기존 구조는 memberRows / invitationRows / settingsRow / pendingCountRow 4개가 독립 statement.
+  // 4 SELECT 사이에 다른 세션의 INSERT/UPDATE가 끼어들면 "members.length + pendingCount"가
+  // 실제 DB 상태와 일시 불일치 → 화면 "N/M" 표시값이 1-2명 어긋남 (UX 영향만, server transaction이
+  // INSERT 경로의 실제 정합은 보장). REPEATABLE READ는 transaction 시작 시점 snapshot 고정 →
+  // 4 SELECT가 같은 시점을 본다고 보장. read-only라 직렬화 충돌 위험 ~0.
+  //
+  // Drizzle 공식 config 인자 사용 (code-reviewer LOW-1):
+  //   - isolationLevel: "repeatable read" → BEGIN 직후 SET TRANSACTION 자동 발행 (실수/순서 방지)
+  //   - accessMode: "read only" → 실수로 INSERT/UPDATE가 섞이면 PG가 거부 (타입+런타임 이중 방어)
+  //
+  // statement_timeout 3s (security-reviewer M1): 병렬 탭/스크립트 연속 호출로 connection 슬롯을
+  // 오래 점유하는 DoS 벡터 경화. 정상 render는 ms 단위라 3s 여유 충분.
+  //
+  // 만료/pending 판정은 NOW() = transaction_timestamp() (REPEATABLE READ snapshot 시점 고정) 사용
+  // (security-reviewer M3) → 4 SELECT 모두 동일 시각 기준 → Server Component Date.now() purity 위반도 회피.
+  const snapshot = await db.transaction(
+    async (tx) => {
+      await tx.execute(sql`SET LOCAL statement_timeout = '3s'`);
 
-  const members: MemberRow[] = memberRows.map((r) => ({
+      const memberRows = await tx
+        .select({
+          id: workspaceMembers.userId,
+          email: users.email,
+          name: users.name,
+          role: workspaceMembers.role,
+          joinedAt: workspaceMembers.joinedAt,
+        })
+        .from(workspaceMembers)
+        .innerJoin(users, eq(users.id, workspaceMembers.userId))
+        .where(eq(workspaceMembers.workspaceId, workspaceId))
+        .orderBy(desc(workspaceMembers.joinedAt));
+
+      const invitationRows = await tx
+        .select({
+          id: workspaceInvitations.id,
+          email: workspaceInvitations.email,
+          role: workspaceInvitations.role,
+          expiresAt: workspaceInvitations.expiresAt,
+          createdAt: workspaceInvitations.createdAt,
+          acceptedAt: workspaceInvitations.acceptedAt,
+          revokedAt: workspaceInvitations.revokedAt,
+        })
+        .from(workspaceInvitations)
+        .where(eq(workspaceInvitations.workspaceId, workspaceId))
+        .orderBy(desc(workspaceInvitations.createdAt));
+
+      const [settingsRow] = await tx
+        .select({ plan: workspaceSettings.plan })
+        .from(workspaceSettings)
+        .where(eq(workspaceSettings.workspaceId, workspaceId))
+        .limit(1);
+
+      const [pendingCountRow] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(workspaceInvitations)
+        .where(
+          and(
+            eq(workspaceInvitations.workspaceId, workspaceId),
+            isNull(workspaceInvitations.acceptedAt),
+            isNull(workspaceInvitations.revokedAt),
+            sql`${workspaceInvitations.expiresAt} > NOW()`,
+          ),
+        );
+
+      return {
+        memberRows,
+        invitationRows,
+        plan: settingsRow?.plan ?? null,
+        pendingCount: pendingCountRow?.count ?? 0,
+      };
+    },
+    { isolationLevel: "repeatable read", accessMode: "read only" },
+  );
+
+  const members: MemberRow[] = snapshot.memberRows.map((r) => ({
     id: r.id,
     email: r.email,
     name: r.name,
@@ -62,24 +123,9 @@ export default async function MembersPage() {
     joinedAtIso: r.joinedAt.toISOString(),
   }));
 
-  // ─── 초대 내역 (pending/accepted/revoked/expired 모두 표시) ───
   // status 판정은 client에서 수행: Server Component는 React purity 규칙상 Date.now() 호출 금지.
   // 대신 raw 필드(acceptedAtIso/revokedAtIso/expiresAtIso) 모두 넘겨 client가 현재 시각과 비교.
-  const invitationRows = await db
-    .select({
-      id: workspaceInvitations.id,
-      email: workspaceInvitations.email,
-      role: workspaceInvitations.role,
-      expiresAt: workspaceInvitations.expiresAt,
-      createdAt: workspaceInvitations.createdAt,
-      acceptedAt: workspaceInvitations.acceptedAt,
-      revokedAt: workspaceInvitations.revokedAt,
-    })
-    .from(workspaceInvitations)
-    .where(eq(workspaceInvitations.workspaceId, workspaceId))
-    .orderBy(desc(workspaceInvitations.createdAt));
-
-  const invitations: InvitationRow[] = invitationRows.map((r) => ({
+  const invitations: InvitationRow[] = snapshot.invitationRows.map((r) => ({
     id: r.id,
     email: r.email,
     role: r.role,
@@ -89,41 +135,20 @@ export default async function MembersPage() {
     revokedAtIso: r.revokedAt ? r.revokedAt.toISOString() : null,
   }));
 
-  // ─── Phase 5.5 Task 5-5-2: plan + 사용량 산출 ───
-  // workspace_settings.plan을 SELECT (default 'free' NOT NULL이라 정상 경로에서 row 존재).
-  // pending 카운트는 DB NOW()로 직접 비교 → actions.ts와 동일 정의 + server purity 규칙 준수
-  // (Server Component에서 Date.now() 호출은 react-hooks/purity 위반 → DB로 시각 비교 위임).
-  // server에서 한 번 산출 → client는 표시 + form disabled에만 사용 (서버에서 다시 검증되므로 신뢰 경계 안전).
-  const [settingsRow] = await db
-    .select({ plan: workspaceSettings.plan })
-    .from(workspaceSettings)
-    .where(eq(workspaceSettings.workspaceId, workspaceId))
-    .limit(1);
   // Task 5-5-5 HIGH-4: workspace_settings row 누락 시 silent fallback 대신 알림.
-  if (!settingsRow) {
+  // (transaction 바깥으로 이동 — side effect는 트랜잭션 커밋 후 처리가 안전.)
+  if (snapshot.plan === null) {
     console.error("[members/page] workspace_settings row missing — fallback to 'free'", {
       event: "workspace_settings.missing_fallback",
       workspaceId,
     });
   }
-  const plan = settingsRow?.plan ?? "free";
+  const plan = snapshot.plan ?? "free";
   const planLabel = getPlanLabel(plan);
   const upgradeTarget = suggestUpgradeTarget(plan);
   const limit = getMaxMembers(plan);
 
-  const [pendingCountRow] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(workspaceInvitations)
-    .where(
-      and(
-        eq(workspaceInvitations.workspaceId, workspaceId),
-        isNull(workspaceInvitations.acceptedAt),
-        isNull(workspaceInvitations.revokedAt),
-        sql`${workspaceInvitations.expiresAt} > NOW()`,
-      ),
-    );
-  const pendingCount = pendingCountRow?.count ?? 0;
-  const used = members.length + pendingCount;
+  const used = members.length + snapshot.pendingCount;
   // Infinity는 JSON 직렬화 시 null로 변환되므로 client prop은 number|null로 정규화.
   const limitForClient = Number.isFinite(limit) ? limit : null;
 
