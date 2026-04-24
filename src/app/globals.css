@@ -13,6 +13,7 @@
 @import "../styles/studio-anthem/landing.css";
 @import "../styles/studio-anthem/editorial.css";
 @import "../styles/studio-anthem/projects.css";
+@import "../styles/studio-anthem/about.css";
 @import "../styles/studio-anthem/a11y-patch.css";
 
 @custom-variant dark (&:is(.dark *));
