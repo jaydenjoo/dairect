@@ -1,8 +1,103 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-24 末 (**v3.2 수정 PRD 확정** — 옵션 B: Jayden 1인 사용 모드로 개발 범위 축소, 서비스 제공은 2차 이관)
-> 현재 위치: **1차 범위 확정 (v3.2 Single-user Mode)**. Task-S2a~S2g (총 ~7h) 실행 대기.
+> 최종 업데이트: 2026-04-24 末 (**Task-S2a/S2b/S2d 완료 + S2c/S2e 취소 + Task-S2f 수정 PRD 갱신**)
+> 현재 위치: **v3.2 Single-user Mode — Task-S2g(dogfooding 체크리스트) 대기**. 실제 코드 잠금 작업 완료.
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
+> 2차 unlock 가이드: [docs/2차-unlock-checklist.md](docs/2차-unlock-checklist.md)
+
+## 세션 2026-04-24 末-3 (Task-S2a~f — 코드 잠금 실행 + PRD 갱신)
+
+### Task-S2a ✅ 완료 (커밋 ee6d076 — plan 차등 제거 + 단일 고정 한도)
+
+**변경 파일 11개** (계획 9개 + tsc가 잡아낸 소비처 2개 추가 — estimates/actions.ts, ai-actions.ts).
+
+**핵심 변경**:
+- `src/lib/plans.ts` 73줄 → 15줄: `MAX_MEMBERS = 10` 단일 상수
+- `src/lib/validation/ai-estimate.ts`: `AI_DAILY_LIMIT = 200` 단일 상수 (기존 free 값 유지 — 보수적)
+- AI actions 4개(briefing/report/estimates/ai-estimates) `getAiDailyLimit` 호출 제거
+- `MemberLimitExceededError` / `AcceptLimitExceededError`의 `plan` 필드 제거
+- 에러 메시지 변경: "Free 플랜... Pro 업그레이드" → "한도(10명)... 문의"
+- `schema.ts` 3개 컬럼(`subscriptionStatus` / `stripeCustomerId` / `workspace_settings.plan`)에 `@deprecated` JSDoc (DROP X)
+
+**검증**: tsc/lint/build/db:check 전부 통과, grep 잔존 0건. 순 135줄 감소.
+
+### Task-S2b ✅ 완료 (커밋 3def1de — /signup + /onboarding 라우트 잠금)
+
+**변경 파일 3개**:
+- `src/app/(public)/signup/page.tsx`: `notFound()` only (기존 17줄→13줄)
+- `src/app/onboarding/page.tsx`: `notFound()` only (기존 73줄→15줄)
+- `src/app/(public)/login/page.tsx`: 회원가입 CTA 블록 주석 처리
+
+**계획 외 발견**:
+- `WorkspacePicker` 숨김 작업 **불필요** — 이미 `singleWorkspace ≤ 1` 분기 존재(workspace-picker.tsx:53)로 Jayden 환경에서 자동 단순 텍스트 표시 중
+- `notFound()` + 기존 로직 유지 패턴은 TS narrow 실패로 에러 → 미니멀 재작성 + git history 보존 방식 채택
+
+**검증**: `/signup` 404 / `/onboarding` 404 / `/login` 200 + 회원가입 문자열 0건 (curl 확인)
+
+### Task-S2c ⛔ 취소 (경계선 결정 ①과 모순)
+
+원래 `/invite/[token]` 라우트 잠금 계획이었으나 Jayden 결정(하청 초대 유지)과 모순. Jayden이 members에서 발송한 초대 메일 속 링크가 `/invite/<token>`이라 수락 불가 → members 기능 무용지물.
+
+122-bit random UUID + 이메일 매칭 + 로그인 필수로 보안 리스크 ~0 (무작위 대입 ≈ 10^-37)이므로 그대로 유지.
+
+### Task-S2d ✅ 축소 완료 (커밋 8a504cc — /about#contact 링크 정정, 15분)
+
+**원 계획**: `/pricing` 삭제 + `PricingSummarySection` 제거 + 랜딩 CTA "디렉팅 시작하기" → "문의하기" 교체
+
+**전부 불필요 확인**:
+- `/pricing`은 SI 프로젝트 견적 패키지(진단 30만원~/MVP 100만원~/확장 300만원~) — SaaS 무관, 경계선 ② 결정에 따라 유지
+- 랜딩 모든 CTA(Hero/Nav/CtaSection)가 **이미 `/about#contact` 경로 사용 중**
+- "디렉팅 시작하기" CTA는 코드에 존재하지 않음 (v3.1 PRD 옛 언급)
+
+**실제 변경 (축소 범위)**: Task-S2a에서 걸어놓은 `/#contact` 링크를 `/about#contact`로 정정 (3개 파일).
+- `src/app/dashboard/members/actions.ts` / `accept-actions.ts` / `members-client.tsx`
+
+### Task-S2e ⛔ 취소 (/admin 라우트 미구현 + members 가드 이미 충분)
+
+원 계획 1: `/dashboard/members` Owner 가드 강화 — `canManageMembers` 체크 이미 적용됨, 추가 불필요.
+원 계획 2: `/admin/*` 2차 이관 표시 — `/admin/*` 라우트 자체가 미구현 (PRD에만 존재).
+
+### Task-S2f ✅ 완료 (본 세션 — PRD-v3.2 §4 갱신 + 2차 unlock 체크리스트 작성)
+
+**변경 파일 3개**:
+- `docs/PRD-v3.2-single-user.md` §4 Task 분해 실제 결과 반영 (완료/취소/축소 상태 명시) + §8 unlock 체크리스트 링크 + §9 버전 이력
+- `docs/2차-unlock-checklist.md` **신규 생성** (7 섹션):
+  - 2차 진입 전 확인 사항 (Jayden dogfooding 완료 + v3.3 PRD 결정)
+  - Unlock 항목 실행 순서 (signup/onboarding 복구 + login CTA 복구)
+  - 한도 정책 재검토 (3가지 옵션)
+  - DB 컬럼 DROP 여부 결정 (2가지 옵션)
+  - Billing Mock 설계 재참조 (SaaS 재도입 시)
+  - 랜딩 메시지 업데이트
+  - 2차 진입 직전 최종 검증 체크리스트
+- `PROGRESS.md` 본 세션 기록
+
+### 실제 Task-S2 진행 요약
+
+| Task | 상태 | 실제 소요 | 커밋 |
+|---|---|---|---|
+| S2a | ✅ 완료 | 1.5h | `ee6d076` |
+| S2b | ✅ 완료 | 1h | `3def1de` |
+| S2c | ⛔ 취소 | 0 | — |
+| S2d | ✅ 축소 완료 | 15min | `8a504cc` |
+| S2e | ⛔ 취소 | 0 | — |
+| S2f | ✅ 완료 | 1h | TBD (본 세션) |
+| S2g | ⬜ 대기 | 1h | — |
+| **합계** | | **~4.75h** (원 예상 7h) | |
+
+### 교훈 (다음 세션 learnings.md 반영 후보)
+
+1. **코드 조사 전 과대 계획 금지** — S2c(/invite 잠금), S2d(/pricing 삭제), S2e(/admin 이관)는 **실제 코드 상태 미확인으로 과대 예측**. 코드 조사 → 계획 순서가 맞음. v3.2 초안 시점에 코드 조사 깊이 부족.
+2. **경계선 결정의 전파 효과** — "members 유지"와 "invite 잠금"이 동시에 성립 불가 → 경계선 결정 시 관련 경로 전체 dependency 파악 필수.
+3. **"삭제"를 "잠금"으로 전환하는 원칙** — /signup, /onboarding, /pricing 모두 삭제 대신 유지(잠금 또는 그대로)로 전환하면 2차 복구 비용 0.
+4. **TS unreachable narrow 한계** — `notFound()` 이후 코드를 TS는 unreachable로 narrow 못함. 기존 로직 유지하면서 notFound 추가하는 패턴 대신 **미니멀 재작성 + git history 보존** 방식 권장.
+
+### 차기 Task
+- **Task-S2g** (다음 세션): `docs/dogfooding-checklist.md` 작성 (Jayden 1~2주 실사용 가이드)
+- Task-S2g 완료 후: 1차 DoD 선언 → Jayden dogfooding 시작
+
+---
+
+
 
 ## 세션 2026-04-24 末-2 (v3.2 수정 PRD 확정 — 옵션 B 1차 범위 + Task-S2a~g 분해)
 
