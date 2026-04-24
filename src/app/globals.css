@@ -36,7 +36,7 @@
 
 @theme inline {
   /* Typography (Studio Anthem) */
-  --font-sans: var(--font-geist), "Geist Fallback", var(--font-pretendard), "Pretendard Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-geist-sans), "Geist Fallback", var(--font-pretendard), "Pretendard Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-serif: var(--font-fraunces), "Fraunces Fallback", ui-serif, Georgia, serif;
   --font-heading: var(--font-fraunces), "Fraunces Fallback", var(--font-pretendard), "Pretendard Variable", ui-serif, Georgia, serif;

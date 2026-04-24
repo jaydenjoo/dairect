@@ -11,15 +11,8 @@ export const fraunces = Fraunces({
   variable: "--font-fraunces",
 });
 
-export const geist = {
-  ...GeistSans,
-  variable: "--font-geist",
-};
-
-export const geistMono = {
-  ...GeistMono,
-  variable: "--font-geist-mono",
-};
+export const geist = GeistSans;
+export const geistMono = GeistMono;
 
 export const pretendard = localFont({
   src: [{ path: "../fonts/PretendardVariable.woff2", style: "normal" }],

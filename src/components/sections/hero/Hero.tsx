@@ -45,10 +45,10 @@ export function Hero() {
 
             <Reveal delay={0.18}>
               <p className="font-serif italic font-light text-[clamp(18px,1.4vw,22px)] leading-[1.5] text-ink/75 m-0">
-                Human <em className="text-signal not-italic font-serif italic">directs.</em>{" "}
+                Human <em className="text-signal font-serif italic">directs.</em>{" "}
                 <span className="font-medium">
                   Machine{" "}
-                  <em className="text-signal not-italic font-mono not-italic">executes.</em>
+                  <code className="text-signal font-mono not-italic">executes.</code>
                 </span>
                 <br />
                 And the page looks <em className="text-signal font-serif italic">like both.</em>
