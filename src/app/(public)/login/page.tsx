@@ -182,6 +182,11 @@ function LoginForm() {
             </Button>
           </form>
 
+          {/*
+           * Task-S2b (2026-04-24 末 v3.2): 1차 잠금 — 회원가입 공개 차단.
+           * /signup 페이지 자체가 notFound()이므로 이 링크도 주석 처리. 2차 진입 시 이 블록 복구.
+           */}
+          {/*
           <div className="text-center text-xs text-muted-foreground">
             계정이 없으신가요?{" "}
             <Link
@@ -191,6 +196,7 @@ function LoginForm() {
               회원가입
             </Link>
           </div>
+          */}
         </div>
 
         <p className="text-center text-xs text-muted-foreground">
