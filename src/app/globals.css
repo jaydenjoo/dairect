@@ -122,6 +122,13 @@
   /* Hard shadow — ALWAYS sharp, NEVER blurred */
   --shadow-amber-sm: 3px 3px 0 0 var(--color-signal);
   --shadow-amber-md: 4px 4px 0 0 var(--color-signal);
+
+  /* Letter-spacing presets (번들 tailwind.config.ts letterSpacing extend) */
+  --tracking-tight-1: -0.01em;
+  --tracking-tight-2: -0.02em;
+  --tracking-tight-3: -0.025em;
+  --tracking-mono-wide: 0.12em;
+  --tracking-label-wide: 0.18em;
 }
 
 /* ─── Light Theme (shadcn 매핑 — Epic 6에서 Amber로 재매핑 예정) ─── */
