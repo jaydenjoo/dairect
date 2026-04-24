@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { guardSingleLine, guardMultiLine } from "./shared-text";
+import { portfolioMetaSchema } from "./portfolio";
 
 export const projectStatuses = [
   "lead", "consulting", "estimate", "contract",
@@ -118,6 +119,8 @@ export const publicFieldsSchema = z
       .array(z.string().min(1).max(24).regex(tagPattern, "태그에 허용되지 않는 문자가 있습니다"))
       .max(8, "태그는 최대 8개까지 가능합니다")
       .default([]),
+    // Task 6-ext (2026-04-25): /projects 번들 디스플레이 메타 (nameAmber, cat, year, dur, stack, …)
+    portfolioMeta: portfolioMetaSchema.optional(),
   })
   .strict()
   .refine(

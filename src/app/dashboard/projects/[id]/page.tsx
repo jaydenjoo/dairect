@@ -240,6 +240,7 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
                     publicDescription: project.publicDescription,
                     publicLiveUrl: project.publicLiveUrl,
                     publicTags: project.publicTags,
+                    portfolioMeta: project.portfolioMeta,
                   }}
                 />
               </div>

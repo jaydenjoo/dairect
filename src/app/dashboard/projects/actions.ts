@@ -88,6 +88,7 @@ export async function getProject(id: string) {
       publicDescription: projects.publicDescription,
       publicTags: projects.publicTags,
       publicLiveUrl: projects.publicLiveUrl,
+      portfolioMeta: projects.portfolioMeta,
     })
     .from(projects)
     .leftJoin(clients, eq(clients.id, projects.clientId))
@@ -302,6 +303,19 @@ type PublicFieldsFormData = {
   publicDescription: string;
   publicLiveUrl: string;
   publicTagsRaw: string; // 쉼표 구분 입력
+  // Task 6-ext (2026-04-25): /projects 번들 메타 (10 필드). 폼에서 미제출 시 undefined → 기존 값 보존.
+  portfolioMeta?: {
+    nameAmber?: string;
+    cat?: string;
+    year?: string;
+    dur?: string;
+    stack?: string;
+    status?: string;
+    statusType?: string;
+    badge?: string;
+    meta?: string;
+    order?: number;
+  };
 };
 
 function parseTags(raw: string): string[] {
@@ -341,6 +355,7 @@ export async function updateProjectPublicFieldsAction(
     publicDescription: data.publicDescription,
     publicLiveUrl: data.publicLiveUrl.trim(),
     publicTags: parseTags(data.publicTagsRaw),
+    portfolioMeta: data.portfolioMeta,
   });
   if (!parsed.success) {
     const userIssue = parsed.error.issues.find((i) => i.code !== "unrecognized_keys");
@@ -362,6 +377,9 @@ export async function updateProjectPublicFieldsAction(
         publicDescription: v.publicDescription || null,
         publicLiveUrl: v.publicLiveUrl || null,
         publicTags: v.publicTags.length > 0 ? v.publicTags : null,
+        // Task 6-ext (2026-04-25): portfolioMeta 전송된 경우만 업데이트 (undefined → 기존 값 보존).
+        // Zod optional 이므로 v.portfolioMeta 는 parsed 된 (defaults 적용된) 객체 혹은 undefined.
+        ...(v.portfolioMeta ? { portfolioMeta: v.portfolioMeta } : {}),
         updatedAt: new Date(),
       })
       .where(

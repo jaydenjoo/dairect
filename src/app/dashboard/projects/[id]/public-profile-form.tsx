@@ -8,6 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Loader2, ExternalLink } from "lucide-react";
 import { updateProjectPublicFieldsAction } from "../actions";
+import {
+  parsePortfolioMeta,
+  type PortfolioCategory,
+  type PortfolioStatusType,
+} from "@/lib/validation/portfolio";
 
 interface Initial {
   isPublic: boolean;
@@ -15,12 +20,25 @@ interface Initial {
   publicDescription: string | null;
   publicLiveUrl: string | null;
   publicTags: string[] | null;
+  portfolioMeta: unknown; // jsonb raw → parsePortfolioMeta 로 안전 복원
 }
 
 interface Props {
   projectId: string;
   initial: Initial;
 }
+
+const CATEGORY_OPTIONS: Array<{ value: PortfolioCategory; label: string }> = [
+  { value: "saas", label: "SaaS" },
+  { value: "automation", label: "Automation" },
+  { value: "editorial", label: "Editorial" },
+  { value: "tools", label: "Tools" },
+];
+
+const STATUS_TYPE_OPTIONS: Array<{ value: PortfolioStatusType; label: string }> = [
+  { value: "live", label: "Live (녹색)" },
+  { value: "wip", label: "WIP (먼지색)" },
+];
 
 const TAGS_RAW_MAX = 500;
 
@@ -46,6 +64,20 @@ export function PublicProfileForm({ projectId, initial }: Props) {
   const [tagsRaw, setTagsRaw] = useState<string>(
     (initial.publicTags ?? []).join(", "),
   );
+
+  // Task 6-ext (2026-04-25): 번들 포트폴리오 메타 10필드 로컬 state
+  const initialMeta = parsePortfolioMeta(initial.portfolioMeta);
+  const [nameAmber, setNameAmber] = useState<string>(initialMeta.nameAmber);
+  const [cat, setCat] = useState<PortfolioCategory>(initialMeta.cat);
+  const [year, setYear] = useState<string>(initialMeta.year);
+  const [dur, setDur] = useState<string>(initialMeta.dur);
+  const [stack, setStack] = useState<string>(initialMeta.stack);
+  const [status, setStatus] = useState<string>(initialMeta.status);
+  const [statusType, setStatusType] = useState<PortfolioStatusType>(initialMeta.statusType);
+  const [badge, setBadge] = useState<string>(initialMeta.badge);
+  const [metaHint, setMetaHint] = useState<string>(initialMeta.meta);
+  const [order, setOrder] = useState<string>(String(initialMeta.order));
+
   const [pending, startTransition] = useTransition();
 
   const aliasRequired = isPublic && alias.trim().length === 0;
@@ -53,12 +85,25 @@ export function PublicProfileForm({ projectId, initial }: Props) {
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     startTransition(async () => {
+      const orderNum = Number.parseInt(order, 10);
       const result = await updateProjectPublicFieldsAction(projectId, {
         isPublic,
         publicAlias: alias,
         publicDescription: description,
         publicLiveUrl: liveUrl,
         publicTagsRaw: tagsRaw,
+        portfolioMeta: {
+          nameAmber: nameAmber.trim(),
+          cat,
+          year: year.trim(),
+          dur: dur.trim(),
+          stack: stack.trim(),
+          status: status.trim(),
+          statusType,
+          badge: badge.trim(),
+          meta: metaHint.trim(),
+          order: Number.isFinite(orderNum) ? orderNum : 0,
+        },
       });
       if (result.success) {
         // 서버가 trim/dedupe/cap 정규화했으므로 로컬도 맞춘다
@@ -196,6 +241,178 @@ export function PublicProfileForm({ projectId, initial }: Props) {
         <p className="text-xs text-muted-foreground">
           실제 배포된 URL이 있으면 입력하세요. 상세 페이지에 &quot;라이브 보기&quot; 버튼이 나타납니다.
         </p>
+      </div>
+
+      {/* 번들 포트폴리오 메타 (Task 6-ext) — /projects 페이지 표시용 10 필드 */}
+      <div className="space-y-4 rounded-xl border border-border/60 bg-background/50 p-4">
+        <div className="space-y-1">
+          <h3 className="font-mono text-xs uppercase tracking-[0.12em] text-muted-foreground">
+            /projects 번들 메타
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            공개 시 <span className="font-mono text-foreground/80">/projects</span> 페이지에 표시되는
+            보조 정보입니다. 비어 있어도 공개는 가능합니다.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* nameAmber — 제목 끝 amber 분리 */}
+          <div className="space-y-2">
+            <Label htmlFor="meta-nameAmber" className="text-sm font-medium text-foreground">
+              제목 amber 부분
+            </Label>
+            <Input
+              id="meta-nameAmber"
+              value={nameAmber}
+              onChange={(e) => setNameAmber(e.target.value)}
+              placeholder='예: "sio" → "Chat" + "sio"(강조)'
+              maxLength={40}
+            />
+            <p className="text-xs text-muted-foreground">
+              별칭 뒤에 붙여 amber 컬러로 강조할 글자. (없으면 빈 칸)
+            </p>
+          </div>
+
+          {/* cat */}
+          <div className="space-y-2">
+            <Label htmlFor="meta-cat" className="text-sm font-medium text-foreground">
+              카테고리
+            </Label>
+            <select
+              id="meta-cat"
+              value={cat}
+              onChange={(e) => setCat(e.target.value as PortfolioCategory)}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {CATEGORY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* year */}
+          <div className="space-y-2">
+            <Label htmlFor="meta-year" className="text-sm font-medium text-foreground">
+              Year
+            </Label>
+            <Input
+              id="meta-year"
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              placeholder="2025"
+              maxLength={10}
+            />
+          </div>
+
+          {/* dur */}
+          <div className="space-y-2">
+            <Label htmlFor="meta-dur" className="text-sm font-medium text-foreground">
+              Duration
+            </Label>
+            <Input
+              id="meta-dur"
+              value={dur}
+              onChange={(e) => setDur(e.target.value)}
+              placeholder="2w"
+              maxLength={20}
+            />
+          </div>
+
+          {/* stack */}
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="meta-stack" className="text-sm font-medium text-foreground">
+              Stack
+            </Label>
+            <Input
+              id="meta-stack"
+              value={stack}
+              onChange={(e) => setStack(e.target.value)}
+              placeholder="Next.js · Supabase · Claude"
+              maxLength={200}
+            />
+          </div>
+
+          {/* status */}
+          <div className="space-y-2">
+            <Label htmlFor="meta-status" className="text-sm font-medium text-foreground">
+              Status 텍스트
+            </Label>
+            <Input
+              id="meta-status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              placeholder="Live · 12 clients"
+              maxLength={100}
+            />
+          </div>
+
+          {/* statusType */}
+          <div className="space-y-2">
+            <Label htmlFor="meta-statusType" className="text-sm font-medium text-foreground">
+              Status 색상
+            </Label>
+            <select
+              id="meta-statusType"
+              value={statusType}
+              onChange={(e) => setStatusType(e.target.value as PortfolioStatusType)}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {STATUS_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* badge */}
+          <div className="space-y-2">
+            <Label htmlFor="meta-badge" className="text-sm font-medium text-foreground">
+              Badge
+            </Label>
+            <Input
+              id="meta-badge"
+              value={badge}
+              onChange={(e) => setBadge(e.target.value)}
+              placeholder="★ Featured · SaaS"
+              maxLength={60}
+            />
+          </div>
+
+          {/* meta (cursor-thumb hint) */}
+          <div className="space-y-2">
+            <Label htmlFor="meta-metaHint" className="text-sm font-medium text-foreground">
+              Meta hint
+            </Label>
+            <Input
+              id="meta-metaHint"
+              value={metaHint}
+              onChange={(e) => setMetaHint(e.target.value)}
+              placeholder="AI CHAT · N°01"
+              maxLength={60}
+            />
+          </div>
+
+          {/* order */}
+          <div className="space-y-2">
+            <Label htmlFor="meta-order" className="text-sm font-medium text-foreground">
+              정렬 순서
+            </Label>
+            <Input
+              id="meta-order"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={9999}
+              value={order}
+              onChange={(e) => setOrder(e.target.value)}
+              placeholder="1"
+            />
+            <p className="text-xs text-muted-foreground">낮은 숫자가 먼저 표시됩니다.</p>
+          </div>
+        </div>
       </div>
 
       {/* 저장 */}
