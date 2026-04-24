@@ -8,10 +8,9 @@ import {
   users,
   workspaceInvitations,
   workspaceMembers,
-  workspaceSettings,
 } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
-import { getMaxMembers, getPlanLabel, suggestUpgradeTarget } from "@/lib/plans";
+import { MAX_MEMBERS } from "@/lib/plans";
 import { scrubInvitationActivityLogs } from "@/lib/privacy/scrub-pii";
 import { createClient } from "@/lib/supabase/server";
 import { sanitizeLogMessage } from "@/lib/utils/sanitize";
@@ -62,15 +61,14 @@ type AcceptResult =
         | "UNKNOWN";
     };
 
-// Phase 5.5 Task 5-5-2: 수락 측 plan 한도 게이트 (code-reviewer CRIT-1 반영).
-// 발송 시점에 통과한 초대도 plan downgrade(pro→free) 또는 SQL 직접 INSERT 우회 시
-// 수락 시점에 한도가 깨질 수 있음 → defense-in-depth로 transaction 안에서 재검증.
+// Task-S2a (2026-04-24 末): plan 필드 제거 — SaaS 구독 취소로 플랜 차등 폐기.
+// 발송 시점에 통과한 초대도 SQL 직접 INSERT 우회 시 수락 시점에 한도가 깨질 수 있음
+// → defense-in-depth로 transaction 안에서 단일 MAX_MEMBERS 재검증.
 class AcceptLimitExceededError extends Error {
   readonly code = "ACCEPT_LIMIT_EXCEEDED" as const;
   constructor(
     readonly memberCount: number,
     readonly limit: number,
-    readonly plan: string,
   ) {
     super("ACCEPT_LIMIT_EXCEEDED");
     this.name = "AcceptLimitExceededError";
@@ -168,20 +166,8 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
         .limit(1);
 
       if (!existingMember) {
-        const [settingsRow] = await tx
-          .select({ plan: workspaceSettings.plan })
-          .from(workspaceSettings)
-          .where(eq(workspaceSettings.workspaceId, existing.workspaceId))
-          .limit(1);
-        // Task 5-5-5 HIGH-4: workspace_settings row 누락 시 silent fallback 대신 알림.
-        if (!settingsRow) {
-          console.error("[acceptInvitationAction] workspace_settings row missing — fallback to 'free'", {
-            event: "workspace_settings.missing_fallback",
-            workspaceId: existing.workspaceId,
-          });
-        }
-        const plan = settingsRow?.plan ?? "free";
-        const limit = getMaxMembers(plan);
+        // Task-S2a: 단일 고정 한도 MAX_MEMBERS 적용 (plan 차등 제거).
+        const limit = MAX_MEMBERS;
 
         const [memberCountRow] = await tx
           .select({ count: sql<number>`count(*)::int` })
@@ -193,7 +179,7 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
         // pending 초대 수는 빼지 않음: 자기 invitation은 곧 accept되어 member로 전환되므로
         // pending - 1 + member + 1 = 합 동일. members만 보면 충분.
         if (memberCount >= limit) {
-          throw new AcceptLimitExceededError(memberCount, limit, plan);
+          throw new AcceptLimitExceededError(memberCount, limit);
         }
       }
 
@@ -286,14 +272,12 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
     revalidatePath("/dashboard");
     return { success: true, workspaceId };
   } catch (err) {
-    // Phase 5.5 Task 5-5-2: 한도 초과 분기 (instanceof 매칭 — DUPLICATE/RACE 분기보다 먼저).
+    // Task-S2a: plan 차등 제거 → 단일 고정 한도 안내. 문의 링크는 랜딩 /#contact.
+    // 한도 초과 분기 (instanceof 매칭 — DUPLICATE/RACE 분기보다 먼저).
     if (err instanceof AcceptLimitExceededError) {
-      const planLabel = getPlanLabel(err.plan);
-      const upgradeTo = suggestUpgradeTarget(err.plan);
-      const limitText = Number.isFinite(err.limit) ? `${err.limit}명` : "무제한";
       return {
         success: false,
-        error: `워크스페이스 멤버 한도(${planLabel} 플랜 ${limitText})에 도달했습니다. 워크스페이스 관리자가 ${upgradeTo} 플랜으로 업그레이드하거나 기존 멤버를 정리한 후 다시 시도해주세요.`,
+        error: `워크스페이스 멤버 한도(${err.limit}명)에 도달했습니다. 워크스페이스 관리자가 기존 멤버를 정리한 후 다시 시도해주세요. 한도 확장이 필요하시면 /#contact 로 문의해주세요.`,
         code: "LIMIT_EXCEEDED",
       };
     }

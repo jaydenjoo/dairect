@@ -15,7 +15,7 @@ import {
   isWeeklyDataEmpty,
   type BriefingContent,
 } from "@/lib/validation/briefing";
-import { getAiDailyLimit } from "@/lib/validation/ai-estimate";
+import { AI_DAILY_LIMIT } from "@/lib/validation/ai-estimate";
 
 // 쿨다운: 같은 주 재호출이 10초 내면 AI/DB write 생략하고 기존 row 반환.
 // 더블클릭·빈 데이터 flooding 등으로 DB/Claude 비용 중복 발생 방어 (리뷰 H2 + M1).
@@ -140,14 +140,9 @@ export async function regenerateBriefingAction(): Promise<RegenerateResult> {
     return { success: false, error: "워크스페이스를 확인할 수 없습니다", code: "AUTH" };
   }
 
-  // Task 5-2-2b 잔여 C-H1 (마이그레이션 0032): plan 기반 분기로 dailyLimit 확보.
-  // workspace_settings default 'free' NOT NULL — 정상 경로에서 planRow 항상 존재.
-  const [planRow] = await db
-    .select({ plan: workspaceSettings.plan })
-    .from(workspaceSettings)
-    .where(eq(workspaceSettings.workspaceId, workspaceId))
-    .limit(1);
-  const dailyLimit = getAiDailyLimit(planRow?.plan);
+  // Task-S2a (2026-04-24 末): plan 차등 제거 — 단일 고정 AI 일일 한도 (남용 방어용).
+  // 역사: 원래 workspace_settings.plan 기반 분기(free=200/pro=1000/team=3000) → SaaS 취소로 통합.
+  const dailyLimit = AI_DAILY_LIMIT;
 
   const { weekStart } = getKstDateParts();
 

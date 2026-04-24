@@ -2,31 +2,18 @@ import { z } from "zod";
 
 // ─── AI 호출 제약 ───
 
-// Task 5-2-2b 잔여 C-H1 해소 (마이그레이션 0032): 고정 상수 AI_DAILY_LIMIT=200 제거.
-// workspace_settings.plan 컬럼(text CHECK IN ('free','pro','team')) 기반 분기로 전환.
-// 1인 기준 200이 멤버 N명 체감 200/N으로 희석되던 문제를 plan별 상향으로 해소.
-// Phase 5.5 billing에서 plan 변경 UI/Stripe 연동 예정. 현재는 free 기본값.
+// Dairect v3.2 (2026-04-24 末 Task-S2a): 단일 고정 AI 일일 한도 — Claude API 비용 방어용.
 //
-// 변경 시 DB CHECK 제약(0032)과 동반 수정 필수:
-//   - 신규 plan 추가: PLAN_AI_DAILY_LIMITS 추가 + 마이그레이션으로 CHECK 제약 DROP/ADD
-//   - plan 이름 변경: 동일 2파일 동기화
-export const workspacePlans = ["free", "pro", "team"] as const;
-export type WorkspacePlan = (typeof workspacePlans)[number];
-
-export const PLAN_AI_DAILY_LIMITS: Record<WorkspacePlan, number> = {
-  free: 200,
-  pro: 1000,
-  team: 3000,
-};
-
-// DB row의 plan 값이 null/undefined/미지정이면 free로 귀속 (방어적 기본값).
-// workspace_settings는 default 'free' NOT NULL이라 정상 경로에서 null 불가 — 타입 안전 fallback.
-export function getAiDailyLimit(plan: string | null | undefined): number {
-  if (plan && (workspacePlans as readonly string[]).includes(plan)) {
-    return PLAN_AI_DAILY_LIMITS[plan as WorkspacePlan];
-  }
-  return PLAN_AI_DAILY_LIMITS.free;
-}
+// 역사적 맥락:
+//   - Task 5-2-2b(0032)에서 plan별 차등(free=200/pro=1000/team=3000)으로 전환했었음
+//   - 2026-04-24 Jayden 결정으로 SaaS 구독 모델 취소 → 플랜 차등 폐기
+//   - 현재 "전원 동일 200회/일" 단일 상수로 축소 (기존 free 값 유지 — 보수적)
+//
+// 현재 의미:
+//   - workspace 1개당 하루 AI 호출 상한 (브리핑/리포트/견적 합산)
+//   - UTC 자정 리셋
+//   - 한도 근거: Jayden 실사용 추정 하루 10~30회 × 10배 여유 = 200회. Claude API 비용 상한.
+export const AI_DAILY_LIMIT = 200;
 
 export const AI_REQUIREMENTS_MIN = 100;
 export const AI_REQUIREMENTS_MAX = 2000;

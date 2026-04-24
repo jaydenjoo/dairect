@@ -18,7 +18,7 @@ import {
   type EstimateFormData,
   type EstimateStatus,
 } from "@/lib/validation/estimates";
-import { getAiDailyLimit } from "@/lib/validation/ai-estimate";
+import { AI_DAILY_LIMIT } from "@/lib/validation/ai-estimate";
 import { paymentSplitItemSchema } from "@/lib/validation/settings";
 import { eq, and, desc, sql, like } from "drizzle-orm";
 import { z } from "zod";
@@ -115,18 +115,18 @@ export async function getEstimateDefaults() {
     { label: "중도금", percentage: 40 },
     { label: "잔금", percentage: 30 },
   ];
-  const defaultLimit = getAiDailyLimit("free");
+  // Task-S2a (2026-04-24 末): plan 차등 제거 — 단일 AI_DAILY_LIMIT 반환.
+  const dailyLimit = AI_DAILY_LIMIT;
 
   const workspaceId = await getCurrentWorkspaceId();
   if (!workspaceId) {
-    return { dailyRate: 700000, paymentSplit: defaultSplit, dailyLimit: defaultLimit };
+    return { dailyRate: 700000, paymentSplit: defaultSplit, dailyLimit };
   }
 
   const rows = await db
     .select({
       dailyRate: workspaceSettings.dailyRate,
       defaultPaymentSplit: workspaceSettings.defaultPaymentSplit,
-      plan: workspaceSettings.plan,
     })
     .from(workspaceSettings)
     .where(eq(workspaceSettings.workspaceId, workspaceId))
@@ -134,7 +134,7 @@ export async function getEstimateDefaults() {
 
   const row = rows[0];
   if (!row) {
-    return { dailyRate: 700000, paymentSplit: defaultSplit, dailyLimit: defaultLimit };
+    return { dailyRate: 700000, paymentSplit: defaultSplit, dailyLimit };
   }
 
   const parsedSplit = z.array(paymentSplitItemSchema).safeParse(row.defaultPaymentSplit);
@@ -142,7 +142,7 @@ export async function getEstimateDefaults() {
   return {
     dailyRate: row.dailyRate ?? 700000,
     paymentSplit: parsedSplit.success ? parsedSplit.data : defaultSplit,
-    dailyLimit: getAiDailyLimit(row.plan),
+    dailyLimit,
   };
 }
 

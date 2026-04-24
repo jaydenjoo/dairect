@@ -6,13 +6,12 @@ import {
   users,
   workspaceInvitations,
   workspaceMembers,
-  workspaceSettings,
 } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
 import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
 import { getCurrentWorkspaceRole } from "@/lib/auth/get-workspace-role";
 import { canManageMembers } from "@/lib/auth/workspace-permissions";
-import { getMaxMembers, getPlanLabel, suggestUpgradeTarget } from "@/lib/plans";
+import { MAX_MEMBERS } from "@/lib/plans";
 import { MembersClient, type MemberRow, type InvitationRow } from "./members-client";
 
 export const metadata: Metadata = {
@@ -39,12 +38,12 @@ export default async function MembersPage() {
   const role = await getCurrentWorkspaceRole(userId, workspaceId);
   if (!canManageMembers(role)) redirect("/dashboard");
 
-  // ─── Phase 5.5 Task 5-5-2 후속 HIGH-1: 4개 SELECT를 단일 transaction + REPEATABLE READ로 묶음 ───
-  // 기존 구조는 memberRows / invitationRows / settingsRow / pendingCountRow 4개가 독립 statement.
-  // 4 SELECT 사이에 다른 세션의 INSERT/UPDATE가 끼어들면 "members.length + pendingCount"가
+  // ─── Phase 5.5 Task 5-5-2 후속 HIGH-1: 3개 SELECT를 단일 transaction + REPEATABLE READ로 묶음 ───
+  // (Task-S2a: workspace_settings.plan SELECT 제거 — plan 차등 폐기로 불필요)
+  // 3 SELECT 사이에 다른 세션의 INSERT/UPDATE가 끼어들면 "members.length + pendingCount"가
   // 실제 DB 상태와 일시 불일치 → 화면 "N/M" 표시값이 1-2명 어긋남 (UX 영향만, server transaction이
   // INSERT 경로의 실제 정합은 보장). REPEATABLE READ는 transaction 시작 시점 snapshot 고정 →
-  // 4 SELECT가 같은 시점을 본다고 보장. read-only라 직렬화 충돌 위험 ~0.
+  // 3 SELECT가 같은 시점을 본다고 보장. read-only라 직렬화 충돌 위험 ~0.
   //
   // Drizzle 공식 config 인자 사용 (code-reviewer LOW-1):
   //   - isolationLevel: "repeatable read" → BEGIN 직후 SET TRANSACTION 자동 발행 (실수/순서 방지)
@@ -52,9 +51,6 @@ export default async function MembersPage() {
   //
   // statement_timeout 3s (security-reviewer M1): 병렬 탭/스크립트 연속 호출로 connection 슬롯을
   // 오래 점유하는 DoS 벡터 경화. 정상 render는 ms 단위라 3s 여유 충분.
-  //
-  // 만료/pending 판정은 NOW() = transaction_timestamp() (REPEATABLE READ snapshot 시점 고정) 사용
-  // (security-reviewer M3) → 4 SELECT 모두 동일 시각 기준 → Server Component Date.now() purity 위반도 회피.
   const snapshot = await db.transaction(
     async (tx) => {
       await tx.execute(sql`SET LOCAL statement_timeout = '3s'`);
@@ -86,12 +82,6 @@ export default async function MembersPage() {
         .where(eq(workspaceInvitations.workspaceId, workspaceId))
         .orderBy(desc(workspaceInvitations.createdAt));
 
-      const [settingsRow] = await tx
-        .select({ plan: workspaceSettings.plan })
-        .from(workspaceSettings)
-        .where(eq(workspaceSettings.workspaceId, workspaceId))
-        .limit(1);
-
       const [pendingCountRow] = await tx
         .select({ count: sql<number>`count(*)::int` })
         .from(workspaceInvitations)
@@ -107,7 +97,6 @@ export default async function MembersPage() {
       return {
         memberRows,
         invitationRows,
-        plan: settingsRow?.plan ?? null,
         pendingCount: pendingCountRow?.count ?? 0,
       };
     },
@@ -135,22 +124,9 @@ export default async function MembersPage() {
     revokedAtIso: r.revokedAt ? r.revokedAt.toISOString() : null,
   }));
 
-  // Task 5-5-5 HIGH-4: workspace_settings row 누락 시 silent fallback 대신 알림.
-  // (transaction 바깥으로 이동 — side effect는 트랜잭션 커밋 후 처리가 안전.)
-  if (snapshot.plan === null) {
-    console.error("[members/page] workspace_settings row missing — fallback to 'free'", {
-      event: "workspace_settings.missing_fallback",
-      workspaceId,
-    });
-  }
-  const plan = snapshot.plan ?? "free";
-  const planLabel = getPlanLabel(plan);
-  const upgradeTarget = suggestUpgradeTarget(plan);
-  const limit = getMaxMembers(plan);
-
+  // Task-S2a (2026-04-24 末): plan 차등 제거 — 단일 고정 한도 MAX_MEMBERS 사용.
+  const limit = MAX_MEMBERS;
   const used = members.length + snapshot.pendingCount;
-  // Infinity는 JSON 직렬화 시 null로 변환되므로 client prop은 number|null로 정규화.
-  const limitForClient = Number.isFinite(limit) ? limit : null;
 
   return (
     <div className="py-10">
@@ -165,9 +141,7 @@ export default async function MembersPage() {
         <MembersClient
           members={members}
           invitations={invitations}
-          planLabel={planLabel}
-          upgradeTarget={upgradeTarget}
-          limit={limitForClient}
+          limit={limit}
           used={used}
         />
       </div>

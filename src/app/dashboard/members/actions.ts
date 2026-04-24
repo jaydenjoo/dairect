@@ -9,7 +9,6 @@ import {
   users,
   workspaceInvitations,
   workspaceMembers,
-  workspaceSettings,
   workspaces,
 } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
@@ -17,7 +16,7 @@ import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
 import { getCurrentWorkspaceRole } from "@/lib/auth/get-workspace-role";
 import { canManageMembers } from "@/lib/auth/workspace-permissions";
 import { sendInvitationEmail } from "@/lib/email/resend";
-import { getMaxMembers, getPlanLabel, suggestUpgradeTarget } from "@/lib/plans";
+import { MAX_MEMBERS } from "@/lib/plans";
 import { scrubInvitationActivityLogs } from "@/lib/privacy/scrub-pii";
 import { checkAndIncrementRateLimit, parseRateLimit } from "@/lib/rate-limit";
 import { sanitizeFreeText, sanitizeLogMessage } from "@/lib/utils/sanitize";
@@ -76,14 +75,14 @@ const INVITE_RATE_LIMITS = {
   },
 };
 
-// Phase 5.5 Task 5-5-2: plan별 멤버 수 상한 도달 시 트랜잭션 안에서 throw → 외부 catch에서 분기.
+// Task-S2a (2026-04-24 末): plan 필드 제거 — SaaS 구독 취소로 플랜 차등 폐기.
+// 단일 고정 한도 MAX_MEMBERS 도달 시 트랜잭션 안에서 throw → 외부 catch에서 분기.
 // transaction 내부에서 throw하면 drizzle이 자동 ROLLBACK + 외부로 propagate.
 class MemberLimitExceededError extends Error {
   readonly code = "MEMBER_LIMIT_EXCEEDED" as const;
   constructor(
     readonly used: number,
     readonly limit: number,
-    readonly plan: string,
   ) {
     super("MEMBER_LIMIT_EXCEEDED");
     this.name = "MemberLimitExceededError";
@@ -221,11 +220,10 @@ export async function createInvitationAction(formData: FormData): Promise<Action
     };
   }
 
-  // Phase 5.5 Task 5-5-2: plan별 멤버 한도 게이트 + 기존 INSERT를 단일 트랜잭션에 묶음.
+  // Task-S2a (2026-04-24 末): plan 차등 제거 — 단일 고정 한도 MAX_MEMBERS 게이트.
   // - advisory lock으로 workspace 단위 잠금 → 동시에 들어온 초대 INSERT 직렬화 (TOCTOU 방어).
-  // - workspace_settings.plan SELECT → getMaxMembers로 한도 산출.
   // - workspace_members count + workspace_invitations pending count 합산 → used.
-  // - used >= limit이면 MemberLimitExceededError throw → 트랜잭션 ROLLBACK → 외부 catch에서 분기.
+  // - used >= MAX_MEMBERS이면 MemberLimitExceededError throw → 트랜잭션 ROLLBACK → 외부 catch에서 분기.
   //
   // Task 5-5-5 cleanup-3 + Task D: createdInvitationId — email 실패 → 자동 revoke 실패의
   // double-fault 시 stuck row(pending 상태로 DB 잔존) 식별자로 사용.
@@ -239,21 +237,7 @@ export async function createInvitationAction(formData: FormData): Promise<Action
       // xact 변형은 트랜잭션 종료 시 자동 해제.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${workspaceId}, 0))`);
 
-      const [settingsRow] = await tx
-        .select({ plan: workspaceSettings.plan })
-        .from(workspaceSettings)
-        .where(eq(workspaceSettings.workspaceId, workspaceId))
-        .limit(1);
-      // Task 5-5-5 HIGH-4: workspace 생성 시 settings row 동시 생성 불변식 위반 알림.
-      // 정상 경로에서 발생 불가 — silent fallback 없이 즉시 인지하여 무결성 깨진 워크스페이스 추적.
-      if (!settingsRow) {
-        console.error("[createInvitationAction] workspace_settings row missing — fallback to 'free'", {
-          event: "workspace_settings.missing_fallback",
-          workspaceId,
-        });
-      }
-      const plan = settingsRow?.plan ?? "free";
-      const limit = getMaxMembers(plan);
+      const limit = MAX_MEMBERS;
 
       const [memberCountRow] = await tx
         .select({ count: sql<number>`count(*)::int` })
@@ -276,7 +260,7 @@ export async function createInvitationAction(formData: FormData): Promise<Action
 
       const used = memberCount + pendingCount;
       if (used >= limit) {
-        throw new MemberLimitExceededError(used, limit, plan);
+        throw new MemberLimitExceededError(used, limit);
       }
 
       const [inserted] = await tx
@@ -312,13 +296,11 @@ export async function createInvitationAction(formData: FormData): Promise<Action
     });
   } catch (err) {
     // 한도 초과 분기 (가장 먼저 — instanceof 매칭이 빠름)
+    // Task-S2a: plan 차등 제거 → 단일 고정 한도 안내. 문의 링크는 랜딩 /#contact.
     if (err instanceof MemberLimitExceededError) {
-      const planLabel = getPlanLabel(err.plan);
-      const upgradeTo = suggestUpgradeTarget(err.plan);
-      const limitText = Number.isFinite(err.limit) ? `${err.limit}명` : "무제한";
       return {
         success: false,
-        error: `현재 ${planLabel} 플랜의 멤버 한도(${limitText})에 도달했습니다. 기존 멤버나 발송된 초대를 정리하거나 ${upgradeTo} 플랜으로 업그레이드해주세요.`,
+        error: `멤버 한도(${err.limit}명)에 도달했습니다. 기존 멤버나 발송된 초대를 정리해주세요. 한도 확장이 필요하시면 /#contact 로 문의주세요.`,
         code: "LIMIT_EXCEEDED",
       };
     }

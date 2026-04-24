@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Mail, Trash2, UserPlus } from "lucide-react";
@@ -75,23 +76,17 @@ function formatDate(iso: string): string {
 type Props = {
   members: MemberRow[];
   invitations: InvitationRow[];
-  // Phase 5.5 Task 5-5-2: plan별 멤버 수 상한 게이트.
-  // planLabel = UI 표시용 ("Free"/"Pro"/"Team").
-  // upgradeTarget = 다음 단계 plan ("Pro" or "Team") — server에서 suggestUpgradeTarget로 산출.
-  // limit=null → 무제한 (Team 플랜). server에서 Infinity → null로 정규화.
-  // used = 현재 멤버 수 + pending 초대 수. server 산출 값(신뢰).
+  // Task-S2a (2026-04-24 末): plan 차등 제거 — 단일 고정 한도 props만 유지.
+  // limit = 단일 고정 상한 (MAX_MEMBERS). server 신뢰.
+  // used = 현재 멤버 수 + pending 초대 수. server 산출 값.
   // server 측이 createInvitationAction 트랜잭션 안에서 다시 검증하므로 client disabled는 UX 보조.
-  planLabel: string;
-  upgradeTarget: string;
-  limit: number | null;
+  limit: number;
   used: number;
 };
 
 export function MembersClient({
   members,
   invitations,
-  planLabel,
-  upgradeTarget,
   limit,
   used,
 }: Props) {
@@ -100,8 +95,8 @@ export function MembersClient({
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<InviteRole>("member");
 
-  const atLimit = limit !== null && used >= limit;
-  const limitText = limit === null ? "무제한" : `${limit}명`;
+  const atLimit = used >= limit;
+  const limitText = `${limit}명`;
 
   function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -148,7 +143,7 @@ export function MembersClient({
             <div className="font-medium text-foreground">
               {used} / {limitText}
             </div>
-            <div className="mt-0.5 text-muted-foreground">{planLabel} 플랜</div>
+            <div className="mt-0.5 text-muted-foreground">멤버 한도</div>
           </div>
         </div>
 
@@ -157,8 +152,8 @@ export function MembersClient({
             role="alert"
             className="mt-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
           >
-            {planLabel} 플랜의 멤버 한도({limitText})에 도달했습니다. 기존 멤버나 발송된 초대를
-            정리하거나 {upgradeTarget} 플랜으로 업그레이드하면 더 추가할 수 있어요.
+            멤버 한도({limitText})에 도달했습니다. 기존 멤버나 발송된 초대를 정리해주세요. 한도
+            확장이 필요하시면 <Link href="/#contact" className="underline">문의</Link>해주세요.
           </div>
         )}
 

@@ -600,8 +600,16 @@ export const workspaces = pgTable(
     name: text().notNull(),
     // URL-safe 식별자 (예: /invite/[token] 라우팅 맥락). 회원가입 자동 생성 로직은 Task 5-1-3/5-2-7에서.
     slug: text().notNull().unique(),
-    // Phase 5.5 Stripe 도입 전까지는 'free' 유지. CHECK로 enum 고정.
+    /**
+     * @deprecated 2026-04-24 Task-S2a — SaaS 구독 모델 취소로 읽지 않음.
+     * 컬럼/CHECK 제약은 DB에 보존 (재도입 여지, Jayden 결정 2 "B안").
+     * 재활성화 필요 시 이 주석 제거 + 소비처(billing webhook 등) 재구현.
+     */
     subscriptionStatus: text("subscription_status").default("free").notNull(),
+    /**
+     * @deprecated 2026-04-24 Task-S2a — SaaS 구독 모델 취소로 읽지 않음.
+     * Stripe 연동 폐기 (토스/포트원 포함). 컬럼은 DB에 보존.
+     */
     stripeCustomerId: text("stripe_customer_id"),
     // Task 5-2-2c: 로고 업로드 — Supabase Storage 버킷 'workspace-logos' 참조.
     //   logoUrl: 공개 URL (PDF/UI에 직접 삽입). 제거 시 NULL.
@@ -738,9 +746,13 @@ export const workspaceSettings = pgTable("workspace_settings", {
     .default(sql`now()`)
     .notNull(),
 
-  // 플랜 (Task 5-2-2b 잔여 C-H1 해소, 마이그레이션 0032).
-  // 허용 값: 'free' | 'pro' | 'team' — DB CHECK 제약으로 강제, TS 레이어는 PLAN_AI_DAILY_LIMITS 맵에 매핑.
-  // Phase 5.5 billing에서 plan 변경 UI/Stripe 연동 예정. 현재는 수동 SQL update만 가능.
+  /**
+   * @deprecated 2026-04-24 Task-S2a — SaaS 구독 모델 취소로 읽지 않음.
+   * 역사: 0032 마이그레이션에서 plan 차등(free/pro/team) AI 한도 분기 도입 → 2026-04-24 폐기.
+   * 현재 AI 일일 한도는 `AI_DAILY_LIMIT` 단일 상수 (src/lib/validation/ai-estimate.ts).
+   * 멤버 한도는 `MAX_MEMBERS` 단일 상수 (src/lib/plans.ts).
+   * 컬럼/CHECK 제약 'free'|'pro'|'team'은 DB에 보존 (Jayden 결정 2 "B안").
+   */
   plan: text("plan").notNull().default("free"),
 
   updatedAt: timestamp("updated_at", { withTimezone: true })
