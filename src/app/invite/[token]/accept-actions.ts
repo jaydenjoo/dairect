@@ -277,7 +277,7 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
     if (err instanceof AcceptLimitExceededError) {
       return {
         success: false,
-        error: `워크스페이스 멤버 한도(${err.limit}명)에 도달했습니다. 워크스페이스 관리자가 기존 멤버를 정리한 후 다시 시도해주세요. 한도 확장이 필요하시면 /#contact 로 문의해주세요.`,
+        error: `워크스페이스 멤버 한도(${err.limit}명)에 도달했습니다. 워크스페이스 관리자가 기존 멤버를 정리한 후 다시 시도해주세요. 한도 확장이 필요하시면 /about#contact 로 문의해주세요.`,
         code: "LIMIT_EXCEEDED",
       };
     }

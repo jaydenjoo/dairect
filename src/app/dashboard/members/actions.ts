@@ -300,7 +300,7 @@ export async function createInvitationAction(formData: FormData): Promise<Action
     if (err instanceof MemberLimitExceededError) {
       return {
         success: false,
-        error: `멤버 한도(${err.limit}명)에 도달했습니다. 기존 멤버나 발송된 초대를 정리해주세요. 한도 확장이 필요하시면 /#contact 로 문의주세요.`,
+        error: `멤버 한도(${err.limit}명)에 도달했습니다. 기존 멤버나 발송된 초대를 정리해주세요. 한도 확장이 필요하시면 /about#contact 로 문의주세요.`,
         code: "LIMIT_EXCEEDED",
       };
     }
