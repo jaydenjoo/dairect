@@ -295,7 +295,7 @@ export function ProjectsHero() {
               className="p-filter"
               role="tab"
               data-filter={f.key}
-              aria-pressed={i === 0 ? "true" : "false"}
+              aria-selected={i === 0 ? "true" : "false"}
               type="button"
             >
               {f.label}{" "}

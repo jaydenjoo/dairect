@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export function Work() {
   return (
     <section
@@ -19,9 +21,9 @@ export function Work() {
               저희가 만들었고, 실제 사용 중인 제품들. 각 프로젝트는 평균 2.1주
               안에 런칭됐습니다.
             </p>
-            <a href="/projects" className="work-all-link">
+            <Link href="/projects" className="work-all-link">
               View all work →
-            </a>
+            </Link>
           </div>
         </div>
 
