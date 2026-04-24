@@ -18,12 +18,13 @@ export const estimateStatusLabels: Record<EstimateStatus, string> = {
   expired: "만료",
 };
 
+// Studio Anthem 매핑: sent → amber(signal), 나머지는 semantic 유지
 export const estimateStatusColors: Record<EstimateStatus, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  sent: "bg-blue-50 text-blue-700",
+  draft: "bg-[rgba(20,20,20,0.06)] text-[#8B8680]",
+  sent: "bg-[rgba(255,184,0,0.12)] text-[#141414] border border-[#FFB800]",
   accepted: "bg-green-50 text-green-700",
   rejected: "bg-red-50 text-red-700",
-  expired: "bg-amber-50 text-amber-700",
+  expired: "bg-[rgba(20,20,20,0.04)] text-[#8B8680]",
 };
 
 export const estimateItemSchema = z.object({

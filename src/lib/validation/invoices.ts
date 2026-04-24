@@ -21,12 +21,13 @@ export const invoiceStatusLabels: Record<InvoiceStatus, string> = {
   cancelled: "취소",
 };
 
+// Studio Anthem 매핑: sent → amber(signal) / overdue → rust / 나머지 semantic
 export const invoiceStatusColors: Record<InvoiceStatus, string> = {
-  pending: "bg-gray-100 text-gray-700",
-  sent: "bg-blue-50 text-blue-700",
+  pending: "bg-[rgba(20,20,20,0.06)] text-[#8B8680]",
+  sent: "bg-[rgba(255,184,0,0.12)] text-[#141414] border border-[#FFB800]",
   paid: "bg-green-50 text-green-700",
-  overdue: "bg-red-50 text-red-700",
-  cancelled: "bg-gray-50 text-gray-500",
+  overdue: "bg-[rgba(200,90,59,0.12)] text-[#C85A3B] border border-[#C85A3B]",
+  cancelled: "bg-[rgba(20,20,20,0.04)] text-[#8B8680]",
 };
 
 export const invoiceTypes = ["advance", "interim", "final"] as const;

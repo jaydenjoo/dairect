@@ -14,15 +14,16 @@ export const metadata: Metadata = {
   title: "프로젝트",
 };
 
+// Studio Anthem 매핑: 진행 단계는 amber tint, 완료/경고는 semantic
 const statusColors: Record<string, string> = {
   lead: "bg-muted text-muted-foreground",
-  consulting: "bg-blue-50 text-blue-700",
-  estimate: "bg-indigo-50 text-indigo-700",
-  contract: "bg-violet-50 text-violet-700",
-  in_progress: "bg-primary/10 text-primary",
+  consulting: "bg-[rgba(255,184,0,0.08)] text-[#8B8680]",
+  estimate: "bg-[rgba(255,184,0,0.12)] text-[#141414] border border-[#FFB800]",
+  contract: "bg-[rgba(20,20,20,0.06)] text-[#141414] border border-[#141414]",
+  in_progress: "bg-[rgba(255,184,0,0.16)] text-[#141414] border border-[#FFB800]",
   review: "bg-amber-50 text-amber-700",
   completed: "bg-green-50 text-green-700",
-  warranty: "bg-orange-50 text-orange-700",
+  warranty: "bg-[rgba(200,90,59,0.12)] text-[#C85A3B]",
   closed: "bg-muted text-muted-foreground",
   cancelled: "bg-red-50 text-red-600",
   failed: "bg-red-50 text-red-600",

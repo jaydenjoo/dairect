@@ -17,11 +17,12 @@ export const metadata: Metadata = {
   title: "리드 CRM",
 };
 
+// Studio Anthem 매핑: 진행 단계는 amber tint, 계약/실패는 semantic
 const statusColors: Record<LeadStatus, string> = {
   new: "bg-muted text-muted-foreground",
-  scheduled: "bg-blue-50 text-blue-700",
-  consulted: "bg-indigo-50 text-indigo-700",
-  estimated: "bg-violet-50 text-violet-700",
+  scheduled: "bg-[rgba(255,184,0,0.08)] text-[#8B8680]",
+  consulted: "bg-[rgba(255,184,0,0.12)] text-[#141414] border border-[#FFB800]",
+  estimated: "bg-[rgba(20,20,20,0.06)] text-[#141414] border border-[#141414]",
   contracted: "bg-green-50 text-green-700",
   failed: "bg-red-50 text-red-600",
 };

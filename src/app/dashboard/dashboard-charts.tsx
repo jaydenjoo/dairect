@@ -24,7 +24,8 @@ interface ClientData {
   total: number;
 }
 
-const PIE_COLORS = ["#4F46E5", "#7C3AED", "#2563EB", "#059669", "#D97706"];
+// Studio Anthem palette — Ink 계열 + Signal Amber + Rust + Dust
+const PIE_COLORS = ["#141414", "#FFB800", "#C85A3B", "#8B8680", "#1F1F1F"];
 
 function formatMonthLabel(month: string): string {
   const [, m] = month.split("-");
@@ -45,17 +46,17 @@ export function MonthlyRevenueChart({ data }: { data: MonthlyData[] }) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <BarChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.06)" />
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(20,20,20,0.06)" />
         <XAxis
           dataKey="month"
           tickFormatter={formatMonthLabel}
-          tick={{ fontSize: 12, fill: "#6B7280" }}
+          tick={{ fontSize: 12, fill: "#8B8680" }}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
           tickFormatter={formatKRWShort}
-          tick={{ fontSize: 11, fill: "#6B7280" }}
+          tick={{ fontSize: 11, fill: "#8B8680" }}
           axisLine={false}
           tickLine={false}
           width={50}
@@ -64,13 +65,14 @@ export function MonthlyRevenueChart({ data }: { data: MonthlyData[] }) {
           formatter={(value) => [`${formatKRWShort(Number(value))}원`, "매출"]}
           labelFormatter={(label) => formatMonthLabel(String(label))}
           contentStyle={{
-            borderRadius: 8,
-            border: "none",
-            boxShadow: "0 2px 8px rgba(17,24,39,0.08)",
+            borderRadius: 2,
+            border: "1px solid rgba(20,20,20,0.12)",
+            boxShadow: "2px 2px 0 0 rgba(20,20,20,0.08)",
             fontSize: 12,
+            background: "#FAF7F0",
           }}
         />
-        <Bar dataKey="total" fill="#4F46E5" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="total" fill="#141414" radius={[2, 2, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -106,10 +108,11 @@ export function ClientRevenueChart({ data }: { data: ClientData[] }) {
           <Tooltip
             formatter={(value) => [`${formatKRWShort(Number(value))}원`]}
             contentStyle={{
-              borderRadius: 8,
-              border: "none",
-              boxShadow: "0 2px 8px rgba(17,24,39,0.08)",
+              borderRadius: 2,
+              border: "1px solid rgba(20,20,20,0.12)",
+              boxShadow: "2px 2px 0 0 rgba(20,20,20,0.08)",
               fontSize: 12,
+              background: "#FAF7F0",
             }}
           />
         </PieChart>
