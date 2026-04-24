@@ -384,6 +384,9 @@ export const activityLogs = pgTable("activity_logs", {
   action: text().notNull(),
   description: text(),
   metadata: jsonb(),
+  // Task B (audit-4): metadata PII가 pseudonym으로 익명화된 시점. NULL = 평문 상태.
+  // 참조: docs/pii-lifecycle.md §2-2 (즉시 이벤트 기반 scrub)
+  piiScrubbedAt: timestamp("pii_scrubbed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
 });
 

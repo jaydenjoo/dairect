@@ -34,10 +34,11 @@
 - RLS 필수 (user_id 기반 격리)
 - 12 테이블: users, user_settings, clients, client_notes, leads, projects, milestones, estimates, estimate_items, contracts, invoices, activity_logs
 - 채번: EST-YYYY-NNN / CON-YYYY-NNN / INV-YYYY-NNN
+- ⚠️ **MCP `apply_migration` 사용 시 반드시 `pnpm db:generate` + noop marker 후속** — 상세: [`docs/db-migrations-workflow.md`](docs/db-migrations-workflow.md)
 
 ## 검증 명령
 ```bash
-pnpm tsc --noEmit && pnpm lint && pnpm build
+pnpm tsc --noEmit && pnpm lint && pnpm build && pnpm db:check
 ```
 
 ## 핵심 참조

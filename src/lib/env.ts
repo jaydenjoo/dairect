@@ -70,6 +70,10 @@ const envSchema = z
       .string()
       .regex(/^[1-9]\d*$/, "1 이상 양의 정수 문자열이어야 함")
       .optional(),
+    // Task B (audit-4): PII pseudonymize salt. production 필수, dev fallback 허용.
+    // 정책: docs/pii-lifecycle.md §5 — 64자+ 권장. 회전(rotation)은 기존 pseudonym과
+    // 불일치 발생하므로 신중 (Phase 5.5 빌링 정책 확정 시 재검토).
+    PII_PSEUDONYM_SALT: z.string().min(32, "32자 이상 권장").optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== "production") return;
@@ -87,6 +91,27 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ["RESEND_FROM_EMAIL"],
         message: "production 필수 — Resend가 verified한 발신 주소 (예: invite@send.dairect.kr)",
+      });
+    }
+    // Task B (audit-4): production에서 PII_PSEUDONYM_SALT 누락 시 부팅 차단.
+    // 근거: 누락 시 hardcoded fallback으로 동작 → 실수로 prod 감사 로그가 dev pseudonym과 충돌/예측 가능.
+    if (!env.PII_PSEUDONYM_SALT) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["PII_PSEUDONYM_SALT"],
+        message:
+          "production 필수 — 64자+ 랜덤 hex (PII 익명화 salt). " +
+          "`openssl rand -hex 32` 로 생성 권장. 회전 시 기존 pseudonym과 불일치 발생.",
+      });
+    }
+    // Task B review M1: dev fallback 문자열을 실수로 production에 설정하는 것도 차단.
+    // env가 32자 이상이라도 fallback 문자열과 정확히 일치하면 보안 의미 없음.
+    else if (env.PII_PSEUDONYM_SALT === "dev-only-salt-do-not-use-in-prod") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["PII_PSEUDONYM_SALT"],
+        message:
+          "production에 dev fallback 문자열 금지 — `openssl rand -hex 32`로 새 값을 생성해 설정하세요.",
       });
     }
   });

@@ -557,6 +557,7 @@ function buildActivityLogs(base: Date): DemoActivityLog[] {
     action: s.action,
     description: s.description,
     metadata: null,
+    piiScrubbedAt: null,
     createdAt: timestampFromNow(-s.daysAgo, base),
   }));
 }

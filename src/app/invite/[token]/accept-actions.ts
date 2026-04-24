@@ -12,6 +12,7 @@ import {
 } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
 import { getMaxMembers, getPlanLabel, suggestUpgradeTarget } from "@/lib/plans";
+import { scrubInvitationActivityLogs } from "@/lib/privacy/scrub-pii";
 import { createClient } from "@/lib/supabase/server";
 import { sanitizeLogMessage } from "@/lib/utils/sanitize";
 import { acceptInvitationInputSchema } from "@/lib/validation/invite-accept";
@@ -143,6 +144,8 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
   }
 
   try {
+    // Task B (audit-4): tx 바깥에서 scrub 호출하기 위해 let으로 invitationId 캡처.
+    let acceptedInvitationId: string | null = null;
     const workspaceId = await db.transaction(async (tx) => {
       // ─── Phase 5.5 Task 5-5-2: 수락 측 plan 한도 게이트 ───
       // advisory lock으로 동시 다수 수락 직렬화 → race로 한도 초과 방지.
@@ -221,6 +224,9 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
         throw new Error("ACCEPT_RACE");
       }
       const { id: invitationId, workspaceId: acceptedWsId, role: acceptedRole } = accepted[0];
+      acceptedInvitationId = invitationId;
+      // NOTE: 이 할당 이후 tx 안에서 throw/rollback 시에도 scrub은 tx 바깥에서 호출되지만,
+      // rollback으로 activity_logs 신규 row가 commit되지 않아 scrubbedCount=0 (자동 no-op). 의도된 동작.
 
       // 2) workspace_members INSERT — UNIQUE (workspace_id, user_id) 이중 수락 방어
       await tx
@@ -259,6 +265,23 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
 
       return acceptedWsId;
     });
+
+    // Task B (audit-4): 수락 성공 시 해당 invitation 관련 audit log의 PII 익명화.
+    // 별도 transaction (docs/pii-lifecycle.md §4-3) — 실패해도 상위 success 응답 유지.
+    if (acceptedInvitationId) {
+      try {
+        await scrubInvitationActivityLogs(acceptedInvitationId, workspaceId);
+      } catch (scrubErr) {
+        console.error("[acceptInvitationAction] pii scrub failed", {
+          event: "invitation.pii_scrub_failed",
+          invitationId: acceptedInvitationId,
+          workspaceId,
+          name: scrubErr instanceof Error ? scrubErr.name : typeof scrubErr,
+          message:
+            scrubErr instanceof Error ? sanitizeLogMessage(scrubErr.message).slice(0, 200) : "",
+        });
+      }
+    }
 
     revalidatePath("/dashboard");
     return { success: true, workspaceId };

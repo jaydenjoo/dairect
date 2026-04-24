@@ -1,5 +1,55 @@
 # Dairect — 교훈 기록
 
+## 2026-04-24 — 같은 문제 2번 재발 = 문서·체크리스트로는 부족, **자동 게이트(스크립트 + 검증 체인 편입)로 제도화**해야 근본 해결 (Task A — drizzle journal MCP drift)
+
+- **증상**: Phase 5 이후 MCP `apply_migration`으로 cloud에 SQL 직접 적용 → `.sql` 파일만 수동 추가 → `_journal.json` 갱신 누락. 2026-04-21 Task 5-2-2h에서 `0031_phase5_resync_marker` noop marker로 1차 해결. 3일 뒤 0032~0035가 다시 같은 경로로 쌓여 **재발**. `pnpm db:generate` 실행 시 drizzle이 누적 drift를 재합성한 SQL이 기존 0032 번호와 충돌하는 시한폭탄 상태.
+- **원인**: 1차 해결(noop marker + 워크플로우 주석)은 **"사람이 기억하고 지켜야 하는 규칙"**. MCP apply_migration 호출 후 `pnpm db:generate` 실행을 매번 수행해야 하는 운영 의무가 자연스럽게 잊힘. 특히 긴급 작업(RLS/pg_cron 같은 extension)일수록 후속 generate 생략 빈도 높음. 문서만으로는 drift 방지 불가능.
+- **해결**: **자동 게이트 2단**.
+  - `scripts/check-migrations.mjs` (Pure Node, tsx 없어도 동작) — sql 파일 최신 idx vs journal 마지막 idx 일치 + resync_marker 이후 미등록 sql 검출. 실패 시 exit 1 + 한국어 해결 안내.
+  - `package.json` `"db:check"` 스크립트 + **`CLAUDE.md` 검증 명령 체인에 편입** (`tsc && lint && build && db:check`). Task 완료 선언 전 자동 실행 경로.
+  - `docs/db-migrations-workflow.md` — 경로 A(drizzle 먼저) vs 경로 B(MCP 먼저 + noop marker 후속) + NNNN 번호 규칙 체크리스트.
+- **실효성 증명**: Task B에서 `activity_logs.pii_scrubbed_at` 컬럼을 경로 A(drizzle 먼저)로 추가 → drizzle이 `0037_chemical_timeslip.sql` + journal entry 자동 생성 → `db:check` 즉시 통과. **같은 세션에서 제도가 payoff**됨.
+- **규칙**:
+  1. **같은 문제가 2번 재발하면 문서/주석 강화는 충분하지 않다** — "사람이 기억하고 지켜야 하는 규칙"은 결국 빠진다. 자동 검증 스크립트 + 검증 명령 체인 편입 **한 세트**로 제도화.
+  2. **외부 도구(MCP / SaaS API)가 프로젝트의 내부 상태를 건드릴 수 있는 경로는 반드시 정합성 체크 가드 둘 것** — MCP apply_migration / Supabase Studio manual SQL / 수동 DB edit 등 drizzle journal 바깥 경로가 존재하면 drift 조기 탐지가 Day-1 필수.
+  3. **정합성 체크 스크립트는 pure Node + 외부 deps 없이** — tsx/ts-node 같은 런타임 의존성은 설치/버전 이슈로 가드 자체가 작동 안 할 리스크. `.mjs` + `node:fs` 만으로 충분.
+  4. **체크 스크립트에도 code review 받기** — regex substring vs anchored 차이가 silent false-negative 원인. cwd 상대경로 vs 절대경로는 다른 working dir에서 stack trace 노출. 가드 코드 자체가 신뢰도를 결정.
+
+## 2026-04-24 — PII 익명화는 **상위 tx commit 후 별도 tx**로 격리 + deterministic workspace-scoped pseudonym (Task B — audit-4)
+
+- **증상**: `activity_logs.metadata.email` 평문 저장 구조에서 감사 로그 PII 라이프사이클 정책이 미비. 초대 이벤트(create/revoke/accept) 종료 시점에 평문이 영구 잔존. 원래 Phase 5.5 빌링과 함께 예정이었으나 빌링은 외부 PG 계약 대기 중 → 정책 문서화 + 최소 구현 필요.
+- **핵심 결정 2가지**:
+  1. **scrub은 별도 transaction** — `revoke/accept` 같은 비즈니스 액션 tx가 commit된 **후** 별도 tx로 scrub 실행. 호출부는 `try/catch` swallow + `event: invitation.pii_scrub_failed` 구조화 로그. 이유: scrub 실패가 비즈니스 성공 응답을 rollback시키면 UX가 맞지 않고(사용자가 `성공/실패` 이중 상태 인지), scrub은 **감사 증거 정리**라 본 업무보다 낮은 critical path.
+  2. **deterministic workspace-scoped pseudonym** — `sha256(email:workspaceId:salt).slice(0,16)`. 같은 email+workspace는 **같은 pseudonym**(감사 추적성 유지). workspace 격리(tenant 간 cross 추적 방지)는 hash 입력에 workspaceId 포함으로 구현. 16자 hex = 2^64 공간 → workspace 내부 충돌 실질 0.
+- **회귀 방지 설계 3가지**:
+  1. **멱등 가드** — `WHERE pii_scrubbed_at IS NULL` (이미 scrub된 row 재처리 skip) + `!email.startsWith("pii:")` 코드 가드 (이미 pseudonym을 다시 hash하지 않음).
+  2. **salt 회전 금지** — production salt가 바뀌면 같은 email이 다른 pseudonym으로 분기 → 기존 scrub된 row와 불일치. 감사 추적성 단절. `docs/pii-lifecycle.md` §6 "금지 사항"으로 격상 + 코드로는 막을 수 없음(규칙으로만 강제).
+  3. **env 방어 2중** — (1) `PII_PSEUDONYM_SALT` 미설정 시 production 부팅 차단 (2) `"dev-only-salt-do-not-use-in-prod"` 문자열 자체를 prod에 설정한 경우도 차단. 모두 `env.ts` zod superRefine에서.
+- **규칙**:
+  1. **감사 증거 정리(PII scrub/audit cleanup 등)는 본 업무와 별도 tx로 격리**. 실패해도 본 응답은 유지. 호출부는 try/catch + 구조화 로그. "원자성이 필요한가"를 **두 작업의 실패 허용도가 다른가**로 판단.
+  2. **pseudonym은 deterministic + tenant-scoped** — 같은 입력이 항상 같은 출력이어야 감사 추적성 유지. tenant(workspace) 격리는 hash 입력에 tenant ID 포함으로.
+  3. **salt 회전 가능성이 감사 추적성을 무효화한다** — 이게 감사 로그용 pseudonym의 본질적 한계. 문서화하고 금지 사항에 명시, 회전이 정말 필요하면 per-email translation table을 먼저 도입 (별도 Task).
+  4. **정책 문서의 PII 표에 "현재 scrub 대상 여부" 컬럼 필수** — 정책이 "이 필드는 PII"라고만 명시하고 구현이 일부만 scrub하면 drift 위험. "정책상 PII이지만 빌링과 함께 구현 예정"을 표로 명시.
+  5. **shallow copy 유틸은 docblock에 SHALLOW ONLY 경고** — 향후 metadata 구조에 중첩 필드 추가 시 silent PII 유출 가능. 재귀 처리 전까지 top-level key 화이트리스트 또는 명시적 경고 유지.
+
+## 2026-04-24 — 외부 서비스(결제 PG 등) 계약 전 **Provider 추상화 + Mock 선개발** 패턴 (Task C — Billing Mock Design)
+
+- **증상**: Epic 5-3 Billing 원래 PRD는 "Stripe 우선"이었으나 Jayden 결정으로 **한국 PG사(토스페이먼츠/포트원) 계약 후 연동**으로 전환. 계약 체결 전까지는 개발 진행 필요.
+- **설계**: `PaymentProvider` 인터페이스 추상화 + `MockPaymentProvider` 구현 + env flag `PAYMENT_PROVIDER=mock|toss|portone`.
+  - Mock도 **DB-backed** (in-memory 아님) — Vercel 서버리스 / Next.js 재시작 환경에서 일관성. `mock_payment_sessions` / `mock_subscriptions` 테이블 신규.
+  - Mock Checkout은 **실 플로우와 동일한 모양** — redirect URL → fake checkout 페이지(공개 라우트) → success/fail 시뮬 버튼 → Mock Webhook 호출 → 상태 업데이트. UI/UX E2E 리허설 가능.
+  - 6개 메서드만 인터페이스 노출: `ensureCustomer` / `createCheckoutSession` / `verifyAndParseWebhook` / `getSubscription` / `createPortalLink` / `updateSubscription`. **Stripe / 토스 / 포트원 공통분모** → 어떤 PG 계약 완료 시에도 UI/비즈니스 로직 재작업 최소.
+  - **보안 등급 지연** — Mock 기간 🟡 유지 (돈 안 오감), 실 PG 연동 시점에 🔴 전환. 이 덕분에 Mock 기간에는 자동화/코드 작성 제한 없이 진행 가능.
+- **DB 스키마 Provider 중립화** — 기존 `workspaces.stripeCustomerId` 같은 Stripe-specific 이름 → `externalCustomerId` + `paymentProvider` flag로 전환 계획. CHECK 제약 enum(`free`|`active`|`past_due`|`canceled`|`paused`)에서 `free` → `none`으로 변경해 "결제 상태"와 "플랜"을 분리 (플랜은 `workspace_settings.plan`, 상태는 `workspaces.subscription_status`).
+- **Phase 전환 시 변경 범위 사전 정의** — 계약 완료 후 교체 대상은 **Provider 구현체**만. UI / 한도 enforcement / DB 스키마 / 청구서 인프라 전부 유지. Mock 전용 테이블(`mock_*`)만 drop.
+- **규칙**:
+  1. **외부 계약(PG / 공급사 등)이 확정되기 전에 개발을 기다리지 말고 Provider 추상화로 선행** — 계약 협상은 몇 주~몇 달 소요. 그 기간을 UI/비즈니스 로직 구현에 쓰면 계약 완료 시점 착수 비용 크게 감소.
+  2. **Mock도 DB-backed로** — in-memory는 로컬 개발만 가능, 실제 배포 환경에서 state가 휘발. fake provider라도 외부 동작 모방은 **실 플로우와 동일한 모양** 원칙.
+  3. **인터페이스 시그니처는 최대공약수** — Stripe가 제공하는 고유 기능(예: Stripe Tax, Stripe Billing Thresholds)을 상위 코드에 노출하면 PG 교체 시 그 부분 재작업. 공통분모(Customer / Subscription / Checkout / Webhook / Portal)만 인터페이스로.
+  4. **보안 등급 전환은 실제 돈 오가는 시점** — 🟡 → 🔴 전환을 "계약 시점"으로 오해하지 않기. Mock 기간 자동화 허용 유지, 실 연동 시점부터 🔴 엄격 모드.
+  5. **DB 스키마는 Day-1부터 provider 중립 네이밍** — `stripeCustomerId` 같은 특정 provider 이름 지양, `externalCustomerId` + `paymentProvider` 컬럼 조합. 나중 마이그레이션 비용 절약.
+  6. **플랜 한도 enforcement는 Mock과 무관한 영역** — 실제 동작 필요 (플랜별 멤버/프로젝트 수 제한). 이 부분은 Mock Phase에서도 real 코드로 구현 → Phase B 전환 시 변경 없음.
+
 ## 2026-04-24 — Drizzle `db.transaction(..., { isolationLevel, accessMode })` 공식 config가 수동 `SET TRANSACTION`보다 안전 — 오탈자/순서 실수 원천 차단 (Task 5-5-2 후속 HIGH-1 reviewer LOW-1)
 
 - **상황**: Task 5-5-2 후속 HIGH-1으로 `/dashboard/members/page.tsx`의 4개 독립 SELECT(memberRows / invitationRows / settingsRow / pendingCountRow)를 단일 transaction + REPEATABLE READ snapshot으로 묶어 race 가드. 초안에서 `db.transaction(async (tx) => { await tx.execute(sql\`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ\`); ...})` 으로 수동 SET. code-reviewer가 "Drizzle 공식 API가 config 인자로 같은 기능을 더 안전하게 제공 (`{ isolationLevel: "repeatable read", accessMode: "read only" }`)"을 LOW-1로 제안.

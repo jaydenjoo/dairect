@@ -93,6 +93,13 @@ Vercel Cron 호출 인증 시크릿 (`/api/cron/*` 보호).
 - **형식**: 1 이상 양의 정수 문자열
 - **조정 시점**: 봇 공격 감지 시 값을 낮춤. XFF 미설정 요청은 `unknown` 버킷에 묶여 별도 제한
 
+### `PII_PSEUDONYM_SALT`
+감사 로그(`activity_logs.metadata`) 내 PII(email 등)를 익명화할 때 사용하는 salt (Task B audit-4). 정책: [`docs/pii-lifecycle.md`](pii-lifecycle.md).
+
+- **production**: 필수. 32자 이상 (64자+ 권장). `openssl rand -hex 32`로 생성
+- **dev/test**: 미설정 허용 (내부 fallback `"dev-only-salt-do-not-use-in-prod"` 사용 + 경고 동작 없음)
+- **회전(rotation)**: 기존 pseudonym과 불일치 발생 → 동일 email이 다른 pseudonym으로 분기되어 감사 추적성 손상. Phase 5.5 빌링 정책 확정 시 회전 절차 문서화
+
 ---
 
 ## 🛡️ Resend key 권한 분리 (Phase 5.5 보안 강화)

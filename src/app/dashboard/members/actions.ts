@@ -18,6 +18,7 @@ import { getCurrentWorkspaceRole } from "@/lib/auth/get-workspace-role";
 import { canManageMembers } from "@/lib/auth/workspace-permissions";
 import { sendInvitationEmail } from "@/lib/email/resend";
 import { getMaxMembers, getPlanLabel, suggestUpgradeTarget } from "@/lib/plans";
+import { scrubInvitationActivityLogs } from "@/lib/privacy/scrub-pii";
 import { checkAndIncrementRateLimit, parseRateLimit } from "@/lib/rate-limit";
 import { sanitizeFreeText, sanitizeLogMessage } from "@/lib/utils/sanitize";
 import {
@@ -226,11 +227,12 @@ export async function createInvitationAction(formData: FormData): Promise<Action
   // - workspace_members count + workspace_invitations pending count 합산 → used.
   // - used >= limit이면 MemberLimitExceededError throw → 트랜잭션 ROLLBACK → 외부 catch에서 분기.
   //
-  // Task 5-5-5 cleanup-3: createdInvitationId — email 실패 → 자동 revoke 실패의 double-fault 시
-  // stuck row(pending 상태로 DB 잔존) 식별자로 사용. transaction 커밋 후에만 세팅됨 (ROLLBACK 경로 null 유지).
-  let createdInvitationId: string | null = null;
+  // Task 5-5-5 cleanup-3 + Task D: createdInvitationId — email 실패 → 자동 revoke 실패의
+  // double-fault 시 stuck row(pending 상태로 DB 잔존) 식별자로 사용.
+  // tx return value로 할당 (1회) — catch 경로는 return으로 빠져나가므로 이후 코드에서는 string 확정.
+  let createdInvitationId: string;
   try {
-    await db.transaction(async (tx) => {
+    createdInvitationId = await db.transaction(async (tx) => {
       // Phase 5.5 Task 5-5-2 후속 HIGH-2: hashtextextended(text, bigint)는 PG 11+ 64-bit 해시.
       // hashtext() 32-bit 공간(~65536 ws에서 생일 역설로 50% 충돌)을 2^64로 확장 — 실질 충돌 ~0.
       // 충돌 발생 시 다른 ws 작업이 불필요하게 직렬화되어 latency 영향만 있었음 (데이터 정합은 영향 없음).
@@ -288,7 +290,6 @@ export async function createInvitationAction(formData: FormData): Promise<Action
           expiresAt,
         })
         .returning({ id: workspaceInvitations.id });
-      createdInvitationId = inserted.id;
 
       // Phase 5.5 Task 5-5-3: 감사 로그 기록 (같은 transaction → atomicity 보장).
       // metadata에 raw email/role 저장 — RLS로 workspace 멤버만 조회 가능 (PRD-erd:326).
@@ -305,6 +306,9 @@ export async function createInvitationAction(formData: FormData): Promise<Action
           inviterName,
         },
       });
+
+      // Task D: tx return value로 외부에 전달 (let-then-mutate 패턴 제거, 실질적 immutable).
+      return inserted.id;
     });
   } catch (err) {
     // 한도 초과 분기 (가장 먼저 — instanceof 매칭이 빠름)
@@ -369,8 +373,11 @@ export async function createInvitationAction(formData: FormData): Promise<Action
     // Task 5-5-5 audit-1: 자동 revoke + audit log를 단일 transaction으로 묶어 atomicity 일관.
     //                     수동 revoke와 동일하게 audit trail 남겨 디버깅/감사 추적성 확보
     //                     (action: workspace_invitation.revoked + metadata.reason: email_send_failed).
+    // Task D: tx return value로 변수 1회 할당 (let-then-mutate 패턴 제거).
+    // skip 경로(revokedRow 없음)는 null, 성공 경로는 row.id.
+    let autoRevokedInvitationId: string | null;
     try {
-      await db.transaction(async (tx) => {
+      autoRevokedInvitationId = await db.transaction(async (tx) => {
         // Task 5-5-5 cleanup-2: 수동 revoke(revokeInvitationAction)와 동일한 isNull 가드 통일.
         // UUID v4 token 충돌 확률 ~0이지만 invariant 강제 → 이중 revoke 방지 + audit trail 일관성.
         const [revokedRow] = await tx
@@ -384,22 +391,7 @@ export async function createInvitationAction(formData: FormData): Promise<Action
             ),
           )
           .returning({ id: workspaceInvitations.id });
-        if (revokedRow) {
-          await tx.insert(activityLogs).values({
-            userId,
-            workspaceId,
-            entityType: "workspace_invitation",
-            entityId: revokedRow.id,
-            action: "workspace_invitation.revoked",
-            description: "이메일 발송 실패로 자동 취소",
-            metadata: {
-              email: parsed.data.email,
-              role: parsed.data.role,
-              reason: "email_send_failed",
-              originalInviterUserId: userId,
-            },
-          });
-        } else {
+        if (!revokedRow) {
           // Task 5-5-5 sec M-2: cleanup-2 가드가 skip 시킨 경로 (이미 revoked/accepted by race).
           // stuck row(double-fault)와 구분하여 운영 가시성 확보. 실제 DB 변경 없으니 audit log skip (멱등성).
           console.error("[createInvitationAction] auto-revoke skipped — already revoked/accepted", {
@@ -408,9 +400,27 @@ export async function createInvitationAction(formData: FormData): Promise<Action
             workspaceId,
             reason: "already_revoked_or_accepted",
           });
+          return null;
         }
+        await tx.insert(activityLogs).values({
+          userId,
+          workspaceId,
+          entityType: "workspace_invitation",
+          entityId: revokedRow.id,
+          action: "workspace_invitation.revoked",
+          description: "이메일 발송 실패로 자동 취소",
+          metadata: {
+            email: parsed.data.email,
+            role: parsed.data.role,
+            reason: "email_send_failed",
+            originalInviterUserId: userId,
+          },
+        });
+        return revokedRow.id;
       });
     } catch (revokeErr) {
+      // tx throw 경로에서는 autoRevokedInvitationId 미할당. 아래 분기에서 null 기본값 보장.
+      autoRevokedInvitationId = null;
       // Task 5-5-5 cleanup-3: double-fault 시 stuck row(pending 상태로 DB 잔존) 알림.
       // 운영자가 event=invitation.revoke_stuck_row 로그로 즉시 감지 → invitationId로 수동 정리.
       // email/token은 민감값이라 제외. invitationId(server-only UUID)만 박제.
@@ -428,6 +438,22 @@ export async function createInvitationAction(formData: FormData): Promise<Action
         pgCode: typeof revokePgCode === "string" ? revokePgCode : null,
         causeName: revokeCause instanceof Error ? revokeCause.name : null,
       });
+    }
+    // Task B (audit-4): 자동 revoke 성공 시 해당 invitation 관련 audit log의 PII 익명화.
+    // 별도 transaction (docs/pii-lifecycle.md §4-3) — 실패해도 상위 EMAIL_FAILED 응답 유지.
+    if (autoRevokedInvitationId) {
+      try {
+        await scrubInvitationActivityLogs(autoRevokedInvitationId, workspaceId);
+      } catch (scrubErr) {
+        console.error("[createInvitationAction] pii scrub failed (auto-revoke path)", {
+          event: "invitation.pii_scrub_failed",
+          invitationId: autoRevokedInvitationId,
+          workspaceId,
+          name: scrubErr instanceof Error ? scrubErr.name : typeof scrubErr,
+          message:
+            scrubErr instanceof Error ? sanitizeLogMessage(scrubErr.message).slice(0, 200) : "",
+        });
+      }
     }
     console.error("[createInvitationAction] email error", {
       event: "invitation.email_send_failed",
@@ -518,6 +544,21 @@ export async function revokeInvitationAction(invitationId: string): Promise<Acti
 
   if (!updated) {
     return { success: false, error: "취소할 수 있는 초대가 아닙니다", code: "NOT_FOUND" };
+  }
+
+  // Task B (audit-4): 수동 revoke 성공 시 해당 invitation 관련 audit log의 PII 익명화.
+  // 별도 transaction (docs/pii-lifecycle.md §4-3) — 실패해도 상위 success 응답 유지.
+  try {
+    await scrubInvitationActivityLogs(updated.id, workspaceId);
+  } catch (scrubErr) {
+    console.error("[revokeInvitationAction] pii scrub failed", {
+      event: "invitation.pii_scrub_failed",
+      invitationId: updated.id,
+      workspaceId,
+      name: scrubErr instanceof Error ? scrubErr.name : typeof scrubErr,
+      message:
+        scrubErr instanceof Error ? sanitizeLogMessage(scrubErr.message).slice(0, 200) : "",
+    });
   }
 
   revalidatePath("/dashboard/members");

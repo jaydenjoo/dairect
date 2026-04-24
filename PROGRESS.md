@@ -1,7 +1,134 @@
 # Dairect v3.1 — 진행 현황
 
-> 최종 업데이트: 2026-04-24 (Task 5-5-2 후속 HIGH 2건 + Task 5-5-1 MED-4 instrumentation 부팅 차단 실증 + Task 5-5-4 rate-1 cleanup cron — reviewer 즉시 반영 6건)
-> 현재 위치: **Phase 5.5 진행 중**. Task 5-5-1~5 + cleanup 묶음 + rate-4 확장 + rate-1 cron + HIGH 2건 후속 완료. 남은 Phase 5.5 ToDo 2건 + 후속 8건(아래).
+> 최종 업데이트: 2026-04-24 (Task A~D 4건 — Drizzle journal 제도적 해결 + PII 라이프사이클 정책 + Billing Mock 설계 + immutable 리팩토링. reviewer 즉시 반영 19건)
+> 현재 위치: **Phase 5.5 마무리 단계 + Epic 5-3 진입 준비**. Task C 설계 Jayden 검토 대기. Mock 기반 Billing 구현 대기.
+
+## 세션 2026-04-24 후반 (Task A~D — Phase 5.5 제도적 해결 + Epic 5-3 설계 진입)
+
+### Task A: Drizzle journal 제도적 해결 ✅ 완료 (0036 marker + db:check + 워크플로우 문서)
+
+**배경**: 0018, 0020~0030, 0032~0035가 MCP `apply_migration` 직접 경로로 cloud 적용 → `_journal.json`은 idx=31이 마지막 → `pnpm db:generate` 실행 시 drizzle이 `0032_brainy_ender_wiggin`(기존 0032_workspace_plan과 idx 충돌)을 생성하는 시한폭탄. Task 5-2-2h(2026-04-21)에 이어 **2번째 재발** → 제도적 재발 방지 가드 도입.
+
+**신규 파일 4**
+- `src/lib/db/migrations/0036_phase5_resync_marker_v2.sql` — noop marker SQL (0031 precedent 답습, `SELECT '...' AS resync_marker` 한 줄 + 상세 주석)
+- `src/lib/db/migrations/meta/0036_snapshot.json` — drizzle-kit 생성 snapshot (0032_snapshot에서 rename)
+- `scripts/check-migrations.mjs` — pure Node 정합성 체크 (최신 sql idx === journal 마지막 idx + resync marker 이후 누락 검증). cwd 독립(절대경로) + tight regex `/^\d{4}_phase\d+_resync_marker(_v\d+)?$/`
+- `docs/db-migrations-workflow.md` — 경로 A (drizzle 먼저) vs 경로 B (MCP 먼저 + noop marker 후속) 체크리스트. NNNN 번호 선택 규칙 명시
+
+**수정 파일 3**
+- `src/lib/db/migrations/meta/_journal.json` — drizzle이 추가한 idx=32 entry를 idx=36으로 수정 (tag/idx 동시)
+- `package.json` — `"db:check": "node scripts/check-migrations.mjs"` 추가
+- `CLAUDE.md` — DB 섹션에 MCP apply_migration 후속 의무 + 링크 + 검증 명령에 `db:check` 편입
+
+**code-reviewer 독립 리뷰 + 즉시 반영 3건**
+- HIGH-1 regex tight pattern (substring match → anchored 패턴, silent false-negative 차단)
+- HIGH-2 `fileURLToPath(import.meta.url)` 기반 절대경로 (cwd 의존성 제거 — `/tmp`에서도 정상 동작 실증)
+- MED-4 workflow 문서 경로 B 4단계에 "NNNN = 수동 마이그레이션 최대 번호 + 1" 규칙 명시
+
+**검증**
+- `pnpm db:generate` 재실행 → "No schema changes, nothing to migrate 😴"
+- `pnpm db:check` → sql 37개 / journal 21개 (최신 idx=36) OK
+- `pnpm tsc/lint/build` 0 errors
+
+---
+
+### Task B: PII 라이프사이클 정책 + 즉시 이벤트 기반 scrub ✅ 완료
+
+**배경**: Task 5-5-5 리뷰 audit-4 (sec MED-2) 잔여 — `activity_logs.metadata.email` 평문 저장 정책 미비. 원래 "Phase 5.5 빌링과 함께" 예정이었으나 **정책 문서화 + 최소 구현**으로 scope 축소(빌링 시점 확장 가능 기반 마련).
+
+**신규 파일 3**
+- `docs/pii-lifecycle.md` (8 섹션) — 저장 PII 목록 / 라이프사이클 / pseudonym 규칙 (`sha256(email:workspaceId:salt).slice(0,16)`) / 금지 사항 / 보존 기간 TBD / 탈퇴 연동 TBD
+- `src/lib/db/migrations/0037_chemical_timeslip.sql` — `activity_logs.pii_scrubbed_at timestamptz` 추가 (cloud 적용 완료, **drizzle 경로 A로 journal 자동 동기** — Task A 가드 즉시 payoff)
+- `src/lib/privacy/scrub-pii.ts` — `pseudonymizeEmail` / `scrubMetadataObject` (Array 가드 + shallow-only docblock) / `scrubInvitationActivityLogs` (별도 tx)
+
+**수정 파일 6**
+- `src/lib/db/schema.ts` — `activityLogs.piiScrubbedAt` 컬럼
+- `src/lib/env.ts` — `PII_PSEUDONYM_SALT` (production 필수 + dev fallback 문자열 배포 차단)
+- `src/app/dashboard/members/actions.ts` — 자동 revoke + 수동 `revokeInvitationAction` 2경로에 scrub 주입
+- `src/app/invite/[token]/accept-actions.ts` — 수락 경로 scrub
+- `src/lib/demo/sample-data.ts` — 타입 정합성 (`piiScrubbedAt: null`)
+- `docs/env-setup.md` — `PII_PSEUDONYM_SALT` 섹션
+
+**핵심 설계 결정**: scrub을 **상위 tx commit 후 별도 tx**로 실행 → scrub 실패가 비즈니스 액션 rollback시키지 않도록 격리. 호출부는 try/catch + `event: invitation.pii_scrub_failed` 구조화 로그로 swallow.
+
+**DB 실증 (MCP execute_sql)**
+- 임시 row insert → 기본 `pii_scrubbed_at = NULL` 확인
+- 수동 scrub UPDATE → `email` → `pii:...` 치환 + `pii_scrubbed_at = NOW()`
+- 멱등 재시도 → `WHERE pii_scrubbed_at IS NULL` 가드로 0 rows (기존 pseudonym 보존)
+- 테스트 row cleanup 완료. 현재 workspace_invitation 관련 activity_logs = 0건 (backfill 불요)
+
+**code-reviewer 독립 리뷰 + 즉시 반영 9건**
+- H1 scrubMetadataObject docblock `SHALLOW ONLY` 경고 (중첩 구조 확장 시 회귀 방지)
+- H2 §1-1 표에 "현재 scrub 대상 여부" 컬럼 + §1-2 본체 정책 명시 (정책-코드 drift 방지)
+- M1 env.ts에 dev fallback 문자열 prod 배포 차단
+- M2 §6 금지에 salt 회전 사실상 금지 (기존 pseudonym 불일치 회귀 위험)
+- M3 §2-2 expired_cleanup 행 TBD로 재라벨 (정책 오버커밋 제거)
+- M4 acceptedInvitationId 할당 뒤 rollback 시 no-op 주석
+- M5 §2-1에 평문 존속 기간 의도됨 명시
+- M7 `getSalt()` dev fallback 1회 `console.warn`
+- L2 `scrubMetadataObject` 가드에 `Array.isArray` 추가
+
+---
+
+### Task C: Billing Mock 설계 ✅ 완료 (문서만, Jayden 검토 대기)
+
+**변경점**: 기존 PRD "Stripe 우선" 방침 → Jayden 결정으로 **한국 PG사 계약 + Mock 기반 선개발**로 전환. 계약 완료 후 Provider 구현체만 교체.
+
+**신규 파일 1**
+- `docs/billing-mock-design.md` (10 섹션, ~270줄):
+  - **PaymentProvider 인터페이스** (6 메서드 — `ensureCustomer` / `createCheckoutSession` / `verifyAndParseWebhook` / `getSubscription` / `createPortalLink` / `updateSubscription`)
+  - **MockPaymentProvider DB-backed** (`mock_payment_sessions` / `mock_subscriptions` / `subscription_invoices` 테이블 신규)
+  - DB 스키마: `workspaces.stripeCustomerId` → `externalCustomerId` + `paymentProvider` flag + `externalSubscriptionId` 등 (provider 중립)
+  - env flag: `PAYMENT_PROVIDER=mock|toss|portone`
+  - 보안: Mock 기간 🟡 유지, 실 PG 연동 시 🔴 전환
+  - Phase A Task 10건 (5-3-1' ~ 5-3-10')
+  - Phase B 전환 시 변경 범위 사전 정의 (UI/DB/enforcement 로직 **유지**, Provider 구현체만 교체)
+
+**Jayden 결정 대기 5건**:
+1. 가격/플랜 확정 (PRD default 유지 or 베타 반영)
+2. PG 후보 방향성 (포트원 v2 권장, 토스페이먼츠도 호환)
+3. Mock 세션 유효기간 (30분 제안)
+4. 청구 주기 (월간만 Phase A)
+5. Free 플랜 PDF watermark (Phase A 구현 제안)
+
+---
+
+### Task D: createdInvitationId immutable 리팩토링 ✅ 완료
+
+**수정 파일 1** — `src/app/dashboard/members/actions.ts`
+- `let createdInvitationId: string | null = null` → `let createdInvitationId: string` (**unassigned 선언 + tx return value로 1회 할당**). tx catch 경로는 return으로 빠져나가므로 이후 코드에서 `string` 타입 확정 → null 체크 불필요
+- `let autoRevokedInvitationId: string | null = null` → `let autoRevokedInvitationId: string | null` (tx return 또는 null). skip 경로 `early return null` 패턴
+- 주석 "transaction 커밋 후에만 세팅됨 (ROLLBACK 경로 null 유지)" → "tx return value로 할당 (1회)" 갱신
+
+**배경**: Task 5-5-5 리뷰 code L-1 잔여. 글로벌 "Immutability (CRITICAL)" 규칙 준수. 완전 `const`는 try/catch async 제약상 불가능 — **"실질적 immutable"** 패턴(선언 + 1회 할당 + 재할당 없음) 채택.
+
+**검증**: tsc/lint/build/db:check 0 errors.
+
+---
+
+### 교훈 기록 3건 (docs/learnings.md)
+1. **Drizzle journal MCP drift 2번 재발 → db:check 제도화** — 같은 문제 2번 반복 시 "문서/체크리스트가 아닌 자동 게이트" 도입이 근본 해결
+2. **PII scrub은 별도 tx로 비즈니스 액션과 격리 + deterministic workspace-scoped pseudonym** — 감사 증거 정리는 본 업무를 rollback시키지 않도록 격리가 원칙. salt 회전은 기존 pseudonym 불일치라 사실상 금지
+3. **외부 서비스 계약 전 Provider 추상화 + Mock 선개발 패턴** — Stripe → 한국 PG 전환처럼 provider가 바뀌어도 UI/비즈니스 로직 보호. 보안 등급 전환도 지연 가능
+
+---
+
+### 차기 Task 등록
+
+**즉시 진행 가능**:
+1. **Epic 5-3 Mock 구현 착수** — Task C 설계 검토 + Jayden 결정 5건 확정 후 5-3-1' (PaymentProvider 인터페이스 + MockPaymentProvider) 진입 (예상 2~3시간)
+
+**Jayden 수동 작업 대기**:
+1. Resend Sending Access key 발급/회전
+2. Task C 설계 검토 + 결정 5건 응답
+3. `PII_PSEUDONYM_SALT` production 값 설정 (`openssl rand -hex 32`)
+
+**후속 (기술 부채)**:
+- Task A 후속: MED-1 try-catch UX / MED-2 drizzle-kit 업그레이드 재확인 / LOW-1 0036 `duplicate_object` 경고 보강
+- Task B 후속: H3 scrub 실패 탐지 주기 health check (빌링 cron과 함께) / L3 `pseudonymizeEmail` vitest unit / L4 `entityId` 부분 인덱스 / §2-4 보존 기간 확정 / §2-5 탈퇴 플로우 연동
+- 이전 세션 이월: Task 5-5-1 LOW-1 vitest 이관, Task 5-5-2 Existing-over-limit (Billing과 함께), Task 5-5-3 audit-2 활동 피드 정책, Task 5-5-4 sec MED-2 IPv6 /64 / sec LOW-1 fake success
+
+---
 
 ## 세션 2026-04-24 (Task 5-5-2 후속 HIGH 2건 + MED-4 실증 + rate-1 cron — 커밋 2건)
 
