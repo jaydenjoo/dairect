@@ -308,6 +308,7 @@ Task-S2e (members 가드) ──────────────────
 - [pii-lifecycle.md](./pii-lifecycle.md) — PII 정책 (유효)
 - [db-migrations-workflow.md](./db-migrations-workflow.md) — 마이그레이션 워크플로 (유효)
 - **[2차-unlock-checklist.md](./2차-unlock-checklist.md)** — 🔓 2차 진입 시 복구 체크리스트 (신규)
+- **[dogfooding-checklist.md](./dogfooding-checklist.md)** — 🧪 Jayden 1~2주 실사용 가이드 (신규)
 - PROGRESS.md — 세션 기록
 
 ---
@@ -318,6 +319,7 @@ Task-S2e (members 가드) ──────────────────
 - **2026-04-24 末 v3.2.1** (커밋 `ee6d076`): Task-S2a 완료 (plan 차등 제거)
 - **2026-04-24 末 v3.2.2** (커밋 `3def1de`): Task-S2b 완료 (signup/onboarding 잠금)
 - **2026-04-24 末 v3.2.3** (커밋 `8a504cc`): Task-S2d 축소 완료 (/about#contact 링크 정정)
-- **2026-04-24 末 v3.2.4** (현재 세션): Task-S2f — §4 실행 결과 반영 (S2c/S2e 취소, S2d 축소 기록) + 2차 unlock 체크리스트 신규 링크
-- (다음) Task-S2g: dogfooding 체크리스트 작성
+- **2026-04-24 末 v3.2.4** (커밋 `9d0cc83`): Task-S2f — §4 실행 결과 반영 (S2c/S2e 취소, S2d 축소 기록) + 2차 unlock 체크리스트 신규 링크
+- **2026-04-24 末 v3.2.5** (현재 세션): Task-S2g — dogfooding 체크리스트 작성 → **1차 Task-S2 전체 완료**
+- (다음) **Jayden dogfooding 1~2주 실사용** ([dogfooding-checklist.md](./dogfooding-checklist.md)) → 1차 DoD 달성
 - (미래) v3.3: 2차 확장 (서비스 제공) 진입 시 재작성 — [2차-unlock-checklist.md](./2차-unlock-checklist.md) 참고

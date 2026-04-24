@@ -1,9 +1,10 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-24 末 (**Task-S2a/S2b/S2d 완료 + S2c/S2e 취소 + Task-S2f 수정 PRD 갱신**)
-> 현재 위치: **v3.2 Single-user Mode — Task-S2g(dogfooding 체크리스트) 대기**. 실제 코드 잠금 작업 완료.
+> 최종 업데이트: 2026-04-24 末 (**Task-S2a~g 전체 완료** — v3.2 1차 구현 마감, Jayden dogfooding 착수 준비 완료)
+> 현재 위치: **v3.2 Single-user Mode 1차 완료** → **Jayden 1~2주 dogfooding 단계 진입**
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
-> 2차 unlock 가이드: [docs/2차-unlock-checklist.md](docs/2차-unlock-checklist.md)
+> dogfooding 가이드: [docs/dogfooding-checklist.md](docs/dogfooding-checklist.md) 🧪
+> 2차 unlock 가이드: [docs/2차-unlock-checklist.md](docs/2차-unlock-checklist.md) 🔓
 
 ## 세션 2026-04-24 末-3 (Task-S2a~f — 코드 잠금 실행 + PRD 갱신)
 
@@ -91,9 +92,67 @@
 3. **"삭제"를 "잠금"으로 전환하는 원칙** — /signup, /onboarding, /pricing 모두 삭제 대신 유지(잠금 또는 그대로)로 전환하면 2차 복구 비용 0.
 4. **TS unreachable narrow 한계** — `notFound()` 이후 코드를 TS는 unreachable로 narrow 못함. 기존 로직 유지하면서 notFound 추가하는 패턴 대신 **미니멀 재작성 + git history 보존** 방식 권장.
 
-### 차기 Task
-- **Task-S2g** (다음 세션): `docs/dogfooding-checklist.md` 작성 (Jayden 1~2주 실사용 가이드)
-- Task-S2g 완료 후: 1차 DoD 선언 → Jayden dogfooding 시작
+### Task-S2g ✅ 완료 (본 세션 후반 — dogfooding 체크리스트 작성)
+
+**신규 파일**: `docs/dogfooding-checklist.md`
+
+**구성 (10 섹션)**:
+1. dogfooding 의미 (왜 필요한가)
+2. 주간 리듬 (일일/주간 시작/주간 종료)
+3. End-to-End 프로젝트 생명주기 8단계 (리드 → 수금)
+4. AI 기능 검증 (브리핑/리포트/견적)
+5. 시스템 기능 검증 (로그인/설정/멤버/PWA/잠금 라우트)
+6. n8n cron 5종 검증
+7. 이슈 기록 양식 + 우선순위 3등급 (High/Med/Low)
+8. dogfooding 완료 기준 체크리스트 (1차 DoD 재확인)
+9. dogfooding 시작 전 준비물 (배포/env/Resend/고객사)
+10. dogfooding 후 다음 단계 (2차 진입 / 1차 지속 / 피봇)
+
+### Task-S2 전체 완료 선언
+
+| Task | 상태 | 실제 소요 | 커밋 |
+|---|---|---|---|
+| S2a | ✅ 완료 | 1.5h | `ee6d076` |
+| S2b | ✅ 완료 | 1h | `3def1de` |
+| S2c | ⛔ 취소 | 0 | — |
+| S2d | ✅ 축소 완료 | 15min | `8a504cc` |
+| S2e | ⛔ 취소 | 0 | — |
+| S2f | ✅ 완료 | 1h | `9d0cc83` |
+| S2g | ✅ 완료 | 1h | TBD (본 세션) |
+| **총 소요** | | **~4.75h** (원 예상 7h, 32% 단축) | |
+
+### 1차 완료 요약 (v3.2 Single-user Mode)
+
+**핵심 전환**:
+- SaaS 구독 모델 전면 취소 (Billing/Stripe/플랜 차등)
+- Multi-tenant 인프라 자산 보존 (workspaces/RLS/Server Actions 그대로)
+- 회원가입/온보딩 UI 잠금 (2차 시 UI만 풀면 재활성화)
+- 한도 정책 단일 고정 (MAX_MEMBERS=10, AI_DAILY_LIMIT=200)
+
+**문서 자산**:
+- PRD-v3.2-single-user.md (상위 스펙)
+- dogfooding-checklist.md (1차 실사용 가이드)
+- 2차-unlock-checklist.md (2차 진입 가이드)
+- PRD.md / PRD-phase5.md / PRD-phase5-erd.md (역사 보존 + v3.2 안내)
+
+**코드 변경 누적 (Task-S1 + S2)**:
+- 문서 10+ 개 생성/수정
+- 코드 파일 14개 수정
+- 코드 순증: -55 ~ -135줄 (plan 차등 제거 등)
+- 커밋 6건: 8703fbf, c131b35, ee6d076, 3def1de, 8a504cc, 9d0cc83 + 본 세션
+
+### 다음 단계: Jayden dogfooding
+
+`docs/dogfooding-checklist.md`에 따라 1~2주 실업무에서 Dairect 사용:
+
+1. **준비** — production 배포 / Resend / 실제 고객사 1곳 확보
+2. **실행** — End-to-End 프로젝트 1건 이상 관리 (리드→견적→계약→청구→수금)
+3. **기록** — 이슈 발견 시 우선순위별 정리
+4. **마감** — 1차 DoD 8항목 전부 ✅ → Jayden 판단 (2차 진입 / 1차 지속 / 피봇)
+
+---
+
+
 
 ---
 
