@@ -6,6 +6,7 @@ import { Proof } from "@/components/sections/Proof";
 import { Services } from "@/components/sections/Services";
 import { Work } from "@/components/sections/Work";
 import { Pricing } from "@/components/sections/Pricing";
+import { Founder } from "@/components/sections/Founder";
 
 export default function HeroPreviewPage() {
   return (
@@ -19,6 +20,7 @@ export default function HeroPreviewPage() {
         <Services />
         <Work />
         <Pricing />
+        <Founder />
       </main>
     </>
   );
