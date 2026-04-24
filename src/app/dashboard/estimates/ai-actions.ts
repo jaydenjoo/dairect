@@ -12,7 +12,7 @@ import {
   ESTIMATE_DRAFT_TOOL,
 } from "@/lib/ai/estimate-prompt";
 import {
-  getAiDailyLimit,
+  AI_DAILY_LIMIT,
   aiEstimateInputSchema,
   aiEstimateResponseSchema,
   type AiEstimateItem,
@@ -71,14 +71,9 @@ export async function generateEstimateDraftAction(
     };
   }
 
-  // Task 5-2-2b 잔여 C-H1 (마이그레이션 0032): plan 기반 분기로 dailyLimit 확보.
-  // workspace_settings default 'free' NOT NULL — 정상 경로에서 planRow 항상 존재.
-  const [planRow] = await db
-    .select({ plan: workspaceSettings.plan })
-    .from(workspaceSettings)
-    .where(eq(workspaceSettings.workspaceId, workspaceId))
-    .limit(1);
-  const dailyLimit = getAiDailyLimit(planRow?.plan);
+  // Task-S2a (2026-04-24 末): plan 차등 제거 — 단일 고정 AI 일일 한도 (남용 방어용).
+  // 역사: 원래 workspace_settings.plan 기반 분기(free=200/pro=1000/team=3000) → SaaS 취소로 통합.
+  const dailyLimit = AI_DAILY_LIMIT;
 
   // 한도 체크 + race-safe 증가 (하나의 조건부 UPDATE로 직렬화)
   // Task 5-2-2b: workspace_settings 기반으로 전환 (workspace 단위 공유 한도).

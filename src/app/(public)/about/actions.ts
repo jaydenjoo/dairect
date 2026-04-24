@@ -15,10 +15,27 @@ import {
 } from "@/lib/security/sanitize-headers";
 import { stripFormulaTriggers } from "@/lib/security/csv-protection";
 import { isValidElapsed } from "@/lib/security/timing-oracle";
+import { checkAndIncrementRateLimit, parseRateLimit } from "@/lib/rate-limit";
 
 // Task 5-2-2e: "use server" 파일 export 규칙(10패턴 1) 준수 — InquirySubmission은
 // lib/validation/inquiry.ts로 이관(client contact-form.tsx가 import). InquiryActionResult는 로컬 type.
 type InquiryActionResult = { success: boolean; error?: string };
+
+// Phase 5.5 Task 5-5-4 rate-4: 랜딩 contact form IP 기반 rate limit.
+// honeypot/timing 통과 후 volumetric abuse 방어용 추가 레이어 (기존 4종과 별개).
+//   분당 3회: 정상 사용자 오타 재전송 포함 충분한 여유
+//   시간당 20회: 단일 IP가 정상 운영 충분 + 누적 abuse 차단
+// env override: INQUIRY_RATE_LIMIT_PER_MINUTE / INQUIRY_RATE_LIMIT_PER_HOUR
+const INQUIRY_RATE_LIMITS = {
+  perMinute: {
+    windowSec: 60,
+    limit: parseRateLimit(process.env.INQUIRY_RATE_LIMIT_PER_MINUTE, 3),
+  },
+  perHour: {
+    windowSec: 3600,
+    limit: parseRateLimit(process.env.INQUIRY_RATE_LIMIT_PER_HOUR, 20),
+  },
+};
 
 export async function submitInquiryAction(
   payload: InquirySubmission,
@@ -34,6 +51,36 @@ export async function submitInquiryAction(
     !isValidElapsed(Date.now() - payload.startedAt)
   ) {
     return { success: true };
+  }
+
+  // Task 5-5-4 rate-4: IP 기반 분/시간 한도. honeypot/timing 통과한 human-like 요청만 카운트.
+  // Task rate-4 review MED-1 반영: IP null(XFF 미설정 모바일/비표준 proxy)은 rate limit skip —
+  // 공유 "unknown" 버킷 false positive(정상 사용자 묶여 차단) 방어. 봇 방어는 honeypot/timing 위임.
+  const h = await headers();
+  const ipAddress = extractClientIp(h);
+
+  if (ipAddress) {
+    const minuteCheck = await checkAndIncrementRateLimit(
+      `inquiry:ip:${ipAddress}:m`,
+      INQUIRY_RATE_LIMITS.perMinute,
+    );
+    if (!minuteCheck.allowed) {
+      return {
+        success: false,
+        error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
+      };
+    }
+    // short-circuit: 분 차단 시 시간 카운트 skip (Task 5-5-4 HIGH-1 동일 패턴).
+    const hourCheck = await checkAndIncrementRateLimit(
+      `inquiry:ip:${ipAddress}:h`,
+      INQUIRY_RATE_LIMITS.perHour,
+    );
+    if (!hourCheck.allowed) {
+      return {
+        success: false,
+        error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
+      };
+    }
   }
 
   const parsed = inquiryFormSchema.safeParse({
@@ -54,8 +101,6 @@ export async function submitInquiryAction(
   const v = parsed.data;
 
   try {
-    const h = await headers();
-    const ipAddress = extractClientIp(h);
     const userAgent = extractUserAgent(h);
 
     const cleanName = stripFormulaTriggers(v.name);

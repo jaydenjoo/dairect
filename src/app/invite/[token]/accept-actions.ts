@@ -4,12 +4,16 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
+  activityLogs,
   users,
   workspaceInvitations,
   workspaceMembers,
 } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
+import { MAX_MEMBERS } from "@/lib/plans";
+import { scrubInvitationActivityLogs } from "@/lib/privacy/scrub-pii";
 import { createClient } from "@/lib/supabase/server";
+import { sanitizeLogMessage } from "@/lib/utils/sanitize";
 import { acceptInvitationInputSchema } from "@/lib/validation/invite-accept";
 
 // Phase 5 Task 5-2-5: 초대 수락 Server Action.
@@ -53,8 +57,23 @@ type AcceptResult =
         | "REVOKED"
         | "ALREADY_ACCEPTED"
         | "EMAIL_MISMATCH"
+        | "LIMIT_EXCEEDED"
         | "UNKNOWN";
     };
+
+// Task-S2a (2026-04-24 末): plan 필드 제거 — SaaS 구독 취소로 플랜 차등 폐기.
+// 발송 시점에 통과한 초대도 SQL 직접 INSERT 우회 시 수락 시점에 한도가 깨질 수 있음
+// → defense-in-depth로 transaction 안에서 단일 MAX_MEMBERS 재검증.
+class AcceptLimitExceededError extends Error {
+  readonly code = "ACCEPT_LIMIT_EXCEEDED" as const;
+  constructor(
+    readonly memberCount: number,
+    readonly limit: number,
+  ) {
+    super("ACCEPT_LIMIT_EXCEEDED");
+    this.name = "AcceptLimitExceededError";
+  }
+}
 
 export async function acceptInvitationAction(token: string): Promise<AcceptResult> {
   const userId = await getUserId();
@@ -123,7 +142,47 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
   }
 
   try {
+    // Task B (audit-4): tx 바깥에서 scrub 호출하기 위해 let으로 invitationId 캡처.
+    let acceptedInvitationId: string | null = null;
     const workspaceId = await db.transaction(async (tx) => {
+      // ─── Phase 5.5 Task 5-5-2: 수락 측 plan 한도 게이트 ───
+      // advisory lock으로 동시 다수 수락 직렬화 → race로 한도 초과 방지.
+      // Phase 5.5 Task 5-5-2 후속 HIGH-2: hashtextextended(text, bigint)는 PG 11+ 64-bit 해시.
+      // hashtext() 32-bit 공간(~65536 ws에서 50% 충돌)을 2^64로 확장 — 실질 충돌 ~0.
+      // actions.ts(createInvitationAction)와 동일 함수를 쓰므로 발송/수락 양측이 같은 lock key 공간 공유.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${existing.workspaceId}, 0))`);
+
+      // 이미 멤버라면 한도 체크 skip — onConflictDoNothing이 INSERT skip하므로 idempotent 보장.
+      // page render와 accept 사이의 race(동시 다른 탭 수락)에서 한도 도달 false positive 차단.
+      const [existingMember] = await tx
+        .select({ id: workspaceMembers.id })
+        .from(workspaceMembers)
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, existing.workspaceId),
+            eq(workspaceMembers.userId, userId),
+          ),
+        )
+        .limit(1);
+
+      if (!existingMember) {
+        // Task-S2a: 단일 고정 한도 MAX_MEMBERS 적용 (plan 차등 제거).
+        const limit = MAX_MEMBERS;
+
+        const [memberCountRow] = await tx
+          .select({ count: sql<number>`count(*)::int` })
+          .from(workspaceMembers)
+          .where(eq(workspaceMembers.workspaceId, existing.workspaceId));
+        const memberCount = memberCountRow?.count ?? 0;
+
+        // memberCount >= limit이면 자기 자신 추가 시 한도 초과 → 거부.
+        // pending 초대 수는 빼지 않음: 자기 invitation은 곧 accept되어 member로 전환되므로
+        // pending - 1 + member + 1 = 합 동일. members만 보면 충분.
+        if (memberCount >= limit) {
+          throw new AcceptLimitExceededError(memberCount, limit);
+        }
+      }
+
       // 1) invitations UPDATE — WHERE 조건으로 race safety 확보 (동시 수락 시 1건만 성공).
       //    email은 다시 한 번 DB 레벨에서 검증 (TOCTOU 방어).
       //    role != 'owner' 조건도 WHERE에 포함 — pre-query 이후 DB가 바뀌었을 가능성 차단.
@@ -141,6 +200,7 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
           ),
         )
         .returning({
+          id: workspaceInvitations.id,
           workspaceId: workspaceInvitations.workspaceId,
           role: workspaceInvitations.role,
         });
@@ -149,7 +209,10 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
         // 동시 수락 등 race 상황 — 트랜잭션 롤백
         throw new Error("ACCEPT_RACE");
       }
-      const { workspaceId: acceptedWsId, role: acceptedRole } = accepted[0];
+      const { id: invitationId, workspaceId: acceptedWsId, role: acceptedRole } = accepted[0];
+      acceptedInvitationId = invitationId;
+      // NOTE: 이 할당 이후 tx 안에서 throw/rollback 시에도 scrub은 tx 바깥에서 호출되지만,
+      // rollback으로 activity_logs 신규 row가 commit되지 않아 scrubbedCount=0 (자동 no-op). 의도된 동작.
 
       // 2) workspace_members INSERT — UNIQUE (workspace_id, user_id) 이중 수락 방어
       await tx
@@ -169,12 +232,56 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
         .set({ lastWorkspaceId: acceptedWsId })
         .where(eq(users.id, userId));
 
+      // 4) Phase 5.5 Task 5-5-3: 감사 로그 기록 (같은 transaction → atomicity).
+      // metadata.email은 invitation의 저장된 email (이미 lowercase 정규화됨).
+      // metadata.inviteeUserId는 수락자 본인 — invitedBy(원래 발송자)와 분리되어 추적 가능.
+      await tx.insert(activityLogs).values({
+        userId,
+        workspaceId: acceptedWsId,
+        entityType: "workspace_invitation",
+        entityId: invitationId,
+        action: "workspace_invitation.accepted",
+        description: "멤버 초대 수락",
+        metadata: {
+          email: existing.email,
+          role: acceptedRole,
+          inviteeUserId: userId,
+        },
+      });
+
       return acceptedWsId;
     });
+
+    // Task B (audit-4): 수락 성공 시 해당 invitation 관련 audit log의 PII 익명화.
+    // 별도 transaction (docs/pii-lifecycle.md §4-3) — 실패해도 상위 success 응답 유지.
+    if (acceptedInvitationId) {
+      try {
+        await scrubInvitationActivityLogs(acceptedInvitationId, workspaceId);
+      } catch (scrubErr) {
+        console.error("[acceptInvitationAction] pii scrub failed", {
+          event: "invitation.pii_scrub_failed",
+          invitationId: acceptedInvitationId,
+          workspaceId,
+          name: scrubErr instanceof Error ? scrubErr.name : typeof scrubErr,
+          message:
+            scrubErr instanceof Error ? sanitizeLogMessage(scrubErr.message).slice(0, 200) : "",
+        });
+      }
+    }
 
     revalidatePath("/dashboard");
     return { success: true, workspaceId };
   } catch (err) {
+    // Task-S2a: plan 차등 제거 → 단일 고정 한도 안내. 문의 링크는 랜딩 /#contact.
+    // 한도 초과 분기 (instanceof 매칭 — DUPLICATE/RACE 분기보다 먼저).
+    if (err instanceof AcceptLimitExceededError) {
+      return {
+        success: false,
+        error: `워크스페이스 멤버 한도(${err.limit}명)에 도달했습니다. 워크스페이스 관리자가 기존 멤버를 정리한 후 다시 시도해주세요. 한도 확장이 필요하시면 /about#contact 로 문의해주세요.`,
+        code: "LIMIT_EXCEEDED",
+      };
+    }
+
     if (err instanceof Error && err.message === "ACCEPT_RACE") {
       // race 발생 시 row 상태를 재조회하여 정확한 code 반환
       // 만료 판정도 DB NOW() 기준으로 통일.
@@ -195,8 +302,9 @@ export async function acceptInvitationAction(token: string): Promise<AcceptResul
     }
     // 에러 로그에 token 포함 금지 — Vercel 로그 유출 시 무자격 수락 위험.
     console.error("[acceptInvitationAction] error", {
+      event: "invitation.accept_error",
       name: err instanceof Error ? err.name : typeof err,
-      message: err instanceof Error ? err.message.slice(0, 200) : "",
+      message: err instanceof Error ? sanitizeLogMessage(err.message).slice(0, 200) : "",
     });
     return {
       success: false,

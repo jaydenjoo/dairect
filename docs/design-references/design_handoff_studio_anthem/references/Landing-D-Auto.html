@@ -1,0 +1,1089 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>dairect. — Human directs, machine executes (Auto)</title>
+  <meta name="description" content="코드는 AI가, 방향은 사람이 잡습니다. dairect는 아이디어를 실제 작동하는 제품으로 바꿔주는 스튜디오입니다." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" as="style" crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.min.css" />
+
+  <link rel="stylesheet" href="landing.css?v=5" />
+  <link rel="stylesheet" href="editorial.css?v=2" />
+  <link rel="stylesheet" href="a11y-patch.css?v=2" />
+  <link rel="stylesheet" href="auto-theme.css?v=5" />
+  <script>
+    // Determine initial theme BEFORE first paint to avoid FOUC.
+    // Priority: localStorage override > time-of-day > prefers-color-scheme
+    (function(){
+      var override = null;
+      try { override = localStorage.getItem('dairect-theme-override'); } catch(e) {}
+      var theme;
+      if (override === 'light' || override === 'dark') {
+        theme = override;
+      } else {
+        var h = new Date().getHours();
+        var isNight = (h >= 19 || h < 7); // 19:00–06:59 → dark, 07:00–18:59 → light
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        // Combine: time rules, but if user's OS is dark during a daytime edge window, go dark
+        theme = isNight ? 'dark' : (prefersDark && (h >= 18 || h < 8) ? 'dark' : 'light');
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+</head>
+<body>
+
+<a href="#main" class="skip-link">Skip to main content</a>
+
+<!-- Auto theme toggle — shows current state, lets user override -->
+<div class="theme-ui">
+  <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle theme (auto / light / dark)">
+    <span class="tt-state" id="ttState">auto</span>
+    <span class="tt-sep">·</span>
+    <span class="tt-time" id="ttTime">—</span>
+  </button>
+  <a href="Landing-A-Light.html" class="variant-badge" title="Switch variant">D · Auto — see A / B / C</a>
+</div>
+
+<!-- ══════════════════════ [01] NAV ══════════════════════ -->
+<nav class="nav" id="nav" aria-label="Primary">
+  <a href="#hero" class="brand" aria-label="dairect — Director of AI, working Direct" title="D — Director, AI — Artificial Intelligence, RECT — Direct">
+    <span class="bp bp-d">d</span><span class="bp bp-ai">ai</span><span class="bp bp-rect">rect</span><span class="dot">.</span>
+  </a>
+  <div class="menu" role="menubar">
+    <a href="#work" role="menuitem">Work</a>
+    <a href="#services" role="menuitem">Services</a>
+    <a href="#pricing" role="menuitem">Pricing</a>
+    <a href="#founder" role="menuitem">About</a>
+    <a href="#journal" role="menuitem">Journal</a>
+  </div>
+  <a href="#contact" class="cta-mini magnetic" data-magnetic>
+    Start a project <span aria-hidden="true">→</span>
+  </a>
+</nav>
+
+<main id="main">
+
+<!-- ══════════════════════ [02] HERO ══════════════════════ -->
+<section class="hero" id="hero" data-screen-label="01 Hero">
+  <div class="container">
+    <div class="hero-grid">
+      <div class="hero-left">
+        <p class="kicker reveal-fade" data-reveal>— A STUDIO <em>directed</em> BY HUMAN, <em>executed</em> BY AI</p>
+
+        <p class="hero-etym-tag reveal-fade" data-reveal data-reveal-delay="80" aria-hidden="true">
+          <span>D<span class="sep"> . </span></span><span class="ai">AI</span><span><span class="sep"> . </span>RECT</span>
+          <span class="em-dash">&nbsp;&nbsp;—&nbsp;&nbsp;</span>
+          <span>DIRECTOR OF <span class="ai">AI</span>, WORKING DIRECT</span>
+        </p>
+
+        <h1 class="hero-headline">
+          <span class="line reveal-chars" data-chars>머릿속 아이디어를</span>
+          <span class="line reveal-chars" data-chars data-amber="진짜로">진짜로 만들어드립니다.</span>
+        </h1>
+
+        <p class="hero-sub reveal-fade" data-reveal data-reveal-delay="180">
+          Human <em>directs.</em> <span class="strong">Machine <em>executes.</em></span>
+          <br />And the page looks <em>like both.</em>
+        </p>
+
+        <p class="hero-body reveal-fade" data-reveal data-reveal-delay="320">
+          코드는 AI가 씁니다. <em>방향은 저희가 잡습니다.</em>
+          비개발자 창업가와 중소기업의 아이디어가
+          실제로 작동하는 제품이 될 때까지, 2~3주 안에.
+        </p>
+
+        <div class="cta-row reveal-fade" data-reveal data-reveal-delay="440">
+          <a href="#contact" class="btn-primary magnetic" data-magnetic style="white-space:nowrap;flex-shrink:0;width:auto;">
+            프로젝트 시작하기 <span class="arrow" aria-hidden="true">→</span>
+          </a>
+          <a href="#work" class="btn-ghost">포트폴리오 보기</a>
+        </div>
+
+        <div class="trust reveal-fade" data-reveal data-reveal-delay="600">
+          <div class="trust-item">
+            <span class="trust-label">N°<span class="ko"> 완료 프로젝트</span></span>
+            <span class="trust-value">12<span style="font-size:0.5em;color:var(--dust);font-weight:400;margin-left:4px">건</span></span>
+          </div>
+          <div class="trust-item">
+            <span class="trust-label">AVG<span class="ko"> 평균 기간</span></span>
+            <span class="trust-value">2<span style="color:var(--signal)">.</span>1<span style="font-size:0.5em;color:var(--dust);font-weight:400;margin-left:4px">주</span></span>
+          </div>
+          <div class="trust-item">
+            <span class="trust-label">CSAT<span class="ko"> 고객 만족도</span></span>
+            <span class="trust-value">98<span style="color:var(--signal)">%</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-right" aria-hidden="true">
+        <div class="film-strip">
+          <!-- Frame 1 — Chatsio -->
+          <div class="frame f1 mask-reveal" data-mask data-mask-delay="520">
+            <div class="art-inner art-chatsio">
+              <div class="head"><span>N°01 · 2025</span><span>Chatsio</span></div>
+              <div class="chat">
+                <div class="bubble bot">고객님의 문의를 기다리고 있어요.</div>
+                <div class="bubble user">배송은 언제 오나요?</div>
+                <div class="bubble bot">2~3일 내로 도착합니다.</div>
+                <div class="bubble typing">· · ·</div>
+              </div>
+            </div>
+            <span class="caption"><span class="amber">N°01</span> — CHATSIO · SMB CX</span>
+          </div>
+          <!-- Frame 2 — Findably -->
+          <div class="frame f2 mask-reveal" data-mask data-mask-delay="360">
+            <div class="art-inner art-findably">
+              <div class="head"><span>N°02 · 2025</span><span>Findably</span></div>
+              <div class="findably-chart">
+                <div class="label">82</div>
+                <div class="sub">MKT HEALTH</div>
+                <div class="bars" aria-hidden="true">
+                  <span class="bar" style="height:28%"></span>
+                  <span class="bar" style="height:44%"></span>
+                  <span class="bar on" style="height:62%"></span>
+                  <span class="bar" style="height:36%"></span>
+                  <span class="bar on" style="height:78%"></span>
+                  <span class="bar" style="height:54%"></span>
+                  <span class="bar on" style="height:88%"></span>
+                </div>
+                <div class="axis"></div>
+              </div>
+            </div>
+            <span class="caption"><span class="amber">N°02</span> — FINDABLY · MKT DIAG</span>
+          </div>
+          <!-- Frame 3 — AutoVox -->
+          <div class="frame f3 mask-reveal" data-mask data-mask-delay="200">
+            <div class="art-inner art-autovox">
+              <div class="head"><span>N°03 · 2025</span><span>AutoVox</span></div>
+              <div class="autovox-wave" aria-hidden="true">
+                <span class="tick" style="height:30%"></span>
+                <span class="tick" style="height:52%"></span>
+                <span class="tick accent" style="height:84%"></span>
+                <span class="tick" style="height:40%"></span>
+                <span class="tick accent" style="height:70%"></span>
+                <span class="tick" style="height:26%"></span>
+                <span class="tick accent" style="height:92%"></span>
+                <span class="tick" style="height:48%"></span>
+                <span class="tick" style="height:62%"></span>
+                <span class="tick accent" style="height:78%"></span>
+                <span class="tick" style="height:34%"></span>
+                <span class="tick" style="height:22%"></span>
+              </div>
+              <div class="autovox-label">
+                <em>Voice-first automation.</em>
+                <span class="mono">VOICE → ACTION · 240 MS</span>
+              </div>
+            </div>
+            <span class="caption"><span class="amber">N°03</span> — AUTOVOX · VOICE AUTOMATION</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ [02.5] ETYMOLOGY ══════════════════════ -->
+<section class="etymology" data-screen-label="02.5 Etymology" aria-labelledby="etym-h">
+  <div class="container etym-wrap">
+    <p class="kicker etym-kicker reveal-fade" data-reveal>— WHAT'S IN A NAME</p>
+
+    <div class="etym-wordmark" role="group" aria-label="D . AI . RECT name breakdown" id="etym-h">
+      <div class="etym-part">
+        <span class="etym-glyph etym-d reveal-fade" data-reveal data-reveal-delay="80">D</span>
+        <span class="etym-bar" aria-hidden="true"></span>
+        <span class="etym-label">DIRECTOR</span>
+      </div>
+      <span class="etym-sep" aria-hidden="true">.</span>
+      <div class="etym-part">
+        <span class="etym-glyph etym-ai reveal-fade" data-reveal data-reveal-delay="200">AI</span>
+        <span class="etym-bar etym-bar-amber" aria-hidden="true"></span>
+        <span class="etym-label etym-label-amber">ARTIFICIAL<br/>INTELLIGENCE</span>
+      </div>
+      <span class="etym-sep" aria-hidden="true">.</span>
+      <div class="etym-part">
+        <span class="etym-glyph etym-rect reveal-fade" data-reveal data-reveal-delay="320">RECT</span>
+        <span class="etym-bar" aria-hidden="true"></span>
+        <span class="etym-label">DIRECT</span>
+      </div>
+    </div>
+
+    <div class="etym-explain reveal-fade" data-reveal data-reveal-delay="480">
+      <p class="etym-en">“A director who commands AI to build directly.”</p>
+      <p class="etym-ko">AI를 지휘하여 직접 만드는 사람. 그게 우리의 이름입니다.</p>
+    </div>
+
+    <div class="etym-divider" aria-hidden="true"></div>
+
+    <div class="etym-slogan reveal-fade" data-reveal data-reveal-delay="620">
+      <p class="etym-slogan-en">“Code by machines. Direction by us.”</p>
+      <p class="etym-slogan-ko">코드는 AI가, 방향은 내가.</p>
+      <span class="etym-sig">— est. 2024</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ [03] MANIFESTO ══════════════════════ -->
+<section class="manifesto section-dark" data-screen-label="02 Manifesto">
+  <div class="container">
+    <p class="kicker amber reveal-fade" data-reveal>— MANIFESTO</p>
+    <h2 class="manifesto-head">
+      <span class="line it reveal-fade" data-reveal data-reveal-delay="120">We don't sell</span>
+      <span class="line rm reveal-fade" data-reveal data-reveal-delay="260">code.</span>
+      <span class="line it reveal-fade" data-reveal data-reveal-delay="420">We sell</span>
+      <span class="line rm amber reveal-fade" data-reveal data-reveal-delay="560">direction.</span>
+      <span class="line it reveal-fade" data-reveal data-reveal-delay="720">And</span>
+      <span class="line rm reveal-fade" data-reveal data-reveal-delay="860">execution.</span>
+    </h2>
+    <p class="manifesto-ko reveal-fade" data-reveal data-reveal-delay="1040">
+      우리는 코드를 팔지 않습니다. <span class="ko-amber">방향을 팝니다.</span> 그리고 실행을 팝니다.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ [04] PROOF ══════════════════════ -->
+<section class="proof" data-screen-label="03 Proof">
+  <div class="container">
+    <div class="proof-top">
+      <div>
+        <p class="kicker">— BY THE NUMBERS</p>
+        <h2 class="proof-title" style="margin-top:16px">
+          <span class="it">Small studio.</span>
+          <span class="rm">Real numbers.</span>
+        </h2>
+      </div>
+      <div class="metrics" data-count-root>
+        <div class="metric">
+          <span class="metric-value"><span data-count="12" data-suffix="건">0</span></span>
+          <span class="metric-label">Projects</span>
+          <span class="metric-desc">완료 프로젝트</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value"><span data-count="5.2" data-suffix="억원">0</span></span>
+          <span class="metric-label">Delivered</span>
+          <span class="metric-desc">누적 개발 규모</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value"><span data-count="2.1" data-suffix="주">0</span></span>
+          <span class="metric-label">Avg. speed</span>
+          <span class="metric-desc">평균 기간</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value"><span data-count="98" data-suffix="%">0</span></span>
+          <span class="metric-label">CSAT</span>
+          <span class="metric-desc">고객 만족도</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="marquee-row">
+      <span class="built-for">— Built for</span>
+      <div class="marquee" aria-hidden="true">
+        <div class="marquee-track">
+          <span>— STARTUP A</span><span>— VENTURE B</span><span>— AGENCY C</span>
+          <span>— CLINIC D</span><span>— RETAIL E</span><span>— STUDIO F</span>
+          <span>— FOUNDER G</span><span>— CREATOR H</span>
+          <span>— STARTUP A</span><span>— VENTURE B</span><span>— AGENCY C</span>
+          <span>— CLINIC D</span><span>— RETAIL E</span><span>— STUDIO F</span>
+          <span>— FOUNDER G</span><span>— CREATOR H</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ [05] SERVICES ══════════════════════ -->
+<section id="services" data-screen-label="04 Services" style="border-top:1px solid var(--hairline-canvas)">
+  <div class="container">
+    <div class="services-grid">
+      <aside class="services-side">
+        <p class="kicker amber">— How we work</p>
+        <h2 class="services-title">
+          <span class="it">Four moves,</span>
+          <span class="it">from idea</span>
+          <span class="rm">to launched.</span>
+        </h2>
+        <p class="services-ko">4단계로, 아이디어에서 런칭까지.</p>
+        <p class="services-desc">
+          복잡한 코드 고민은 저희가 맡습니다.
+          당신의 아이디어가 실제로 작동하는 제품이 되는 4단계입니다.
+        </p>
+      </aside>
+
+      <div class="services-list">
+        <article class="service-row">
+          <div class="service-num">01</div>
+          <div class="service-title-col">
+            <span class="service-title-en">Deep Consult.</span>
+            <span class="service-title-ko">심층 상담</span>
+            <span class="service-role">— DIRECTED BY YOU</span>
+          </div>
+          <div class="service-body-col">
+            <p class="service-desc">
+              아이디어의 뼈대를 함께 세웁니다. 타깃 고객, 핵심 가설, 성공 기준을
+              한 시간 안에 문서로 정리해 드립니다. 개발자 용어 없이.
+            </p>
+            <div class="service-tags">
+              <span class="tag">&lt; WORKSHOP /&gt;</span>
+              <span class="tag">&lt; 1H CALL /&gt;</span>
+              <span class="tag">&lt; NOTION DOC /&gt;</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="service-row">
+          <div class="service-num">02</div>
+          <div class="service-title-col">
+            <span class="service-title-en">Strategy Map.</span>
+            <span class="service-title-ko">전략 설계</span>
+            <span class="service-role">— DIRECTED BY US</span>
+          </div>
+          <div class="service-body-col">
+            <p class="service-desc">
+              MVP의 경계를 그립니다. 꼭 필요한 화면, 꼭 필요한 기능만.
+              2~3주 안에 런칭 가능한 범위로 설계해, 투자 대비 결과가 가장 빠른 구조를 만듭니다.
+            </p>
+            <div class="service-tags">
+              <span class="tag">&lt; BLUEPRINT /&gt;</span>
+              <span class="tag">&lt; USER FLOW /&gt;</span>
+              <span class="tag">&lt; SCOPE /&gt;</span>
+              <span class="tag">&lt; MILESTONES /&gt;</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="service-row">
+          <div class="service-num">03</div>
+          <div class="service-title-col">
+            <span class="service-title-en">AI Execution.</span>
+            <span class="service-title-ko">맞춤 개발</span>
+            <span class="service-role">— EXECUTED BY AI</span>
+          </div>
+          <div class="service-body-col">
+            <p class="service-desc">
+              Claude Code와 함께 짧은 사이클로 짓습니다.
+              매일 오늘 만든 것을 공유하고, 내일 만들 것을 정합니다. 블랙박스 없음.
+            </p>
+            <div class="service-tags">
+              <span class="tag">&lt; CLAUDE CODE /&gt;</span>
+              <span class="tag">&lt; NEXT.JS /&gt;</span>
+              <span class="tag">&lt; SUPABASE /&gt;</span>
+              <span class="tag">&lt; DAILY BUILD /&gt;</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="service-row">
+          <div class="service-num">04</div>
+          <div class="service-title-col">
+            <span class="service-title-en">Ship &amp; Handoff.</span>
+            <span class="service-title-ko">완성 및 이관</span>
+            <span class="service-role">— HANDED BACK TO YOU</span>
+          </div>
+          <div class="service-body-col">
+            <p class="service-desc">
+              런칭은 시작입니다. 운영에 필요한 문서, 계정, 인수인계 자료를
+              한 권의 폴더로 정리해 드립니다. 이후 유지보수는 원하는 만큼만.
+            </p>
+            <div class="service-tags">
+              <span class="tag">&lt; HANDOFF /&gt;</span>
+              <span class="tag">&lt; DOCS /&gt;</span>
+              <span class="tag">&lt; OPS PLAYBOOK /&gt;</span>
+              <span class="tag">&lt; 30D SUPPORT /&gt;</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ [06] WORK ══════════════════════ -->
+<section id="work" class="section-dark" data-screen-label="05 Work">
+  <div class="container">
+    <div class="work-head">
+      <div>
+        <p class="kicker amber">— Selected work</p>
+        <h2 class="work-title">
+          <span class="rm">Things we made.</span>
+          <span class="it">People use them.</span>
+        </h2>
+      </div>
+      <div class="work-head-right">
+        <p class="work-head-desc">
+          저희가 만들었고, 실제 사용 중인 제품들. 각 프로젝트는 평균 2.1주 안에 런칭됐습니다.
+        </p>
+        <a href="#" class="work-all-link">View all work →</a>
+      </div>
+    </div>
+
+    <div class="work-grid">
+      <!-- Project 01 — Chatsio (big) -->
+      <article class="work-card big work-chatsio">
+        <div class="work-img-wrap">
+          <div class="work-img">
+            <div class="wc-head"><span>N°01 / 2025</span><span>CX CHAT</span></div>
+            <div class="wc-chat">
+              <div class="wc-bub u">반품 가능한가요?</div>
+              <div class="wc-bub b">네, 7일 이내 미개봉 상품은 가능합니다. 주문번호 알려주실까요?</div>
+              <div class="wc-bub u">20251024-3377</div>
+              <div class="wc-bub b">확인했습니다. 반품 링크 보내드릴게요.</div>
+            </div>
+          </div>
+        </div>
+        <div class="work-meta">
+          <span class="work-id">N°01 / 2025</span>
+          <span class="work-name">Chatsio</span>
+          <span class="work-desc">AI 고객 상담 SaaS for Korean SMEs</span>
+          <span class="work-stack">NEXT.JS · SUPABASE · CLAUDE API · 2주</span>
+        </div>
+      </article>
+
+      <!-- Project 02 — Findably (mid) -->
+      <article class="work-card mid work-findably">
+        <div class="work-img-wrap">
+          <div class="work-img">
+            <div class="wf-top"><span>N°02 / 2025</span><span>MKT DIAG</span></div>
+            <div class="wf-score">82<span class="sub">Marketing health · strong</span></div>
+            <div class="wf-bars" aria-hidden="true">
+              <span class="b" style="height:32%"></span>
+              <span class="b" style="height:48%"></span>
+              <span class="b on" style="height:68%"></span>
+              <span class="b" style="height:40%"></span>
+              <span class="b on" style="height:78%"></span>
+              <span class="b" style="height:58%"></span>
+              <span class="b on" style="height:92%"></span>
+              <span class="b" style="height:44%"></span>
+            </div>
+          </div>
+        </div>
+        <div class="work-meta">
+          <span class="work-id">N°02 / 2025</span>
+          <span class="work-name">Findably</span>
+          <span class="work-desc">AI 마케팅 헬스 진단 도구</span>
+          <span class="work-stack">NEXT.JS · OPENAI · 결제연동 · 3주</span>
+        </div>
+      </article>
+
+      <!-- Project 03 — AutoVox (mid) -->
+      <article class="work-card mid work-autovox">
+        <div class="work-img-wrap">
+          <div class="work-img">
+            <div class="wa-top"><span>N°03 / 2025</span><span>VOICE</span></div>
+            <div class="wa-wave" aria-hidden="true">
+              <span class="t" style="height:22%"></span>
+              <span class="t" style="height:42%"></span>
+              <span class="t a" style="height:70%"></span>
+              <span class="t" style="height:34%"></span>
+              <span class="t a" style="height:86%"></span>
+              <span class="t" style="height:28%"></span>
+              <span class="t a" style="height:62%"></span>
+              <span class="t" style="height:46%"></span>
+              <span class="t a" style="height:74%"></span>
+              <span class="t" style="height:30%"></span>
+              <span class="t" style="height:52%"></span>
+              <span class="t a" style="height:90%"></span>
+              <span class="t" style="height:38%"></span>
+              <span class="t" style="height:20%"></span>
+            </div>
+            <span class="wa-label">Voice → Action, in 240ms.</span>
+          </div>
+        </div>
+        <div class="work-meta">
+          <span class="work-id">N°03 / 2025</span>
+          <span class="work-name">AutoVox</span>
+          <span class="work-desc">음성 자동화 워크플로우</span>
+          <span class="work-stack">WHISPER · CLAUDE · MAKE.COM · 2주</span>
+        </div>
+      </article>
+
+      <!-- Project 04 — PM Dashboard (big) -->
+      <article class="work-card big work-pm">
+        <div class="work-img-wrap">
+          <div class="work-img">
+            <div class="wp-top"><span>N°04 / 2026</span><span>PM DASHBOARD</span></div>
+            <div class="wp-grid">
+              <div class="wp-cell"><span class="l">Active</span><span class="v amber">07</span></div>
+              <div class="wp-cell"><span class="l">Overdue</span><span class="v">02</span></div>
+              <div class="wp-cell"><span class="l">Shipped</span><span class="v">14</span></div>
+              <div class="wp-cell"><span class="l">매출</span><span class="v">1.8억</span></div>
+              <div class="wp-cell"><span class="l">Clients</span><span class="v">09</span></div>
+              <div class="wp-cell"><span class="l">NPS</span><span class="v amber">72</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="work-meta">
+          <span class="work-id">N°04 / 2026</span>
+          <span class="work-name">PM Dashboard</span>
+          <span class="work-desc">프리랜서 프로젝트 관리 툴</span>
+          <span class="work-stack">NEXT.JS · POSTGRES · VERCEL · 2주</span>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ [07] PRICING ══════════════════════ -->
+<section id="pricing" data-screen-label="06 Pricing">
+  <div class="container">
+    <div class="pricing-head">
+      <p class="kicker amber">— Investment</p>
+      <h2 class="pricing-title">
+        <span class="rm">Honest pricing.</span>
+        <span class="it">No surprises.</span>
+      </h2>
+      <p class="pricing-ko">정직한 비용, 예측 가능한 결과</p>
+      <p class="pricing-sub">
+        아이디어의 크기에 맞는 최적의 플랜.
+        복잡한 개발 과정을 투명한 비용 체계로 경험하세요.
+      </p>
+    </div>
+
+    <div class="pricing-grid">
+      <!-- Pkg 01 -->
+      <div class="price-col">
+        <span class="price-num">PKG N°01</span>
+        <h3 class="price-name">Discovery.</h3>
+        <span class="price-ko-name">진단 패키지</span>
+        <div>
+          <div class="price-amount">30<span style="font-size:0.5em;font-weight:400;margin-left:6px;color:var(--dust)">만원~</span></div>
+          <div class="price-starting">부가세 별도 · 시작 금액</div>
+        </div>
+        <div class="price-duration">3~5일</div>
+        <p class="price-desc">
+          아이디어가 실현 가능한지, 어떤 스펙으로 만들어야 하는지
+          가장 빠르게 확인하는 단계입니다.
+        </p>
+        <ul class="price-list">
+          <li>1시간 심층 인터뷰</li>
+          <li>타깃·가설·성공 기준 정리</li>
+          <li>MVP 스코프 초안</li>
+          <li>기술 스택 추천서</li>
+        </ul>
+        <div class="price-cta">
+          <a href="#contact" class="price-ghost">Learn more →</a>
+        </div>
+      </div>
+
+      <!-- Pkg 02 — Featured -->
+      <div class="price-col featured">
+        <span class="price-badge">— Most chosen</span>
+        <span class="price-num">PKG N°02</span>
+        <h3 class="price-name">Build.</h3>
+        <span class="price-ko-name">MVP 패키지</span>
+        <div>
+          <div class="price-amount">300<span style="font-size:0.5em;font-weight:400;margin-left:6px;color:var(--dust)">만원~</span></div>
+          <div class="price-starting">부가세 별도 · 시작 금액</div>
+        </div>
+        <div class="price-duration">2~3주</div>
+        <p class="price-desc">
+          실제로 작동하는 MVP를 2~3주 안에 출시합니다.
+          매일 빌드 공유, 주간 리뷰로 완전히 투명하게.
+        </p>
+        <ul class="price-list">
+          <li>Discovery 전 단계 포함</li>
+          <li>풀스택 개발 (Next.js + Supabase)</li>
+          <li>반응형 디자인 시스템</li>
+          <li>배포 및 도메인 연결</li>
+          <li>30일 무상 유지보수</li>
+        </ul>
+        <div class="price-cta">
+          <a href="#contact" class="btn-primary magnetic" data-magnetic>
+            Start this project <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Pkg 03 -->
+      <div class="price-col">
+        <span class="price-num">PKG N°03</span>
+        <h3 class="price-name">Scale.</h3>
+        <span class="price-ko-name">확장 패키지</span>
+        <div>
+          <div class="price-amount">800<span style="font-size:0.5em;font-weight:400;margin-left:6px;color:var(--dust)">만원~</span></div>
+          <div class="price-starting">부가세 별도 · 시작 금액</div>
+        </div>
+        <div class="price-duration">4~8주</div>
+        <p class="price-desc">
+          런칭 후 성장에 집중하는 단계. 기능 확장, 성능 최적화,
+          데이터 분석 환경까지 한 번에.
+        </p>
+        <ul class="price-list">
+          <li>Build 전 단계 포함</li>
+          <li>결제·정산 시스템</li>
+          <li>관리자 대시보드</li>
+          <li>Analytics + A/B 프레임</li>
+          <li>90일 운영 파트너십</li>
+        </ul>
+        <div class="price-cta">
+          <a href="#contact" class="price-ghost">Learn more →</a>
+        </div>
+      </div>
+    </div>
+
+    <p class="pricing-note">
+      정확한 금액은 프로젝트 범위에 따라 조정됩니다. 편하게 문의해주세요.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ [08] FOUNDER ══════════════════════ -->
+<section id="founder" class="section-dark" data-screen-label="07 Founder">
+  <div class="container">
+    <div class="founder-grid">
+      <div class="founder-portrait">
+        <span class="tag">— J / Seoul</span>
+        <div class="silhouette" aria-hidden="true">
+          <svg viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="100" cy="80" rx="42" ry="50" fill="#141414" opacity="0.6"/>
+            <path d="M30 240 Q30 140 100 140 Q170 140 170 240 Z" fill="#141414" opacity="0.55"/>
+          </svg>
+        </div>
+        <span class="tag-b">FRAME 01 / 01</span>
+      </div>
+
+      <div class="founder-content">
+        <p class="kicker amber">— From the founder</p>
+        <h2 class="founder-name">Jayden.</h2>
+        <p class="founder-role">Vibe Architect · Dairect · Seoul</p>
+
+        <blockquote class="founder-quote">
+          <span class="line">AI는 자동차입니다.</span>
+          <span class="line amber">운전을 못해도 괜찮아요.</span>
+          <span class="line">택시를 타면 되니까요.</span>
+        </blockquote>
+
+        <div class="founder-etym">
+          <p class="founder-etym-en">
+            “So we named the studio after the job:<br/>
+            <em>Director of AI, working Direct.</em>”
+          </p>
+          <p class="founder-etym-ko">
+            그래서 스튜디오 이름을 그 역할 그대로 지었습니다.<br/>
+            <span class="mono-amber">D + AI + RECT</span> = ‘AI를 지휘하는 사람.’
+          </p>
+
+          <dl class="founder-etym-glyphs" aria-label="Wordmark decomposition">
+            <div class="feg-row">
+              <dt class="feg-key">D</dt>
+              <dd class="feg-val">DIRECTOR</dd>
+            </div>
+            <div class="feg-row feg-row-amber">
+              <dt class="feg-key">AI</dt>
+              <dd class="feg-val">ARTIFICIAL INTELLIGENCE</dd>
+            </div>
+            <div class="feg-row">
+              <dt class="feg-key">RECT</dt>
+              <dd class="feg-val">DIRECT</dd>
+            </div>
+          </dl>
+        </div>
+
+        <p class="founder-body">
+          코드는 AI가 씁니다. 방향은 제가 잡습니다.
+          고객님의 아이디어가 세상에 나올 수 있도록,
+          가장 작고 확실한 첫 걸음을 함께합니다.
+        </p>
+
+        <span class="founder-sig">— J</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ [09] CONTACT ══════════════════════ -->
+<section id="contact" class="contact" data-screen-label="08 Contact">
+  <div class="container">
+    <div class="contact-grid">
+      <aside class="contact-side">
+        <p class="kicker amber">— Next step</p>
+        <h2 class="contact-title">
+          <span class="rm">Have an idea?</span>
+          <span class="it">Let's build it.</span>
+        </h2>
+        <p class="contact-ko">아이디어가 있으신가요? 만들어드리겠습니다.</p>
+        <p class="contact-desc">
+          24시간 내 답신합니다. 상담은 무료입니다.
+          간단히 어떤 서비스를 구상 중이신지 알려주세요.
+        </p>
+        <div class="contact-info">
+          <a href="mailto:hello@dairect.kr">hello@dairect.kr</a>
+          <a href="tel:+821000000000">+82 10-XXXX-XXXX</a>
+          <span class="muted">Seoul, Korea</span>
+        </div>
+      </aside>
+
+      <form class="contact-form" novalidate onsubmit="event.preventDefault(); this.querySelector('.submit-btn').textContent='Thank you — we will reply within 24h';">
+        <div class="field">
+          <label for="f-name">Name <span class="ko">· 이름</span></label>
+          <input id="f-name" type="text" placeholder="김재덕" autocomplete="name" />
+        </div>
+
+        <div class="field">
+          <label for="f-contact">Contact <span class="ko">· 연락처</span></label>
+          <input id="f-contact" type="text" placeholder="you@example.com 또는 010-0000-0000" autocomplete="email" />
+        </div>
+
+        <div class="field">
+          <label for="f-oneliner">Idea one-liner <span class="ko">· 한 줄 요약</span></label>
+          <input id="f-oneliner" type="text" maxlength="50" placeholder="어떤 서비스를 구상 중이신가요?" />
+        </div>
+
+        <div class="field">
+          <label for="f-details">Details <span class="ko">· 상세 설명</span></label>
+          <textarea id="f-details" rows="4" placeholder="세부 내용을 적어주시면 더 정확한 상담이 가능합니다."></textarea>
+        </div>
+
+        <div class="field">
+          <span class="field-label" id="lbl-budget"><label>Budget <span class="ko">· 예산 범위</span></label></span>
+          <div class="radio-grid" role="radiogroup" aria-labelledby="lbl-budget">
+            <label class="radio-opt"><input type="radio" name="budget" /><span class="lbl">300만원 미만</span></label>
+            <label class="radio-opt"><input type="radio" name="budget" /><span class="lbl">300~800만원</span></label>
+            <label class="radio-opt"><input type="radio" name="budget" /><span class="lbl">800만원 이상</span></label>
+            <label class="radio-opt"><input type="radio" name="budget" /><span class="lbl">아직 미정</span></label>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field-label" id="lbl-timeline"><label>Timeline <span class="ko">· 희망 일정</span></label></span>
+          <div class="radio-grid three" role="radiogroup" aria-labelledby="lbl-timeline">
+            <label class="radio-opt"><input type="radio" name="time" /><span class="lbl">1개월 이내</span></label>
+            <label class="radio-opt"><input type="radio" name="time" /><span class="lbl">1~3개월</span></label>
+            <label class="radio-opt"><input type="radio" name="time" /><span class="lbl">유동적</span></label>
+          </div>
+        </div>
+
+        <div>
+          <button type="submit" class="submit-btn">
+            Send <span aria-hidden="true">→</span>
+          </button>
+          <p class="submit-sub">문의 보내기</p>
+        </div>
+
+        <p class="form-fine">
+          By submitting, you agree to our <a href="#">privacy policy</a>.
+        </p>
+      </form>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ══════════════════════ [10] FOOTER ══════════════════════ -->
+<footer class="footer section-dark" id="journal">
+  <div class="container">
+    <div class="footer-logo footer-logo-split" aria-hidden="true">
+      <span class="fl-part fl-d">d</span><span class="fl-gap"></span><span class="fl-part fl-ai">ai</span><span class="fl-gap"></span><span class="fl-part fl-rect">rect</span><span class="fl-gap"></span><span class="fl-part fl-dot">.</span>
+    </div>
+    <div class="footer-logo-caption">
+      <span class="fl-cap-1">D × AI × RECT</span>
+      <span class="fl-cap-sep">/</span>
+      <span class="fl-cap-2">Director of AI, working Direct</span>
+    </div>
+    <p class="footer-logo-slogan">
+      <em>“Code by machines. Direction by us.”</em><br/>
+      <span class="fls-ko">코드는 AI가, 방향은 내가.</span>
+    </p>
+
+    <div class="footer-grid">
+      <div class="footer-col">
+        <span class="footer-brand">dairect<span class="dot">.</span></span>
+        <p class="footer-tag">코드는 AI가, 방향은 내가</p>
+        <span class="footer-est">— est. 2024 / Seoul</span>
+      </div>
+
+      <div class="footer-col">
+        <span class="footer-col-head">— Menu</span>
+        <a href="#work">Work</a>
+        <a href="#services">Services</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#founder">About</a>
+        <a href="#journal">Journal</a>
+      </div>
+
+      <div class="footer-col">
+        <span class="footer-col-head">— Reach us</span>
+        <a href="mailto:hello@dairect.kr">hello@dairect.kr</a>
+        <a href="#">KakaoTalk Channel</a>
+        <a href="#">Instagram @dairect.studio</a>
+      </div>
+
+      <div class="footer-col">
+        <span class="footer-col-head">— Fine print</span>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms</a>
+        <p>사업자등록 000-00-00000</p>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>© 2026 dairect. Made with taste &amp; Claude.</span>
+      <span>Seoul → Global. Always building.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ── NAV scroll state ─────────────────────────────── */
+(function(){
+  const nav = document.getElementById('nav');
+  const onScroll = () => {
+    if (window.scrollY > 40) nav.classList.add('scrolled');
+    else nav.classList.remove('scrolled');
+  };
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+})();
+
+/* ── Word-level reveal (Hangul-safe, keeps word-break, preserves color) ─ */
+(function(){
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let globalIdx = 0;
+  document.querySelectorAll('[data-chars]').forEach(el => {
+    const text = el.textContent;
+    const amberAttr = el.dataset.amber || '';
+    const amberSet = new Set(amberAttr.split(/\s+/).filter(Boolean));
+    el.textContent = '';
+    const parts = text.split(/(\s+)/);
+    parts.forEach(part => {
+      if (part.length === 0) return;
+      if (/^\s+$/.test(part)) {
+        el.appendChild(document.createTextNode(part));
+      } else {
+        const w = document.createElement('span');
+        w.className = 'word';
+        if (amberSet.has(part)) w.classList.add('amber');
+        w.textContent = part;
+        w.style.transitionDelay = (globalIdx++ * 90) + 'ms';
+        el.appendChild(w);
+      }
+    });
+  });
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.querySelectorAll('.word').forEach(w => w.classList.add('in'));
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('[data-chars]').forEach(el => {
+    if (reduce) el.querySelectorAll('.word').forEach(w => w.classList.add('in'));
+    else io.observe(el);
+  });
+})();
+
+/* ── Fade reveal (with optional delay) ────────────── */
+(function(){
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const d = parseInt(e.target.dataset.revealDelay || '0', 10);
+        setTimeout(() => e.target.classList.add('in'), d);
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.18 });
+  document.querySelectorAll('[data-reveal]').forEach(el => {
+    if (reduce) el.classList.add('in');
+    else io.observe(el);
+  });
+})();
+
+/* ── Mask reveal (Hero right has immediate failsafe) ─────────── */
+(function(){
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const d = parseInt(e.target.dataset.maskDelay || '0', 10);
+        setTimeout(() => e.target.classList.add('in'), d);
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.05 });
+  document.querySelectorAll('[data-mask]').forEach(el => {
+    if (reduce) el.classList.add('in');
+    else io.observe(el);
+  });
+  // Failsafe: if any Hero frame is still hidden after first paint (already
+  // in viewport), force it visible so the right column never renders empty.
+  window.addEventListener('load', () => {
+    requestAnimationFrame(() => {
+      document.querySelectorAll('.hero [data-mask]').forEach(el => {
+        const r = el.getBoundingClientRect();
+        if (r.top < window.innerHeight && !el.classList.contains('in')) {
+          el.classList.add('in');
+        }
+      });
+    });
+  });
+})();
+
+/* ── Magnetic CTA ─────────────────────────────────── */
+(function(){
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) return;
+  document.querySelectorAll('[data-magnetic]').forEach(el => {
+    let rx = 0, ry = 0, tx = 0, ty = 0, raf = null;
+    const loop = () => {
+      tx += (rx - tx) * 0.18;
+      ty += (ry - ty) * 0.18;
+      el.style.transform = `translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px)`;
+      if (Math.abs(rx - tx) > 0.1 || Math.abs(ry - ty) > 0.1) raf = requestAnimationFrame(loop);
+      else raf = null;
+    };
+    el.addEventListener('mousemove', (e) => {
+      const r = el.getBoundingClientRect();
+      const mx = e.clientX - (r.left + r.width / 2);
+      const my = e.clientY - (r.top + r.height / 2);
+      rx = mx * 0.22;
+      ry = my * 0.22;
+      if (!raf) raf = requestAnimationFrame(loop);
+    });
+    el.addEventListener('mouseleave', () => {
+      rx = 0; ry = 0;
+      if (!raf) raf = requestAnimationFrame(loop);
+    });
+  });
+})();
+
+/* ── Scroll-triggered Hero headline scale ─────────── */
+(function(){
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) return;
+  const h = document.querySelector('.hero-headline');
+  if (!h) return;
+  let ticking = false;
+  const update = () => {
+    const y = window.scrollY;
+    const t = Math.max(0, Math.min(1, y / 500));
+    h.style.transform = `translateY(${(t * 10).toFixed(1)}px)`;
+    h.style.letterSpacing = `${(-0.025 - t * 0.005).toFixed(4)}em`;
+    ticking = false;
+  };
+  window.addEventListener('scroll', () => {
+    if (!ticking) { requestAnimationFrame(update); ticking = true; }
+  }, { passive: true });
+})();
+
+/* ── CountUp for Proof metrics ────────────────────── */
+(function(){
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const root = document.querySelector('[data-count-root]');
+  if (!root) return;
+  const run = () => {
+    root.querySelectorAll('[data-count]').forEach(el => {
+      const target = parseFloat(el.dataset.count);
+      const suffix = el.dataset.suffix || '';
+      const decimals = (el.dataset.count.split('.')[1] || '').length;
+      if (reduce) { el.textContent = target.toFixed(decimals) + suffix; return; }
+      const dur = 1400;
+      const start = performance.now();
+      const tick = (now) => {
+        const t = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const v = target * eased;
+        el.textContent = v.toFixed(decimals) + suffix;
+        if (t < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  };
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { run(); io.unobserve(root); } });
+  }, { threshold: 0.35 });
+  io.observe(root);
+})();
+
+/* ── Smooth anchor scroll (respect reduce) ────────── */
+(function(){
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', (e) => {
+      const id = a.getAttribute('href');
+      if (!id || id === '#') return;
+      const t = document.querySelector(id);
+      if (!t) return;
+      e.preventDefault();
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      t.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    });
+  });
+})();
+
+/* ── [D only] Theme toggle (auto → light → dark → auto) ────── */
+(function(){
+  const btn = document.getElementById('themeToggle');
+  const stateEl = document.getElementById('ttState');
+  const timeEl = document.getElementById('ttTime');
+  if (!btn) return;
+
+  const STORAGE = 'dairect-theme-override';
+  const fmtTime = () => {
+    const d = new Date();
+    const h = d.getHours().toString().padStart(2,'0');
+    const m = d.getMinutes().toString().padStart(2,'0');
+    return `${h}:${m} KST`;
+  };
+  const computeAuto = () => {
+    const h = new Date().getHours();
+    return (h >= 19 || h < 7) ? 'dark' : 'light';
+  };
+  const apply = (mode) => {
+    let theme;
+    if (mode === 'auto') {
+      try { localStorage.removeItem(STORAGE); } catch(e) {}
+      theme = computeAuto();
+    } else {
+      try { localStorage.setItem(STORAGE, mode); } catch(e) {}
+      theme = mode;
+    }
+    document.documentElement.setAttribute('data-theme', theme);
+    const stored = (()=>{ try { return localStorage.getItem(STORAGE); } catch(e) { return null; } })();
+    stateEl.textContent = stored ? stored : `auto·${theme}`;
+    timeEl.textContent = fmtTime();
+  };
+
+  // Initialise UI state from what the inline <head> script already applied
+  const initial = (()=>{ try { return localStorage.getItem(STORAGE); } catch(e) { return null; } })();
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  stateEl.textContent = initial ? initial : `auto·${currentTheme}`;
+  timeEl.textContent = fmtTime();
+
+  // Cycle: auto → light → dark → auto
+  const order = ['auto', 'light', 'dark'];
+  btn.addEventListener('click', () => {
+    const stored = (()=>{ try { return localStorage.getItem(STORAGE); } catch(e) { return null; } })();
+    const cur = stored || 'auto';
+    const next = order[(order.indexOf(cur) + 1) % order.length];
+    apply(next);
+  });
+
+  // Update time label every minute (also re-eval auto)
+  setInterval(() => {
+    timeEl.textContent = fmtTime();
+    const stored = (()=>{ try { return localStorage.getItem(STORAGE); } catch(e) { return null; } })();
+    if (!stored) {
+      const autoTheme = computeAuto();
+      if (document.documentElement.getAttribute('data-theme') !== autoTheme) {
+        document.documentElement.setAttribute('data-theme', autoTheme);
+        stateEl.textContent = `auto·${autoTheme}`;
+      }
+    }
+  }, 60 * 1000);
+})();
+</script>
+
+</body>
+</html>

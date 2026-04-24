@@ -1,9 +1,32 @@
-# Dairect PRD v4.0 — Phase 5 SaaS 전환
+# Dairect PRD v4.0 — Phase 5 Multi-tenant 전환
 
-> **상태**: 초안 (2026-04-20 킥오프)
-> **범위**: Phase 5.0 (Multi-tenant 기반) + Phase 5.5 (Billing, 지인 베타 이후)
-> **관련**: PRD v3.1 (Phase 0~4), PROGRESS.md Phase 3 cron 종결 후속
-> **보안 등급**: 🟡 (Phase 5.0) → 🔴 (Phase 5.5 결제 도입 후)
+> ⚠️ **2026-04-24 末 업데이트**: 현재 유효한 상위 PRD는 **[PRD-v3.2-single-user.md](./PRD-v3.2-single-user.md)**.
+> 이 문서(v4.0)의 Multi-tenant 설계는 **구현 완료 자산으로 보존** (2차 진입 시 UI만 풀면 재활성화).
+> 1차 범위(Jayden 1인 사용)에서는 workspaces/members/invitations 등 multi-tenant 기능 UI를 **잠금** 처리.
+> 본 문서는 2차 서비스 제공 모드를 위한 설계 레퍼런스로 활용.
+
+---
+
+> **상태**: 초안 (2026-04-20 킥오프) · **2026-04-24 업데이트**: Phase 5.5 Billing 전면 취소 + v3.2로 상위 이관
+> **범위**: Phase 5.0 (Multi-tenant 기반) · ~~Phase 5.5 (Billing)~~ **취소**
+> **관련**: [PRD-v3.2-single-user.md](./PRD-v3.2-single-user.md) (1차 상위), PRD v3.1 (Phase 0~4), PROGRESS.md
+> **보안 등급**: 🟡 (Phase 5.0) · ~~🔴 (Phase 5.5)~~ **취소**
+
+---
+
+## ⛔ 2026-04-24 업데이트: Phase 5.5 Billing / SaaS 구독 취소
+
+**Jayden 결정**: Dairect에 SaaS 구독 모델을 도입하지 않는다.
+- Free/Pro/Team 플랜 차등 폐기
+- Stripe / 한국 PG(토스페이먼츠/포트원) 연동 계획 전면 취소
+- `workspace_settings.plan` / `workspaces.subscription_status` / `workspaces.stripe_customer_id` DB 컬럼은 **유지하되 읽지 않음** (나중에 재검토 여지 남김)
+- 멤버 수 / AI 일일 호출 한도는 **단일 고정 정책**(전원 동일 규칙)으로 전환 — 남용 방어용 하드리밋만 유지
+- 관련 설계 문서: `docs/archived/billing-mock-design.md` (역사 기록)
+- 본 문서에서 Phase 5.5 / Epic 5-3 / Billing / Stripe 관련 섹션은 **⛔ 폐기됨** 인라인 표시로 보존 (참고용)
+
+**본 PRD에서 Phase 5.0(Multi-tenant)만 유효**. 아래 "⛔ 폐기됨" 표시된 섹션은 현재 로드맵에서 실행하지 않음.
+
+---
 
 ---
 
@@ -27,26 +50,27 @@ Dairect v3.1은 Jayden 1인 프리랜서 PM을 위한 대시보드. Phase 0~4 + 
 
 1. **사용자 확대 준비**: 지인 PM 2~3명의 실사용 피드백 수집 필요 — 현재 Jayden 1인 dogfooding 한계
 2. **데이터 격리 현실화**: 다른 PM의 고객/정산이 섞이지 않아야 함
-3. **장기 SaaS 비전**: 월 구독 기반 수익 모델로 프리랜서 PM 시장 검증
+3. ~~**장기 SaaS 비전**: 월 구독 기반 수익 모델로 프리랜서 PM 시장 검증~~ — **⛔ 취소 2026-04-24** (SaaS 구독 도입 안 함)
 4. **Phase 3 cron 인프라 선제 대비 완료**: W2/W3에서 이미 BigInt-safe 금액 / deadline gate / workspace 분리 고려한 설계 완료 — 재작업 최소
 
-### 1-3. 2단계 전환 전략
+### 1-3. ~~2단계~~ 단일 전환 전략 (Phase 5.5 Billing 취소됨)
 
 ```
-Phase 5.0 (Multi-tenant 기반)         Phase 5.5 (Billing 도입)
+Phase 5.0 (Multi-tenant 기반)         ⛔ Phase 5.5 (Billing) — 취소 2026-04-24
 ━━━━━━━━━━━━━━━━━━━━━━━━              ━━━━━━━━━━━━━━━━━━━━━━━━
-  Workspace 모델                        Stripe Customer + Subscription
-  멤버 초대 + 역할                       구독 플랜 (Free/Pro/Team)
-  RLS 전면 재작성                        사용량 추적 + 플랜 한도
-  지인 베타 2~3명 (free all-in)          토스페이먼츠 (Phase 5.6+)
-  보안 등급 🟡                           보안 등급 🔴
+  Workspace 모델                        ~~Stripe Customer + Subscription~~
+  멤버 초대 + 역할                       ~~구독 플랜 (Free/Pro/Team)~~
+  RLS 전면 재작성                        ~~사용량 추적 + 플랜 한도~~
+  지인 베타 2~3명 (무료 전 기능)         ~~토스페이먼츠 (Phase 5.6+)~~
+  보안 등급 🟡                           ~~보안 등급 🔴~~
 ```
 
-**Phase 5.0 완료 → 지인 베타 런칭 (무료 전 기능) → 피드백 수집 → Phase 5.5 Billing 착수.**
+**Phase 5.0 완료 → 지인 베타 런칭(무료 전 기능) → 피드백 수집 → ~~Phase 5.5 Billing 착수~~ 지속 무료 운영.**
 
-결제는 지인 테스트 마무리 후 현실적 가격 정책을 실측 데이터로 확정한 뒤 도입.
+~~결제는 지인 테스트 마무리 후 현실적 가격 정책을 실측 데이터로 확정한 뒤 도입.~~
 
-> **베타 기간 보안 등급**: 무료 전 기능 + 결제 미도입이므로 🟡 유지. 🔴 전환은 Phase 5.5 Stripe 도입 시점. 베타 중 결제 정보·카드번호 수집 금지.
+> **보안 등급**: 🟡 유지 (결제 미도입 확정 → 🔴 전환 불필요).
+> 남용 방어용 고정 한도(멤버/AI)는 `src/lib/plans.ts` 단일 소스에서 관리.
 
 ---
 
@@ -58,11 +82,13 @@ Phase 5.0 (Multi-tenant 기반)         Phase 5.5 (Billing 도입)
 3. RLS 전면 재작성으로 cross-tenant 누출 **DB 레벨 차단**
 4. 지인 베타 2~3명이 독립적으로 운영 가능
 
-### Phase 5.5
-1. Stripe 구독 결제 도입 (Customer / Subscription / Webhook)
-2. Free / Pro / Team 플랜 + 플랜별 한도 enforcement
-3. 결제 실패 / 환불 / 플랜 변경 플로우
-4. 한국 시장 대응: 토스페이먼츠 Phase 5.6+
+### ~~Phase 5.5~~ ⛔ 폐기됨 (2026-04-24)
+~~1. Stripe 구독 결제 도입 (Customer / Subscription / Webhook)~~
+~~2. Free / Pro / Team 플랜 + 플랜별 한도 enforcement~~
+~~3. 결제 실패 / 환불 / 플랜 변경 플로우~~
+~~4. 한국 시장 대응: 토스페이먼츠 Phase 5.6+~~
+
+SaaS 구독 도입 취소. 멤버/AI 한도는 단일 고정 정책으로 전환 (전원 동일 규칙).
 
 ---
 
@@ -143,7 +169,13 @@ briefings / portal_tokens
 - 수락 시 `workspace_invitations.accepted_at` 기록
 - URL scrub (W5 M4 패턴 재사용)
 
-### Epic 5-3: Billing + Subscription (Phase 5.5)
+### ⛔ Epic 5-3: Billing + Subscription (Phase 5.5) — 폐기됨 (2026-04-24)
+
+> 이 Epic 전체를 실행하지 않는다. 아래 설계는 역사 기록으로만 보존.
+> 현재 유효 정책: `src/lib/plans.ts` 단일 고정 한도 (전원 동일 규칙).
+
+<details>
+<summary>원 설계 (참고용)</summary>
 
 **Stripe 연동**:
 - Customer = Workspace (1:1)
@@ -159,12 +191,12 @@ briefings / portal_tokens
 | Pro | 15,000원/월 | 무제한 | 무제한 | 1 | 전 기능 + PDF watermark 제거 |
 | Team | 30,000원/멤버/월 | 무제한 | 무제한 | 무제한 | Pro + 멤버 관리 |
 
-> ⚠️ 가격/한도는 지인 베타 피드백 후 **Phase 5.5 착수 직전 재확정**
-
 **한도 enforcement**:
 - INSERT 전에 `workspaces.plan`과 현재 count 비교
 - 한도 초과 시 UPGRADE CTA (inline 알림 + toast)
 - 사용량 DB 저장: `workspace_usage` 테이블 (프로젝트/고객/견적 count 실시간)
+
+</details>
 
 ### Epic 5-4: 기존 기능 Multi-tenant 확장 (Phase 5.0)
 
@@ -184,18 +216,18 @@ briefings / portal_tokens
 - n8n 측은 새 필드 무시 → 영향 없음
 - workspace별 분기가 필요할 때만 n8n If 노드 추가 (예: workspace별 Slack 채널 라우팅)
 
-### Epic 5-5: Admin + Observability (Phase 5.0 + 5.5)
+### Epic 5-5: Admin + Observability (Phase 5.0 · 5.5 취소됨)
 
 **Admin 대시보드 (운영자 전용)**:
 - `/admin/workspaces` — 목록 (MAU / 프로젝트 수 / 마지막 접속)
 - `/admin/stats` — 사용량 통계 (전체 프로젝트 수 / cron 실행 건수 / 메일 발송 수)
-- `/admin/billing` — 결제 조회 (Stripe Dashboard 우선, 내부 UI 최소)
+- ~~`/admin/billing` — 결제 조회 (Stripe Dashboard 우선, 내부 UI 최소)~~ ⛔ 폐기 2026-04-24 (Billing 취소)
 - Workspace 일시정지 / 삭제 (관리자 권한)
 
 Admin 계정 부여 방식:
 - env `ADMIN_EMAILS=jayden@example.com,...` (간단)
 - DB `users.is_platform_admin` flag (확장 가능)
-- → Phase 5.0에서는 env 방식, Phase 5.5에서 DB flag로 업그레이드
+- → Phase 5.0에서는 env 방식 ~~Phase 5.5에서 DB flag로 업그레이드~~ (5.5 취소, env 방식 유지)
 
 **관찰성**:
 - Sentry 에러 트래킹 (기존 `console.error` → Sentry)
@@ -213,10 +245,10 @@ Admin 계정 부여 방식:
 - Supabase Auth 기본 유지 (Workspace = custom table)
 - Resend (트랜잭셔널 메일 — 초대 메일 품질 향상) — 선택, Phase 5.0 후반 검토
 
-### Phase 5.5
-- **추가**: Stripe SDK (`@stripe/stripe-js`, `stripe` server) — 🔴 보안 중요
-- **추가**: Resend (초대 메일 + 결제 실패 알림 + 구독 변경 알림)
-- **추가 검토**: 토스페이먼츠 (Phase 5.6+, 한국 시장 비중 확인 후)
+### ~~Phase 5.5~~ ⛔ 폐기됨 (2026-04-24)
+~~- **추가**: Stripe SDK (`@stripe/stripe-js`, `stripe` server) — 🔴 보안 중요~~
+- **Resend**: 초대 메일 (결제 실패/구독 변경 알림은 취소)
+~~- **추가 검토**: 토스페이먼츠 (Phase 5.6+, 한국 시장 비중 확인 후)~~
 - **옵션**: Sentry (에러) + PostHog (프로덕트 분석)
 
 ---
@@ -249,20 +281,25 @@ Admin 계정 부여 방식:
 | 5-2-6 | 역할 기반 권한 middleware / Server Action guard |
 | 5-2-7 | 회원가입 시 자동 default workspace |
 
-### Epic 5-3: Billing (Phase 5.5, 10 Task, 2주)
+### ⛔ Epic 5-3: Billing (Phase 5.5, 10 Task) — 폐기됨 (2026-04-24)
+
+<details>
+<summary>원 Task 분해 (참고용)</summary>
 
 | Task | 내용 |
 |------|------|
-| 5-3-1 | Stripe Customer 생성 (workspace 단위) |
-| 5-3-2 | Pricing 페이지 + 플랜 선택 UI |
-| 5-3-3 | Checkout Session 생성 (Subscription mode) |
-| 5-3-4 | Webhook handler (`/api/webhooks/stripe`) |
-| 5-3-5 | 구독 상태 동기화 (DB ← Webhook) |
-| 5-3-6 | 플랜 한도 enforcement (INSERT 트랜잭션 내 실시간 COUNT + race 방어 — 섹션 10 결정 반영) |
-| 5-3-7 | 한도 초과 UI (Upgrade CTA) |
-| 5-3-8 | 플랜 변경 / 취소 UI |
-| 5-3-9 | Customer Portal (Stripe 호스팅 + embed) |
-| 5-3-10 | 청구서 / 영수증 다운로드 (Stripe invoice 링크) |
+| ~~5-3-1~~ | ~~Stripe Customer 생성 (workspace 단위)~~ |
+| ~~5-3-2~~ | ~~Pricing 페이지 + 플랜 선택 UI~~ |
+| ~~5-3-3~~ | ~~Checkout Session 생성 (Subscription mode)~~ |
+| ~~5-3-4~~ | ~~Webhook handler (`/api/webhooks/stripe`)~~ |
+| ~~5-3-5~~ | ~~구독 상태 동기화 (DB ← Webhook)~~ |
+| ~~5-3-6~~ | ~~플랜 한도 enforcement (INSERT 트랜잭션 내 실시간 COUNT + race 방어)~~ |
+| ~~5-3-7~~ | ~~한도 초과 UI (Upgrade CTA)~~ |
+| ~~5-3-8~~ | ~~플랜 변경 / 취소 UI~~ |
+| ~~5-3-9~~ | ~~Customer Portal (Stripe 호스팅 + embed)~~ |
+| ~~5-3-10~~ | ~~청구서 / 영수증 다운로드 (Stripe invoice 링크)~~ |
+
+</details>
 
 ### Epic 5-4: 기존 기능 확장 (4 Task, 1주)
 
@@ -299,15 +336,20 @@ Admin 계정 부여 방식:
 - [ ] `pnpm tsc --noEmit && pnpm lint && pnpm build` 통과
 - [ ] Onboarding 플로우 완주율 70%+ (내부 측정)
 
-### Phase 5.5 DoD
+### ~~Phase 5.5 DoD~~ ⛔ 폐기됨 (2026-04-24)
 
-- [ ] **Stripe 실제 결제 1회 이상 검증** (테스트 모드 전수 시나리오 통과 + prod 모드는 소액 실결제 1회 → 즉시 환불 확인. 🔴 등급 전환 직후이므로 full-price 방치 금지)
-- [ ] 플랜 한도 초과 시 UI 차단 + 명확한 Upgrade CTA
-- [ ] 환불 / 플랜 변경 / 취소 플로우 각 1회 이상 검증
-- [ ] Webhook **idempotency** — 중복 이벤트 2회 수신해도 DB 상태 1회만 반영
-- [ ] Stripe Webhook 서명 검증 (security-reviewer CRITICAL 통과)
-- [ ] 플랜 전환 시 데이터 보존 (downgrade 후 한도 초과 데이터 read-only로 유지)
-- [ ] PCI DSS 간접 준수: 카드 번호 / CVV / 만료일 **DB 저장 0건** 확인
+<details>
+<summary>원 완료 기준 (참고용)</summary>
+
+- ~~[ ] **Stripe 실제 결제 1회 이상 검증** (테스트 모드 전수 시나리오 통과 + prod 모드는 소액 실결제 1회 → 즉시 환불 확인. 🔴 등급 전환 직후이므로 full-price 방치 금지)~~
+- ~~[ ] 플랜 한도 초과 시 UI 차단 + 명확한 Upgrade CTA~~
+- ~~[ ] 환불 / 플랜 변경 / 취소 플로우 각 1회 이상 검증~~
+- ~~[ ] Webhook **idempotency** — 중복 이벤트 2회 수신해도 DB 상태 1회만 반영~~
+- ~~[ ] Stripe Webhook 서명 검증 (security-reviewer CRITICAL 통과)~~
+- ~~[ ] 플랜 전환 시 데이터 보존 (downgrade 후 한도 초과 데이터 read-only로 유지)~~
+- ~~[ ] PCI DSS 간접 준수: 카드 번호 / CVV / 만료일 **DB 저장 0건** 확인~~
+
+</details>
 
 ---
 
@@ -332,21 +374,11 @@ Admin 계정 부여 방식:
   - security-reviewer 2회 리뷰 (RLS 작성 직후 + E2E 이후)
   - PROGRESS.md에 "전체 테이블 RLS 통과" 게이트 명시
 
-### R3. Stripe Webhook 중복/결제 race (Phase 5.5)
-- **위험**: 동일 이벤트 중복 수신 → 이중 결제 반영 / 구독 상태 꼬임
-- **완화**:
-  - `stripe_events` 테이블 + `stripe_event_id` UNIQUE 인덱스
-  - 이미 처리된 이벤트 skip + 200 반환
-  - Webhook 서명 검증 필수 (`stripe.webhooks.constructEvent`)
-  - Webhook handler를 transaction으로 감싸기
+### ~~R3. Stripe Webhook 중복/결제 race (Phase 5.5)~~ ⛔ 폐기됨 (2026-04-24)
+리스크 자체가 소멸 (Stripe 연동 취소).
 
-### R4. 보안 등급 🟡 → 🔴 전환
-- **위험**: 결제 도입 후 보안 요구사항 증가 (PCI DSS 간접 준수 등)
-- **완화**:
-  - Stripe에 모든 결제 정보 위임 (PCI 책임 제한)
-  - Dairect는 `stripe_customer_id` / `subscription_id`만 저장
-  - 카드 번호 / CVV / 만료일 **절대 저장 금지**
-  - Phase 5.5 착수 직전 security-reviewer + 외부 CSO 리뷰 의무화
+### ~~R4. 보안 등급 🟡 → 🔴 전환~~ ⛔ 폐기됨 (2026-04-24)
+보안 등급은 🟡 유지 (결제 도입 안 함). 🔴 전환 계획 없음.
 
 ### R5. 점진 릴리스
 - **전략**:
@@ -384,7 +416,7 @@ Epic 5-1 (Data Model) ←─ Epic 5-4 (기존 기능 확장)
                        [지인 베타 런칭]
                                │
                                ▼
-                      Epic 5-3 (Billing, Phase 5.5)
+                    ⛔ Epic 5-3 (Billing) — 폐기 2026-04-24
 ```
 
 ### 우선순위
@@ -392,8 +424,8 @@ Epic 5-1 (Data Model) ←─ Epic 5-4 (기존 기능 확장)
 1. **P0 (Phase 5.0 core, 4주)**: 5-1 → 5-2 → 5-4
 2. **P1 (Phase 5.0 + 베타 준비, 1주)**: 5-5 (Admin + Observability 최소)
 3. **P2 (지인 베타 2주)**: 피드백 수집 + 버그 수정만 (신기능 X)
-4. **P3 (Phase 5.5, 2주)**: 5-3 Billing
-5. **P4 (Phase 5.6+)**: 토스페이먼츠 / SSO / 다국어 / 기타 "만들지 않을 것"에서 재검토
+4. ~~**P3 (Phase 5.5, 2주)**: 5-3 Billing~~ ⛔ **폐기 2026-04-24**
+5. ~~**P4 (Phase 5.6+)**: 토스페이먼츠~~ · SSO / 다국어 / 기타 "만들지 않을 것"에서 재검토
 
 ### 예상 타임라인 (현실 조정 여지 있음)
 
@@ -403,11 +435,11 @@ Week 3-4:  Epic 5-2 Workspace + Onboarding (5-4 병행)
 Week 5:    Epic 5-5 Admin + Observability
 Week 6:    QA + security-reviewer 2차 + 배포 준비
 Week 7-8:  지인 베타 (2~3명 실사용 피드백)
-Week 9-10: Epic 5-3 Billing
-Week 11:   Phase 5.5 QA + 정식 런칭 준비
+⛔ Week 9-10: Epic 5-3 Billing — 폐기 2026-04-24
+⛔ Week 11:   Phase 5.5 QA — 폐기 2026-04-24
 ```
 
-**총 11주 (약 3개월). 주당 작업량은 Jayden 페이스에 맞춤 조정.**
+**(취소 반영) 총 약 8주. 주당 작업량은 Jayden 페이스에 맞춤 조정.**
 
 ---
 
@@ -421,9 +453,10 @@ Phase 5 착수 직전에 확정:
 - [x] **초대 만료 TTL (2026-04-20)** — **7일 확정**. Linear/Notion/Figma 업계 표준. 연장 옵션(14일) 별도 구현. 🟡 보안 등급상 탈취 토큰 수명 제한 우선.
 - [x] **사용량 측정 주기 결정 (2026-04-20)** — **A 실시간 count 확정** (Phase 5.5 플랜 한도 enforcement용). INSERT 전 `SELECT COUNT(*) FROM {table} WHERE workspace_id = ?` 1-row scan. 플랜 한도가 소규모 수치(예: 10 프로젝트)라 latency 영향 무시 가능. race 방어: INSERT와 같은 트랜잭션 내 COUNT → `IF n >= limit THEN RAISE EXCEPTION`. Phase 5.6+ 스케일 도달 시 증분 카운터(INSERT/DELETE trigger) 전환 검토.
 - [x] **Admin 계정 부여 방식 결정 (2026-04-20)** — **A env `ADMIN_EMAILS=jayden@...` 확정**. 초기 운영자 1명(Jayden), 재배포 = 결재선 역할로 오히려 보안 안전. DB flag 방식은 `is_admin` 컬럼 조작 방어 + RLS 복잡도 추가 발생. Task 5-5-1 middleware에서 `ADMIN_EMAILS.split(',').map(trim.toLowerCase).includes(user.email.toLowerCase())` 단순 체크. 운영자 증가 시 옵션 B/C로 점진 전환 가능.
-- [ ] Plan 한도 정확한 수치 (베타 피드백 반영)
-- [ ] 토스페이먼츠 통합 시점 (한국 사용자 비중 기준)
+- ~~[ ] Plan 한도 정확한 수치 (베타 피드백 반영)~~ ⛔ 폐기 (단일 고정 한도로 전환)
+- ~~[ ] 토스페이먼츠 통합 시점 (한국 사용자 비중 기준)~~ ⛔ 폐기 (Billing 취소)
 - [ ] Workspace 로고 업로드 (Supabase Storage 활용)
+- [ ] 단일 고정 한도 수치 확정 (멤버 수 / AI 일일 호출 수 — `src/lib/plans.ts`에서 관리)
 - [x] **Multi-workspace 기본 선택 결정 (2026-04-20)** — **A 마지막 접속 workspace 확정**. `users.last_workspace_id uuid nullable REFERENCES workspaces(id) ON DELETE SET NULL` 1 컬럼 추가 (Epic 5-2 Task 5-2-3 마이그레이션에 포함). 로그인 직후 `/dashboard` 리다이렉트 시 이 값 우선. NULL 폴백: 소속 workspace 중 `workspace_members.joinedAt` MIN. workspace 전환 시마다 UPDATE 1건 (쓰기 비용 미미, 캐싱 없이 매번 최신).
 
 ---
@@ -438,7 +471,7 @@ Phase 5 착수 직전에 확정:
 | 고객 CRM | 동일 | 낮음 |
 | 견적/계약/청구서 | 동일 + `workspace_settings` 분리 | 중간 |
 | KPI 홈 대시보드 | `workspace_id` 기반 집계 | 낮음 |
-| AI 브리핑 (Phase 3) | workspace 단위 호출 제한 (AI 한도) | 낮음 |
+| AI 브리핑 (Phase 3) | workspace 단위 호출 제한 (AI 한도 — **단일 고정**으로 운영, 플랜 차등 아님) | 낮음 |
 | 고객 포털 (Phase 4) | 포털 토큰에 workspace 바인딩 | 중간 |
 | PWA (Phase 4) | 영향 없음 | 없음 |
 | n8n cron 5종 | payload `workspaceId` 추가 (backward-compatible) | 낮음 |
@@ -457,15 +490,15 @@ Phase 5.0 착수 전 확인:
 - [ ] Drizzle 스키마 drafting (코드 작성 전)
 - [ ] 기존 RLS 정책 전체 목록화 (변경 대상 명확히)
 - [ ] 지인 베타 대상자 2~3명 사전 컨택
-- [ ] **메일 인프라 결정** — Resend 도입 vs n8n 재사용 (Epic 5-2-4 초대 메일 발송 + Phase 5.5 결제 알림까지 영향). Phase 5.0 착수 시점에 확정 필요
-- [ ] Phase 5.5 착수 전 결제 가격 정책 확정 (베타 피드백 반영)
+- [ ] **메일 인프라 결정** — Resend 도입 vs n8n 재사용 (Epic 5-2-4 초대 메일 발송). Phase 5.0 착수 시점에 확정 필요
+- ~~[ ] Phase 5.5 착수 전 결제 가격 정책 확정 (베타 피드백 반영)~~ ⛔ 폐기 (Billing 취소)
 
-Phase 5.5 착수 전 추가:
+~~Phase 5.5 착수 전 추가:~~ ⛔ 폐기됨 (2026-04-24)
 
-- [ ] Stripe Customer / Subscription 데이터 모델 설계
-- [ ] Webhook idempotency 테이블 스키마
-- [ ] 플랜별 한도 수치 확정
-- [ ] 법적 검토: 이용약관 / 개인정보처리방침 / 환불 정책
+- ~~[ ] Stripe Customer / Subscription 데이터 모델 설계~~
+- ~~[ ] Webhook idempotency 테이블 스키마~~
+- ~~[ ] 플랜별 한도 수치 확정~~
+- ~~[ ] 법적 검토: 이용약관 / 개인정보처리방침 / 환불 정책~~
 
 ---
 

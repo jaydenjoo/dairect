@@ -1,0 +1,43 @@
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+-- NOOP MARKER — Task A (drizzle journal/snapshot 재동기화 v2)
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+--
+-- ⚠️ 절대 apply 금지. 이 파일은 DB 변경을 일으키지 않는 placeholder다.
+--
+-- 배경:
+--   0031_phase5_resync_marker로 1차 재동기 이후 0032~0035가 다시
+--   MCP `apply_migration`로 cloud에 직접 적용되며 drizzle journal/snapshot이
+--   0031에 고정됨. `pnpm db:generate` 실행 시 drizzle이 schema.ts와
+--   0031 snapshot 차이를 0032~0034 누적 DDL로 재합성(CREATE TABLE
+--   rate_limit_counters / ADD COLUMN plan / INDEX 재조정 등)하여
+--   파일이 중복 번호(0032_brainy_ender_wiggin)로 생성되는 상황 발생.
+--
+-- 문제:
+--   1) 생성된 DDL 전부가 이미 cloud에 apply 완료된 내용 → 재실행 시
+--      `relation already exists` / `duplicate_object` / UNIQUE 역행.
+--   2) 새 파일이 기존 `0032_workspace_plan.sql`과 번호 충돌 (idx=32 중복).
+--      journal에 idx=32가 두 번 등장할 수 없으므로 둘 중 하나가 무시됨.
+--
+-- 해결:
+--   drizzle이 생성한 파일을 `0036_*`로 rename하고 내용을 NOOP로 치환.
+--   `meta/0036_snapshot.json` + `_journal.json` idx=36 entry는
+--   "현재 schema.ts 상태를 snapshot 체계에 기준선으로 등록"하는 마커다.
+--   drizzle-kit은 다음 generate 시 이 snapshot을 baseline으로 삼아
+--   0032~0034 누적 변경이 중복 생성되지 않는다.
+--
+-- 왜 SQL은 비어있는가:
+--   snapshot 기준선만 맞추면 목적 달성. 이 파일 안의 DDL은 이미 cloud에
+--   apply 완료 상태라 재실행 시 `relation already exists` 등으로 실패.
+--
+-- idx 점프 (31 → 36) 이유:
+--   journal의 idx 32~35는 수동 마이그레이션(0032~0035)과 번호를 맞추기
+--   위해 남겨둠. drizzle-kit이 다음 generate에서 idx=37부터 자동 할당할 것.
+--
+-- 생성 당시 drizzle이 재합성한 변경 범위 (이미 apply 완료):
+--   • workspace_settings.plan 컬럼 (Task 5-5-2, 0032)
+--   • workspace_invitations_pending_idx LOWER(email) 재조정 (Task 5-5-2b, 0033)
+--   • rate_limit_counters 테이블 + window_start 인덱스 (Task 5-5-4, 0034)
+--   • (0035 pg_cron cleanup은 DDL이 아닌 extension-level 설정이라 drizzle
+--     diff에 잡히지 않음 — 문서 기록만으로 충분)
+
+SELECT 'Task A resync marker v2' AS resync_marker;--> statement-breakpoint

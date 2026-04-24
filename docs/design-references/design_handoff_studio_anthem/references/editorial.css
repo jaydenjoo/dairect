@@ -1,0 +1,361 @@
+/* ═══════════════════════════════════════════════════════════
+   editorial.css — "From Tech blog → Editorial magazine"
+   
+   PATCH LAYER. Loaded AFTER landing.css / about.css / projects.css.
+   Two jobs:
+     ①  Double the presence of Fraunces serif (esp. italic)
+     ②  Re-audit every uppercase mono label — Korean must stay lowercase
+   
+   Mental model:
+     - Mono uppercase  = English meta, filenames, numerals
+     - Mono lowercase  = Korean + mixed script
+     - Serif italic    = emotion, direction, commentary, quotes
+     - Sans            = body only
+   ═══════════════════════════════════════════════════════════ */
+
+
+/* ─────────────────────────────────────────
+   [01]  KOREAN-IN-MONO SAFETY
+   Any <span class="ko"> inside a mono/uppercase parent
+   reverts to native casing + Pretendard rendering.
+   ───────────────────────────────────────── */
+.kicker .ko,
+.trust-label .ko,
+.frame .caption .ko,
+.service-step .ko,
+.price-kicker .ko,
+.founder-portrait .tag-a .ko,
+.founder-portrait .tag-b .ko,
+.proof-kicker .ko,
+.work-head .ko,
+.nav-label .ko,
+.footer-col-head .ko,
+.a-persona-label .sub,
+.a-tl-drag-hint .ko,
+.a-essay-num .ko,
+.mip-label .ko,
+.pr-filter .ko,
+.pr-meta .ko,
+.pr-chapter-num .ko {
+  font-family: var(--font-ko);
+  text-transform: none !important;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+  color: inherit;
+  opacity: 0.85;
+}
+
+/* Korean explicitly marked — smaller, looser gap before it */
+.kicker .ko::before,
+.trust-label .ko::before,
+.price-kicker .ko::before { content: ""; padding-left: 1px; }
+
+
+/* ─────────────────────────────────────────
+   [02]  MIXED-SCRIPT LABELS
+   When a label is *entirely* Korean, override uppercase wholesale.
+   We detect via :lang(ko) on parent, OR via .label-ko helper.
+   ───────────────────────────────────────── */
+.label-ko,
+[lang="ko"].kicker,
+.kicker[lang="ko"],
+.a-essay-ko,
+.contact-ko,
+.footer-tag {
+  text-transform: none !important;
+  letter-spacing: -0.015em;
+  font-family: var(--font-ko);
+}
+
+
+/* ─────────────────────────────────────────
+   [03]  SERIF DENSITY  +100%
+   Target: kickers, subs, section-stats — wherever
+   a single *italic word* would inject the editorial tone.
+   ───────────────────────────────────────── */
+
+/* §03-a  Kicker: allow inline Fraunces italic accent */
+.kicker em,
+.a-tl-kicker em,
+.a-ph-kicker em,
+.a-proc-kicker em,
+.pr-filter em {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  font-size: 1.35em;
+  line-height: 0.9;
+  vertical-align: -0.08em;
+  color: var(--ink);
+  padding: 0 3px;
+}
+.section-dark .kicker em,
+.section-dark .a-tl-kicker em,
+.a-timeline .a-tl-kicker em,
+.a-process .a-proc-kicker em { color: var(--canvas); }
+
+/* §03-b  Hero sub — add serif italic flavor to "Machine executes" etc. */
+.hero-sub em,
+.hero-body em,
+.contact-desc em,
+.founder-bio em,
+.price-desc em,
+.service-step em,
+.metric-desc em {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+}
+.section-dark .hero-sub em,
+.section-dark .hero-body em,
+.section-dark .contact-desc em,
+.section-dark .founder-bio em,
+.section-dark .price-desc em,
+.section-dark .service-step em,
+.section-dark .metric-desc em { color: var(--canvas); }
+
+/* §03-c  Trust row — unit labels in italic serif lowercase */
+.trust-item .unit-it {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 0.6em;
+  color: var(--dust);
+  margin-left: 4px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* §03-d  Every section-level eyebrow kicker gets optional "— §NN" gesture
+   in serif small-caps feel */
+.kicker .pilcrow {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 300;
+  text-transform: none;
+  letter-spacing: -0.01em;
+  padding-right: 4px;
+  font-size: 1.2em;
+}
+
+/* §03-e  "Amber word" inside mono kickers — swap from bold mono to
+   italic serif amber. This is the #1 tone-shifter. */
+.kicker .amber,
+.a-tl-kicker .amber,
+.pr-filter .amber,
+.a-proc-kicker .amber,
+.a-ph-kicker .amber {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.28em;
+  line-height: 0.92;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  vertical-align: -0.06em;
+  color: var(--signal);
+  padding: 0 2px;
+}
+
+/* Restore mono treatment in spots where the amber span is purely a numeral
+   (e.g. "N° 01" in portrait frames) */
+.trust-value .amber,
+.pf-top .amber,
+.pf-bot .amber,
+.pr-meta .amber,
+.a-tl-date .amber,
+.a-tl-year .amber,
+.pf-label .amber {
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-size: inherit;
+  vertical-align: 0;
+  padding: 0;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+/* §03-f  Section titles — lift Fraunces weight, lean on italic */
+.services-title,
+.proof-title,
+.pricing-title,
+.founder-name,
+.journal-title,
+.work-title,
+.contact-title,
+.metric-label {
+  font-family: var(--font-serif);
+}
+.services-title .it,
+.proof-title .it,
+.pricing-title .it,
+.founder-name .it,
+.journal-title .it,
+.work-title .it,
+.contact-title .it,
+.metric-label .it {
+  font-style: italic;
+  font-weight: 300;
+  color: var(--signal);
+}
+
+/* §03-g  Manifesto — already serif. Amp italic accent on "direction" */
+.manifesto-head em,
+.manifesto-ko em {
+  font-style: italic;
+  font-weight: 300;
+  color: var(--signal);
+}
+
+
+/* ─────────────────────────────────────────
+   [04]  ABOUT.HTML SURGICAL TOUCHES
+   ───────────────────────────────────────── */
+.a-persona-label {
+  /* Persona stays uppercase (English only).  But relax tracking slightly. */
+  letter-spacing: 0.28em;
+}
+.a-persona-label .sub {
+  /* Korean sub — strip uppercase, widen line, softer hue */
+  text-transform: none !important;
+  letter-spacing: -0.01em;
+  font-family: var(--font-ko);
+  font-size: 12px;
+  opacity: 0.65;
+}
+.a-tl-drag-hint {
+  /* Mixed: arrows mono, instruction may be Korean */
+}
+.a-tl-drag-hint .ko {
+  text-transform: none;
+  font-family: var(--font-ko);
+  letter-spacing: 0;
+  font-size: 11px;
+}
+.a-title-strip span:not(.sep):not(.amber) {
+  /* English role strip stays uppercase, but give alternating italics */
+}
+.a-title-strip .role-it {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 300;
+  text-transform: none;
+  letter-spacing: -0.005em;
+  font-size: 1.25em;
+  line-height: 0.95;
+  color: var(--canvas);
+}
+
+.a-tl-year .it {
+  /* The month digits after year — already italic dust. Push brightness */
+  opacity: 0.55;
+  font-size: 0.88em;
+}
+
+/* Essay meta line — English counts stay uppercase, Korean titles italic */
+.a-essay-ko {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 18px;
+  letter-spacing: -0.015em;
+  color: var(--dust);
+  text-transform: none;
+  line-height: 1.5;
+  margin-top: -8px;
+}
+.mip-ko {
+  font-family: var(--font-ko);
+  text-transform: none;
+}
+
+/* Process diagram — add italic caption hooks */
+.proc-node .ko {
+  font-family: var(--font-ko);
+  text-transform: none;
+  letter-spacing: -0.01em;
+}
+
+
+/* ─────────────────────────────────────────
+   [05]  PROJECTS.HTML TOUCHES
+   ───────────────────────────────────────── */
+.pr-filter button:not(.on) {
+  font-family: var(--font-mono);
+}
+.pr-filter em,
+.pr-meta em,
+.pr-outcome em {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 300;
+  text-transform: none;
+  letter-spacing: -0.01em;
+  color: var(--signal);
+}
+.pr-ko,
+.pr-chapter-body em,
+.pr-takeaway em {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 300;
+  text-transform: none;
+  color: var(--ink);
+}
+
+
+/* ─────────────────────────────────────────
+   [06]  GLOBAL — uppercase is NOW opt-in-per-word
+   Anything tagged .no-case escapes uppercase.
+   ───────────────────────────────────────── */
+.no-case,
+.kicker .no-case,
+.a-tl-kicker .no-case,
+.pr-filter .no-case {
+  text-transform: none !important;
+  letter-spacing: -0.01em;
+  font-family: var(--font-ko);
+}
+
+
+/* ─────────────────────────────────────────
+   [07]  FOOTER — keep D×AI×RECT uppercase,
+   but Korean slogan stays natural case (already OK).
+   Add serif italic flair to English slogan.
+   ───────────────────────────────────────── */
+.footer-logo-slogan em {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 1.08em;
+  letter-spacing: -0.015em;
+}
+
+
+/* ─────────────────────────────────────────
+   [08]  HEADLINE ACCENT HELPERS (new)
+   Use inline to sprinkle italic serif inside Korean or English headlines.
+   ───────────────────────────────────────── */
+.serif-it {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 300;
+  letter-spacing: -0.015em;
+  color: var(--signal);
+}
+.serif-rg {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+.mono-lc {
+  /* Mono lowercase — for Korean-in-mono or casual code-ish bits */
+  font-family: var(--font-mono);
+  text-transform: none;
+  letter-spacing: -0.005em;
+  font-weight: 400;
+}

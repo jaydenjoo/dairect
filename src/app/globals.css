@@ -2,24 +2,59 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/*
+ * Studio Anthem 번들 CSS (2026-04-24 이식)
+ * - landing.css: 섹션별 스타일 + 토큰 (:root --canvas/--ink/--signal 등)
+ * - editorial.css: PATCH LAYER — Fraunces italic 강조 + Korean-in-mono 처리
+ * - projects.css: /projects 전용 (p-hero, p-row, p-index, p-cta)
+ * - a11y-patch.css: 접근성 보정
+ * 순서 중요: landing → editorial → projects → a11y-patch (번들 저자 지정)
+ */
+@import "../styles/studio-anthem/landing.css";
+@import "../styles/studio-anthem/editorial.css";
+@import "../styles/studio-anthem/projects.css";
+@import "../styles/studio-anthem/about.css";
+@import "../styles/studio-anthem/a11y-patch.css";
+
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design System: "The Intelligent Sanctuary"
- * Source: docs/design-references/redesign-2026/DESIGN.md
+ * Design System: "The Studio Anthem" (2026-04-24 전환)
+ * Source: docs/design-references/redesign-2026-studio-anthem/BRAND.md
  *
- * Primary: #4F46E5 (Indigo) / #3525CD (deep)
- * Surface: #F9F9F7 (off-white, premium paper)
- * Dark: #111827 (gray-900, never pure black)
- * No-Line Rule: no 1px solid borders
- * Tonal Layering: depth via surface shifts, not lines
+ * Palette: Canvas #F5F1E8 / Paper #FAF7F0 / Ink #141414 / Signal(amber) #FFB800
+ * Typography: Fraunces(serif) + Geist(sans) + Geist Mono + Pretendard(한글)
+ * 1px hairlines / 4px hard shadows (sharp, offset) / 12-col asymmetric grid
+ * Forbidden: indigo, violet, purple, blue, teal, soft/blur shadow, pills
+ *
+ * shadcn 매핑 (:root)은 Epic 6에서 Amber로 재매핑 예정 (현재 Indigo 유지).
  */
 
+/* ───── Metric-matched fallbacks (prevents CLS during font swap) ───── */
+@font-face {
+  font-family: "Fraunces Fallback";
+  src: local("Georgia"), local("Times New Roman");
+  size-adjust: 101%;
+  ascent-override: 96%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Geist Fallback";
+  src: local("Helvetica Neue"), local("Arial");
+  size-adjust: 100%;
+  ascent-override: 92%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
 @theme inline {
-  /* Typography */
-  --font-sans: var(--font-pretendard), var(--font-dm-sans), "Pretendard Variable", "DM Sans", system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, monospace;
-  --font-heading: var(--font-dm-sans), var(--font-pretendard), "DM Sans", "Pretendard Variable", sans-serif;
+  /* Typography (Studio Anthem) */
+  --font-sans: var(--font-geist-sans), "Geist Fallback", var(--font-pretendard), "Pretendard Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-serif: var(--font-fraunces), "Fraunces Fallback", ui-serif, Georgia, serif;
+  --font-heading: var(--font-fraunces), "Fraunces Fallback", var(--font-pretendard), "Pretendard Variable", ui-serif, Georgia, serif;
+  --font-ko: var(--font-pretendard), "Pretendard Variable", "Pretendard", ui-sans-serif, system-ui, sans-serif;
 
   /* Colors (mapped from shadcn tokens) */
   --color-background: var(--background);
@@ -58,116 +93,159 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Radius — Bento Cards = 12px (lg) */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-2xl: 1.25rem;
-  --radius-3xl: 1.5rem;
-  --radius-4xl: 2rem;
+  /* Radius — Studio Anthem Warm Brutalism = sharp corners (2px base, 4~8px for larger) */
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+  --radius-2xl: 8px;
+  --radius-3xl: 10px;
+  --radius-4xl: 12px;
+
+  /* ───── Studio Anthem palette (the ONLY colors allowed) ───── */
+  --color-canvas: #F5F1E8;
+  --color-paper:  #FAF7F0;
+  --color-ink:    #141414;
+  --color-smoke:  #1F1F1F;
+  --color-signal: #FFB800;
+  --color-dust:   #8B8680;
+  --color-rust:   #C85A3B;
+
+  /* Hairlines (use as border-color) */
+  --color-hairline-canvas: rgb(20 20 20 / 0.12);
+  --color-hairline-canvas-strong: rgb(20 20 20 / 0.2);
+  --color-hairline-ink: rgb(245 241 232 / 0.12);
+  --color-hairline-ink-strong: rgb(245 241 232 / 0.22);
+
+  /* Studio Anthem type scale */
+  --text-kicker: 12px;
+  --text-kicker--line-height: 1.4;
+  --text-kicker--letter-spacing: 0.12em;
+
+  /* Sharp radius (buttons/CTAs) — no pills */
+  --radius-sharp: 2px;
+
+  /* Motion */
+  --duration-micro: 180ms;
+  --duration-reveal: 620ms;
+  --duration-reveal-long: 720ms;
+  --duration-mask: 900ms;
+  --ease-spring-soft: cubic-bezier(.2,.9,.2,1);
+  --ease-mask-reveal: cubic-bezier(.6,.02,.2,1);
+
+  /* Hard shadow — ALWAYS sharp, NEVER blurred */
+  --shadow-amber-sm: 3px 3px 0 0 var(--color-signal);
+  --shadow-amber-md: 4px 4px 0 0 var(--color-signal);
+
+  /* Letter-spacing presets (번들 tailwind.config.ts letterSpacing extend) */
+  --tracking-tight-1: -0.01em;
+  --tracking-tight-2: -0.02em;
+  --tracking-tight-3: -0.025em;
+  --tracking-mono-wide: 0.12em;
+  --tracking-label-wide: 0.18em;
 }
 
-/* ─── Light Theme (DESIGN.md: "The Intelligent Sanctuary") ─── */
+/* ─── Light Theme (Studio Anthem 재매핑 — Epic 6, 2026-04-24) ─── */
 :root {
-  /* Surface Hierarchy (Tonal Layering) */
-  --background: #F9F9F7;              /* Level 0: Base canvas (premium paper) */
-  --foreground: #111827;              /* gray-900 (never pure black) */
+  /* Surface Hierarchy (Studio Anthem tonal layering) */
+  --background: #F5F1E8;              /* canvas — 화면 전체 기본 배경 */
+  --foreground: #141414;              /* ink — 본문 텍스트 (pure 하지 않은 dark) */
 
-  /* Surface Container tiers */
-  --surface-container-low: #F3F3F1;   /* Level 1: Sectioning */
-  --surface-container-lowest: #FFFFFF; /* Level 2: Interaction (cards, inputs) */
-  --surface-container-high: #EDEDEB;   /* Hover states */
-  --surface-container-highest: #E7E7E5; /* Code blocks (inline) */
+  /* Surface Container tiers — Studio Anthem paper 계열 */
+  --surface-container-low: #F0EADF;   /* Sectioning (canvas보다 약간 짙은) */
+  --surface-container-lowest: #FAF7F0; /* Paper — cards/inputs/dialog 기본 */
+  --surface-container-high: #E8E2D3;   /* Hover states */
+  --surface-container-highest: #E0D9C7; /* Code blocks */
 
-  /* Primary: Indigo */
-  --primary: #4F46E5;
-  --primary-foreground: #FFFFFF;
-  --primary-deep: #3525CD;            /* Soul Gradient start */
-  --primary-container: #E0E7FF;       /* Soft emphasis */
+  /* Primary: Ink (한 가지 확정 블랙) */
+  --primary: #141414;
+  --primary-foreground: #F5F1E8;
+  --primary-deep: #000000;            /* legacy Soul Gradient start — 현재 미사용 */
+  --primary-container: #FAF7F0;       /* Soft emphasis */
 
-  /* Cards & Popovers */
-  --card: #FFFFFF;
-  --card-foreground: #111827;
-  --popover: #FFFFFF;
-  --popover-foreground: #111827;
+  /* Cards & Popovers — Paper 배경 + Ink 텍스트 */
+  --card: #FAF7F0;
+  --card-foreground: #141414;
+  --popover: #FAF7F0;
+  --popover-foreground: #141414;
 
-  /* Secondary */
-  --secondary: #F3F3F1;
-  --secondary-foreground: #111827;
+  /* Secondary: Paper + Ink */
+  --secondary: #FAF7F0;
+  --secondary-foreground: #141414;
 
-  /* Muted */
-  --muted: #F3F3F1;
-  --muted-foreground: #6B7280;        /* gray-500 */
+  /* Muted — 비어있는 state / placeholder */
+  --muted: #F0EADF;
+  --muted-foreground: #8B8680;        /* dust */
 
-  /* Accent */
-  --accent: #E0E7FF;
-  --accent-foreground: #3525CD;
+  /* Accent: Signal Amber — AI 출력/액티브 상태 강조 */
+  --accent: #FFB800;
+  --accent-foreground: #141414;
 
-  /* Destructive */
-  --destructive: #DC2626;
+  /* Destructive — Rust (Studio Anthem 팔레트) */
+  --destructive: #C85A3B;
 
-  /* Borders — No-Line Rule: ghost borders only */
-  --border: rgba(17, 24, 39, 0.08);   /* outline_variant @ 8% */
-  --input: rgba(17, 24, 39, 0.12);    /* Ghost Border @ 12% */
-  --ring: #4F46E5;
+  /* Borders — 1px hairlines only */
+  --border: rgba(20, 20, 20, 0.12);
+  --input: rgba(20, 20, 20, 0.2);
+  --ring: #FFB800;                    /* Focus ring = signal amber */
 
-  /* Charts (Indigo scale) */
-  --chart-1: #4F46E5;
-  --chart-2: #7C3AED;
-  --chart-3: #2563EB;
-  --chart-4: #059669;
-  --chart-5: #D97706;
+  /* Charts — Studio Anthem 팔레트 변형 */
+  --chart-1: #141414;                 /* ink */
+  --chart-2: #FFB800;                 /* signal */
+  --chart-3: #8B8680;                 /* dust */
+  --chart-4: #C85A3B;                 /* rust */
+  --chart-5: #1F1F1F;                 /* smoke */
 
-  /* Sidebar (Dashboard) */
-  --sidebar: #111827;                  /* Dark sidebar */
-  --sidebar-foreground: #F9FAFB;
-  --sidebar-primary: #4F46E5;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #1F2937;
-  --sidebar-accent-foreground: #F9FAFB;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #4F46E5;
+  /* Sidebar (Dashboard) — Ink + Canvas 반전 */
+  --sidebar: #141414;
+  --sidebar-foreground: #F5F1E8;
+  --sidebar-primary: #FFB800;
+  --sidebar-primary-foreground: #141414;
+  --sidebar-accent: #1F1F1F;          /* smoke */
+  --sidebar-accent-foreground: #F5F1E8;
+  --sidebar-border: rgba(245, 241, 232, 0.12);
+  --sidebar-ring: #FFB800;
 
-  /* Ambient Shadows (multi-layer, tinted with gray-900) */
-  --shadow-sm: 0px 1px 2px rgba(17, 24, 39, 0.04);
-  --shadow-md: 0px 2px 4px rgba(17, 24, 39, 0.04), 0px 12px 32px rgba(17, 24, 39, 0.08);
-  --shadow-lg: 0px 4px 8px rgba(17, 24, 39, 0.04), 0px 20px 48px rgba(17, 24, 39, 0.10);
+  /* Ambient Shadows — Studio Anthem은 sharp offset shadow가 기본이나
+   * shadcn 라이브러리 컴포넌트 fallback용으로 미세한 ink-tinted shadow 제공 */
+  --shadow-sm: 0px 1px 2px rgba(20, 20, 20, 0.04);
+  --shadow-md: 2px 2px 0 0 rgba(20, 20, 20, 0.08), 0px 2px 4px rgba(20, 20, 20, 0.04);
+  --shadow-lg: 4px 4px 0 0 rgba(20, 20, 20, 0.10), 0px 4px 8px rgba(20, 20, 20, 0.04);
 }
 
-/* ─── Dark Theme (for dark sections like Footer, About Hero) ─── */
+/* ─── Dark Theme (Studio Anthem — Ink 배경 위 Canvas 텍스트) ─── */
 .dark {
-  --background: #111827;
-  --foreground: #F9FAFB;
-  --card: #1F2937;
-  --card-foreground: #F9FAFB;
-  --popover: #1F2937;
-  --popover-foreground: #F9FAFB;
-  --primary: #818CF8;
-  --primary-foreground: #111827;
-  --secondary: #1F2937;
-  --secondary-foreground: #F9FAFB;
-  --muted: #1F2937;
-  --muted-foreground: #9CA3AF;
-  --accent: #1F2937;
-  --accent-foreground: #C7D2FE;
-  --destructive: #EF4444;
-  --border: rgba(255, 255, 255, 0.10);
-  --input: rgba(255, 255, 255, 0.15);
-  --ring: #818CF8;
-  --chart-1: #818CF8;
-  --chart-2: #A78BFA;
-  --chart-3: #60A5FA;
-  --chart-4: #34D399;
-  --chart-5: #FBBF24;
-  --sidebar: #0F172A;
-  --sidebar-foreground: #F9FAFB;
-  --sidebar-primary: #818CF8;
-  --sidebar-primary-foreground: #F9FAFB;
-  --sidebar-accent: #1E293B;
-  --sidebar-accent-foreground: #F9FAFB;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #818CF8;
+  --background: #141414;             /* ink */
+  --foreground: #F5F1E8;             /* canvas */
+  --card: #1F1F1F;                   /* smoke */
+  --card-foreground: #F5F1E8;
+  --popover: #1F1F1F;
+  --popover-foreground: #F5F1E8;
+  --primary: #FFB800;                /* signal amber (dark mode primary 액션) */
+  --primary-foreground: #141414;
+  --secondary: #1F1F1F;
+  --secondary-foreground: #F5F1E8;
+  --muted: #1F1F1F;
+  --muted-foreground: #8B8680;       /* dust */
+  --accent: #FFB800;
+  --accent-foreground: #141414;
+  --destructive: #C85A3B;            /* rust */
+  --border: rgba(245, 241, 232, 0.12);
+  --input: rgba(245, 241, 232, 0.22);
+  --ring: #FFB800;
+  --chart-1: #F5F1E8;                /* canvas */
+  --chart-2: #FFB800;
+  --chart-3: #8B8680;
+  --chart-4: #C85A3B;
+  --chart-5: #FAF7F0;                /* paper */
+  --sidebar: #0A0A0A;                /* deeper ink */
+  --sidebar-foreground: #F5F1E8;
+  --sidebar-primary: #FFB800;
+  --sidebar-primary-foreground: #141414;
+  --sidebar-accent: #1F1F1F;
+  --sidebar-accent-foreground: #F5F1E8;
+  --sidebar-border: rgba(245, 241, 232, 0.08);
+  --sidebar-ring: #FFB800;
 }
 
 @layer base {
@@ -229,9 +307,86 @@
   .surface-high { background-color: var(--surface-container-high); }
   .surface-highest { background-color: var(--surface-container-highest); }
 
-  /* Dark section helper */
+  /* Dark section helper — Studio Anthem ink + canvas (landing.css와 일치) */
   .section-dark {
-    background-color: #111827;
-    color: #F9FAFB;
+    background-color: var(--color-ink);
+    color: var(--color-canvas);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+ * Studio Anthem — Film-grain overlay (signature of The Studio Anthem)
+ * Placed at z-index: 1 with pointer-events: none so nav/modals stack above.
+ * ═══════════════════════════════════════════════════════════════════ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.04;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * Studio Anthem — Custom utilities (Tailwind 4 @utility)
+ * serif-display / kicker / hairline-b|t / ko-keep / btn-primary
+ * ═══════════════════════════════════════════════════════════════════ */
+@utility serif-display {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+}
+@utility kicker {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-dust);
+}
+@utility hairline-b {
+  border-bottom: 1px solid var(--color-hairline-canvas);
+}
+@utility hairline-t {
+  border-top: 1px solid var(--color-hairline-canvas);
+}
+@utility ko-keep {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  letter-spacing: -0.025em;
+}
+@utility btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 28px;
+  background: var(--color-ink);
+  color: var(--color-canvas);
+  border-radius: var(--radius-sharp);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 1;
+  transition:
+    box-shadow var(--duration-micro) var(--ease-spring-soft),
+    transform  var(--duration-micro) var(--ease-spring-soft);
+  &:hover {
+    box-shadow: var(--shadow-amber-md);
+    transform: translate(-2px, -2px);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * Accessibility — respect prefers-reduced-motion globally
+ * ═══════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

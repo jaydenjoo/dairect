@@ -1,16 +1,13 @@
-import { Suspense } from "react";
-import { SignupForm } from "./signup-form";
+import { notFound } from "next/navigation";
 
-// Phase 5 Epic 5-2 Task 5-2-0: 회원가입 페이지.
+// ─── Task-S2b (2026-04-24 末 v3.2): 1차 잠금 ─────────────────────────────
+// Dairect v3.2는 Jayden 1인 사용 모드. 회원가입 공개 차단 → /signup 직접 접근 시 404.
+// Jayden 본인은 Supabase Studio에서 계정 직접 생성으로 우회.
 //
-// Supabase email+password 회원가입 + email confirmation(enable_confirmations=true인 production)
-// 또는 즉시 세션 활성(enable_confirmations=false인 local). 양쪽 모두 대응.
-//
-// 가입 성공 → /dashboard redirect → dashboard/layout.tsx가 default workspace 자동 생성(Task 5-2-7).
+// 2차(다른 프리랜서 서비스 제공) 진입 시 이 파일을 git history에서 복구:
+//   `git log --all --full-history -- src/app/\(public\)/signup/page.tsx`
+//   복구 대상 시점: 커밋 ee6d076 (Task-S2a 완료) 이전 버전.
+// 관련 자산 보존: src/app/(public)/signup/signup-form.tsx, proxy.ts 리다이렉트 로직.
 export default function SignupPage() {
-  return (
-    <Suspense fallback={null}>
-      <SignupForm />
-    </Suspense>
-  );
+  notFound();
 }

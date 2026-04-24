@@ -1,0 +1,880 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Projects — dairect.</title>
+  <meta name="description" content="Ten projects. Ten stories. dairect가 완료한 실제 프로젝트들의 기록." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" as="style" crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.min.css" />
+
+  <link rel="stylesheet" href="landing.css" />
+  <link rel="stylesheet" href="projects.css" />
+  <link rel="stylesheet" href="editorial.css" />
+</head>
+<body>
+
+<!-- ══════════════════════ [01] NAV (shared with Landing) ══════════════════════ -->
+<nav class="nav" id="nav" aria-label="Primary">
+  <a href="Landing.html#hero" class="brand" aria-label="dairect — Director of AI, working Direct" title="D — Director, AI — Artificial Intelligence, RECT — Direct">
+    <span class="bp bp-d">d</span><span class="bp bp-ai">ai</span><span class="bp bp-rect">rect</span><span class="dot">.</span>
+  </a>
+  <div class="menu" role="menubar">
+    <a href="Projects.html" role="menuitem" aria-current="page" style="color:var(--ink);position:relative;">Work<span style="position:absolute;left:0;right:0;bottom:-6px;height:2px;background:var(--signal);"></span></a>
+    <a href="Landing.html#services" role="menuitem">Services</a>
+    <a href="Landing.html#pricing" role="menuitem">Pricing</a>
+    <a href="Landing.html#founder" role="menuitem">About</a>
+    <a href="Landing.html#journal" role="menuitem">Journal</a>
+  </div>
+  <a href="Landing.html#contact" class="cta-mini magnetic" data-magnetic>
+    Start a project <span aria-hidden="true">→</span>
+  </a>
+</nav>
+
+<main>
+
+<!-- ══════════════════════ [P-01] HERO ══════════════════════ -->
+<section class="p-hero" data-screen-label="01 Index Hero">
+  <div class="container">
+    <p class="p-hero-kicker">— <em>index</em> of Work  ·  N°01 → N°10</p>
+    <h1 class="p-hero-head">
+      Ten projects.
+      <span class="it">Ten stories.</span>
+    </h1>
+    <p class="p-hero-ko">
+      열 개의 프로젝트, 열 개의 이야기. 각 프로젝트는 <em style="font-family:var(--font-serif);font-style:italic;">a specific direction</em> — 실제 고객의 실제 문제 — 에서 시작했고,
+      <code style="font-family:var(--font-mono);font-size:0.94em;">execution</code>은 AI와 2~3주간의 집중이 맡았습니다.
+    </p>
+
+    <div class="p-filters" role="tablist" aria-label="Project filters">
+      <button class="p-filter" role="tab" data-filter="all" aria-pressed="true">All <span class="count">10</span></button>
+      <button class="p-filter" role="tab" data-filter="saas" aria-pressed="false">SaaS <span class="count">04</span></button>
+      <button class="p-filter" role="tab" data-filter="automation" aria-pressed="false">Automation <span class="count">03</span></button>
+      <button class="p-filter" role="tab" data-filter="editorial" aria-pressed="false">Editorial <span class="count">02</span></button>
+      <button class="p-filter" role="tab" data-filter="tools" aria-pressed="false">Tools <span class="count">01</span></button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ [P-02] PROJECT INDEX ══════════════════════ -->
+<section class="p-index" data-screen-label="02 Project Index">
+  <div class="p-index-head">
+    <h2>The <span class="it">full index.</span></h2>
+    <span class="mono">10 records · 2024 → 2026 · hover any row</span>
+  </div>
+
+  <!-- N°01 — Chatsio -->
+  <article class="p-row" data-cat="saas" data-name="Chatsio" data-meta="AI CHAT · N°01" data-year="2025">
+    <div class="pr-num">N°01<span class="slash"> / </span>10</div>
+    <div class="pr-title">
+      <span class="en">Chat<span class="amber">sio</span></span>
+      <span class="ko">한국 중소기업을 위한 AI 고객 상담 SaaS</span>
+      <span class="cat">★ Featured · SaaS</span>
+    </div>
+    <p class="pr-desc">
+      전화·카톡·이메일로 흩어져 있던 CS 문의를 한 화면에 모으고, 반복 질문의 82%를 AI가 <em>자동 응답</em>으로 처리합니다. 상담사는 이제 진짜 어려운 문의에만 집중합니다. 3개 가맹점 체인에서 파일럿 후 12개로 확대.
+    </p>
+    <div class="pr-meta">
+      <div class="row"><span class="k">Year</span><span class="v">2025</span></div>
+      <div class="row"><span class="k">Dur.</span><span class="v">2w</span></div>
+      <div class="row"><span class="k">Stack</span><span class="v">Next.js · Supabase · Claude</span></div>
+      <div class="row status"><span class="k">Status</span><span class="v live">Live · 12 clients</span></div>
+    </div>
+  </article>
+
+  <!-- N°02 — Findably -->
+  <article class="p-row" data-cat="saas" data-name="Findably" data-meta="MKT DIAG · N°02" data-year="2025">
+    <div class="pr-num">N°02<span class="slash"> / </span>10</div>
+    <div class="pr-title">
+      <span class="en">Findably<span class="amber">.</span></span>
+      <span class="ko">AI 마케팅 헬스 진단 도구</span>
+      <span class="cat">★ Featured · SaaS</span>
+    </div>
+    <p class="pr-desc">
+      회사 도메인만 입력하면 SEO·콘텐츠·광고·리뷰 4개 축을 스캔해 100점 만점으로 리포트합니다. 대행사 컨설팅 <em>40만원</em>짜리를 <em>4만원</em>으로. 현재 B2B 마케터 2,400명이 월 1회 자가진단에 사용 중.
+    </p>
+    <div class="pr-meta">
+      <div class="row"><span class="k">Year</span><span class="v">2025</span></div>
+      <div class="row"><span class="k">Dur.</span><span class="v">3w</span></div>
+      <div class="row"><span class="k">Stack</span><span class="v">Next.js · OpenAI · Stripe</span></div>
+      <div class="row status"><span class="k">Status</span><span class="v live">Live · 2.4k MAU</span></div>
+    </div>
+  </article>
+
+  <!-- N°03 — AutoVox -->
+  <article class="p-row" data-cat="automation" data-name="AutoVox" data-meta="VOICE → ACTION" data-year="2025">
+    <div class="pr-num">N°03<span class="slash"> / </span>10</div>
+    <div class="pr-title">
+      <span class="en">AutoVox<span class="amber">.</span></span>
+      <span class="ko">음성 자동화 워크플로우</span>
+      <span class="cat">★ Featured · Automation</span>
+    </div>
+    <p class="pr-desc">
+      녹음 버튼 누르고 "김대리한테 내일 회의 자료 부탁한다고 노션에 달아줘"라고 말하면 — 그대로 됩니다. Whisper로 받아적고 Claude가 의도를 파싱, Make.com이 <em>실제 액션</em>으로 연결. 평균 <em>240ms</em>.
+    </p>
+    <div class="pr-meta">
+      <div class="row"><span class="k">Year</span><span class="v">2025</span></div>
+      <div class="row"><span class="k">Dur.</span><span class="v">2w</span></div>
+      <div class="row"><span class="k">Stack</span><span class="v">Whisper · Claude · Make</span></div>
+      <div class="row status"><span class="k">Status</span><span class="v live">Live · 140 users</span></div>
+    </div>
+  </article>
+
+  <!-- N°04 — PM Dashboard -->
+  <article class="p-row" data-cat="tools" data-name="PM Dashboard" data-meta="INTERNAL TOOL" data-year="2026">
+    <div class="pr-num">N°04<span class="slash"> / </span>10</div>
+    <div class="pr-title">
+      <span class="en">PM Dash<span class="amber">board</span></span>
+      <span class="ko">프리랜서/1인 스튜디오용 프로젝트 관리 툴</span>
+      <span class="cat">Tools</span>
+    </div>
+    <p class="pr-desc">
+      노션·구글시트·이메일로 쪼개진 프로젝트 상태를 <em>한 장</em>에 고정. 인보이스·견적·타임라인·회고를 프로젝트 단위로 묶어 보여줍니다. 원래는 저희 내부용이었는데, 주변이 하도 부탁해서 오픈.
+    </p>
+    <div class="pr-meta">
+      <div class="row"><span class="k">Year</span><span class="v">2026</span></div>
+      <div class="row"><span class="k">Dur.</span><span class="v">2w</span></div>
+      <div class="row"><span class="k">Stack</span><span class="v">Next.js · Postgres · Vercel</span></div>
+      <div class="row status"><span class="k">Status</span><span class="v live">Live · beta</span></div>
+    </div>
+  </article>
+
+  <!-- N°05 — Sōbun Daily -->
+  <article class="p-row" data-cat="editorial" data-name="Sōbun Daily" data-meta="NEWSLETTER ENGINE" data-year="2025">
+    <div class="pr-num">N°05<span class="slash"> / </span>10</div>
+    <div class="pr-title">
+      <span class="en">Sōbun <span class="amber">Daily</span></span>
+      <span class="ko">업계별 뉴스레터 자동 생성 엔진</span>
+      <span class="cat">Editorial</span>
+    </div>
+    <p class="pr-desc">
+      RSS·SNS·뉴스 포털을 24시간 크롤링, Claude가 편집장 역할로 <em>하루치 요약</em>을 만듭니다. 월 6,800원이면 자기 업계만의 아침 브리핑. F&B·뷰티·커머스 3개 버전 런칭.
+    </p>
+    <div class="pr-meta">
+      <div class="row"><span class="k">Year</span><span class="v">2025</span></div>
+      <div class="row"><span class="k">Dur.</span><span class="v">3w</span></div>
+      <div class="row"><span class="k">Stack</span><span class="v">Node · Claude · Buttondown</span></div>
+      <div class="row status"><span class="k">Status</span><span class="v live">Live · 3 editions</span></div>
+    </div>
+  </article>
+
+  <!-- N°06 — Briefcase -->
+  <article class="p-row" data-cat="saas" data-name="Briefcase" data-meta="CLIENT ONBOARDING" data-year="2025">
+    <div class="pr-num">N°06<span class="slash"> / </span>10</div>
+    <div class="pr-title">
+      <span class="en">Brief<span class="amber">case</span></span>
+      <span class="ko">에이전시용 클라이언트 온보딩 자동화</span>
+      <span class="cat">SaaS</span>
+    </div>
+    <p class="pr-desc">
+      새 클라이언트가 들어올 때마다 똑같이 반복되던 브리프·NDA·아카이브 폴더·슬랙 채널 생성을 <em>한 클릭</em>으로. 서울 크리에이티브 에이전시 2곳이 내부 운영툴로 도입.
+    </p>
+    <div class="pr-meta">
+      <div class="row"><span class="k">Year</span><span class="v">2025</span></div>
+      <div class="row"><span class="k">Dur.</span><span class="v">3w</span></div>
+      <div class="row"><span class="k">Stack</span><span class="v">Next.js · Slack API · Notion API</span></div>
+      <div class="row status"><span class="k">Status</span><span class="v live">Live · 2 agencies</span></div>
+    </div>
+  </article>
+
+  <!-- N°07 — Ledgerly -->
+  <article class="p-row" data-cat="automation" data-name="Ledgerly" data-meta="CAFÉ BOOKKEEPING" data-year="2025">
+    <div class="pr-num">N°07<span class="slash"> / </span>10</div>
+    <div class="pr-title">
+      <span class="en">Ledger<span class="amber">ly</span></span>
+      <span class="ko">카페·소상공인 영수증 → 장부 자동화</span>
+      <span class="cat">Automation</span>
+    </div>
+    <p class="pr-desc">
+      쌓여 있는 영수증을 찍기만 하면 OCR + Claude가 카테고리별로 <em>장부에 꽂아</em> 넣습니다. 사장님이 직접 세무사에게 보낼 수 있는 월별 리포트까지. 서울 동네 카페 4곳 파일럿.
+    </p>
+    <div class="pr-meta">
+      <div class="row"><span class="k">Year</span><span class="v">2025</span></div>
+      <div class="row"><span class="k">Dur.</span><span class="v">2w</span></div>
+      <div class="row"><span class="k">Stack</span><span class="v">React Native · GPT-4V · Sheets</span></div>
+      <div class="row status"><span class="k">Status</span><span class="v live">Pilot · 4 cafes</span></div>
+    </div>
+  </article>
+
+  <!-- N°08 — Preface -->
+  <article class="p-row" data-cat="editorial" data-name="Preface" data-meta="AUTHOR TOOL" data-year="2025">
+    <div class="pr-num">N°08<span class="slash"> / </span>10</div>
+    <div class="pr-title">
+      <span class="en">Pre<span class="amber">face</span></span>
+      <span class="ko">독립 출판 작가용 원고 편집 도구</span>
+      <span class="cat">Editorial</span>
+    </div>
+    <p class="pr-desc">
+      원고를 붙여넣으면 Claude가 <em>편집자 역할</em>로 논리 흐름·반복 표현·톤 일관성을 코멘트합니다. 마치 경험 많은 에디터가 여백에 빨간펜을 쓴 것처럼. 독립 작가 12명 베타.
+    </p>
+    <div class="pr-meta">
+      <div class="row"><span class="k">Year</span><span class="v">2025</span></div>
+      <div class="row"><span class="k">Dur.</span><span class="v">2w</span></div>
+      <div class="row"><span class="k">Stack</span><span class="v">Next.js · Claude · Tiptap</span></div>
+      <div class="row status"><span class="k">Status</span><span class="v wip">Closed beta</span></div>
+    </div>
+  </article>
+
+  <!-- N°09 — Relay -->
+  <article class="p-row" data-cat="automation" data-name="Relay" data-meta="CS HANDOFF" data-year="2024">
+    <div class="pr-num">N°09<span class="slash"> / </span>10</div>
+    <div class="pr-title">
+      <span class="en">Re<span class="amber">lay</span></span>
+      <span class="ko">야간 CS → 아침 브리프 자동 전달</span>
+      <span class="cat">Automation</span>
+    </div>
+    <p class="pr-desc">
+      밤새 들어온 고객 문의를 Claude가 <em>우선순위</em>로 정리, 아침 9시 상담팀 슬랙에 "오늘 먼저 보세요" 카드로 던집니다. 교대 인수인계 시간을 하루 40분 → 8분.
+    </p>
+    <div class="pr-meta">
+      <div class="row"><span class="k">Year</span><span class="v">2024</span></div>
+      <div class="row"><span class="k">Dur.</span><span class="v">1w</span></div>
+      <div class="row"><span class="k">Stack</span><span class="v">Zapier · Claude · Slack</span></div>
+      <div class="row status"><span class="k">Status</span><span class="v live">Live · internal</span></div>
+    </div>
+  </article>
+
+  <!-- N°10 — Studio Site (meta) -->
+  <article class="p-row" data-cat="saas" data-name="This site" data-meta="STUDIO CORE" data-year="2024">
+    <div class="pr-num">N°10<span class="slash"> / </span>10</div>
+    <div class="pr-title">
+      <span class="en"><span class="amber">dairect.kr</span></span>
+      <span class="ko">이 사이트 자체 — 우리가 만든 우리 현관</span>
+      <span class="cat">SaaS · meta</span>
+    </div>
+    <p class="pr-desc">
+      스튜디오의 첫 인상이자 데모. 워드마크부터 타이포 시스템, 모션, 케이스 스터디 레이아웃까지 전부 <em>in-house</em>로. 이 페이지도 포함입니다. 말 그대로 <em>eat your own dog food</em>.
+    </p>
+    <div class="pr-meta">
+      <div class="row"><span class="k">Year</span><span class="v">2024</span></div>
+      <div class="row"><span class="k">Dur.</span><span class="v">ongoing</span></div>
+      <div class="row"><span class="k">Stack</span><span class="v">HTML · CSS · vanilla JS</span></div>
+      <div class="row status"><span class="k">Status</span><span class="v live">Live · v1.0</span></div>
+    </div>
+  </article>
+
+  <!-- Cursor-follow thumbnail — populated via JS -->
+  <div class="p-cursor-thumb" id="cursor-thumb" aria-hidden="true">
+    <div class="pct-head">
+      <span id="pct-id">N°00 / 2025</span>
+      <span id="pct-cat" class="amber">—</span>
+    </div>
+    <div class="pct-body">
+      <span class="pct-name" id="pct-name">—</span>
+    </div>
+    <div class="pct-foot">
+      <span>Click to read</span>
+      <span class="amber">→</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ [P-03] FEATURED CASE STUDIES ══════════════════════ -->
+<section class="p-cases" data-screen-label="03 Case Studies">
+  <div class="p-cases-intro">
+    <div>
+      <p class="kicker">— <em>three,</em> in depth</p>
+      <h2>
+        Three featured,
+        <span class="it">unpacked.</span>
+      </h2>
+    </div>
+    <p class="aside">
+      인덱스는 빠른 지도. 하지만 진짜 질문 — <em>어떤 브리프였고, 무엇이 바뀌었고, 뭐가 남았는가</em> — 는 긴 호흡으로만 답할 수 있습니다. 아래는 그 호흡.
+    </p>
+  </div>
+
+  <!-- ════════ CASE 01 — Chatsio ════════ -->
+  <article class="case" id="case-chatsio" data-screen-label="04 Case · Chatsio">
+    <div class="case-cover cc-chatsio">
+      <div class="case-cover-grid"></div>
+      <span class="case-cover-label"><span class="amber">N°01</span>  /  Case study  ·  2 weeks  ·  Live</span>
+      <div class="case-cover-title">
+        <span class="en">Chat<span class="it">sio.</span></span>
+        <span class="ko">한국 중소기업 CS를 한 화면으로 모은 AI 상담 SaaS</span>
+      </div>
+    </div>
+
+    <div class="case-meta">
+      <div class="cell"><span class="k">Client</span><span class="v">Jipsool F&amp;B (외 2)</span></div>
+      <div class="cell"><span class="k">Year</span><span class="v amber">2025</span></div>
+      <div class="cell"><span class="k">Duration</span><span class="v">2 weeks</span></div>
+      <div class="cell"><span class="k">Stack</span><span class="v">Next.js · Supabase · Claude</span></div>
+      <div class="cell"><span class="k">Status</span><span class="v amber">● Live</span></div>
+    </div>
+
+    <div class="case-body">
+      <div class="case-chapter-label">01 · The Brief</div>
+      <div class="case-chapter-body">
+        <span class="serif">“카톡·전화·인스타 DM으로 하루 <span class="amber">200건</span>이 들어와요. 근데 그중 <span class="amber">80%</span>는 같은 질문이에요.”</span>
+        <p>
+          3개 가맹점을 운영하는 F&amp;B 프랜차이즈 대표의 한 문장이 브리프 전부였습니다. 창구가 너무 많았고, 같은 답을 매일 다시 써야 했고, 진짜 어려운 문의는 파묻혀 있었습니다. 기성 CS 솔루션은 대기업용으로 무거웠고, 한국 SMB의 카카오·전화 문화엔 맞지 않았습니다.
+        </p>
+        <div class="callout">
+          "We didn't need another dashboard. We needed the repetitive <em>80%</em> to disappear — so the hard <em>20%</em> could finally get attention."
+        </div>
+      </div>
+
+      <div class="case-chapter-label">02 · The Move</div>
+      <div class="case-chapter-body">
+        <p>
+          모든 채널을 <em style="font-family:var(--font-serif);font-style:italic;">하나의 인박스</em>로. 카톡 플러스친구 API, 전화 녹취 Whisper 전사, 인스타 DM 웹훅 — 들어오는 모든 메시지가 동일한 스레드 포맷으로 떨어집니다.
+        </p>
+        <p>
+          반복 질문은 Claude가 사내 위키 + 과거 답변 임베딩으로 <em style="font-family:var(--font-serif);font-style:italic;">초안</em>을 작성, 상담사는 "승인/수정/반려"만 누르면 발송. 새 답변은 다시 지식베이스로 루프백.
+        </p>
+        <p>
+          핵심은 <code style="font-family:var(--font-mono);">자동 발송이 아닌 자동 준비</code>. 사장님이 "AI가 틀린 답 보내면 어쩌나"를 걱정하지 않도록, <em style="font-family:var(--font-serif);font-style:italic;">인간이 마지막 단추</em>를 눌렀습니다.
+        </p>
+      </div>
+
+      <div class="case-chapter-label">03 · The Outcome</div>
+      <div class="case-chapter-body" style="padding-top:0;">
+        <p style="margin-bottom:32px;color:var(--dust);">
+          2주 파일럿 후 측정. 3개 가맹점, 1개월 데이터.
+        </p>
+        <div class="case-outcome" style="margin-bottom:0;">
+          <div class="outcome-metric">
+            <span class="value amber">82<span class="unit">%</span></span>
+            <span class="label">Auto-drafted replies</span>
+            <span class="sub">반복 질문 중 AI 초안 비율</span>
+          </div>
+          <div class="outcome-metric">
+            <span class="value">4.1<span class="unit">min → 22<span style="font-size:0.6em;">s</span></span></span>
+            <span class="label">Avg. first response</span>
+            <span class="sub">첫 응답까지 평균 시간</span>
+          </div>
+          <div class="outcome-metric">
+            <span class="value">3 → 12</span>
+            <span class="label">Franchises rolled out</span>
+            <span class="sub">파일럿 → 정식 도입 가맹점 수</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="case-shots">
+      <div class="shot s-8">
+        <div class="shot-head"><span>01 / Unified inbox</span><span class="amber">chatsio.app/inbox</span></div>
+        <div class="shot-body" style="background:var(--canvas);padding:0;">
+          <div style="display:grid;grid-template-columns:80px 1fr 260px;height:100%;">
+            <div style="background:var(--ink);display:flex;flex-direction:column;gap:12px;padding:16px 0;align-items:center;">
+              <div style="width:32px;height:32px;background:var(--signal);"></div>
+              <div style="width:28px;height:28px;background:rgba(245,241,232,0.12);"></div>
+              <div style="width:28px;height:28px;background:rgba(245,241,232,0.12);"></div>
+              <div style="width:28px;height:28px;background:rgba(245,241,232,0.12);"></div>
+            </div>
+            <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px;font-family:var(--font-ko);font-size:12px;border-right:1px solid var(--hairline-canvas);">
+              <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--dust);">— 12 open threads</div>
+              <div style="padding:10px 12px;background:var(--paper);border-left:2px solid var(--signal);">
+                <div style="font-weight:600;">카톡 · 김민지</div>
+                <div style="color:var(--dust);font-size:11px;">배송 지연 문의… AI 초안 대기 중</div>
+              </div>
+              <div style="padding:10px 12px;">
+                <div>전화 · 010-2●●●-●●●●</div>
+                <div style="color:var(--dust);font-size:11px;">환불 가능 여부…</div>
+              </div>
+              <div style="padding:10px 12px;">
+                <div>DM · @jihyun.lee</div>
+                <div style="color:var(--dust);font-size:11px;">매장 주소 문의…</div>
+              </div>
+            </div>
+            <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
+              <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--signal);">● AI Draft ready</div>
+              <div style="font-family:var(--font-ko);font-size:11px;line-height:1.5;color:var(--ink);padding:10px;background:var(--paper);">
+                안녕하세요, 주문번호 #20250412 확인했습니다. 금일 발송 지연으로 내일 도착 예정이며 배송비 환불 처리해드렸어요.
+              </div>
+              <div style="display:flex;gap:6px;">
+                <div style="flex:1;padding:8px;background:var(--ink);color:var(--canvas);font-size:10px;text-align:center;font-family:var(--font-mono);">APPROVE</div>
+                <div style="flex:1;padding:8px;border:1px solid var(--hairline-canvas);font-size:10px;text-align:center;font-family:var(--font-mono);">EDIT</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="shot-caption">Main inbox — 3 channels merged</div>
+      </div>
+
+      <div class="shot s-4">
+        <div class="shot-head"><span>02 / Draft</span><span class="amber">Claude</span></div>
+        <div class="shot-body dark">
+          <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;color:rgba(245,241,232,0.5);margin-bottom:10px;">— REPLY SUGGESTION</div>
+          <div style="font-family:var(--font-ko);font-size:13px;line-height:1.6;color:var(--canvas);">
+            안녕하세요! 문의 주신 <span style="color:var(--signal);">배송 지연</span> 건, 확인하고 조치해드렸어요.
+          </div>
+          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.1em;color:rgba(245,241,232,0.4);margin-top:16px;padding-top:12px;border-top:1px solid rgba(245,241,232,0.15);">
+            Conf. 94% · matched 7 past tickets
+          </div>
+        </div>
+        <div class="shot-caption">Per-ticket draft with confidence</div>
+      </div>
+
+      <div class="shot s-6">
+        <div class="shot-head"><span>03 / Weekly digest</span><span>E-mail</span></div>
+        <div class="shot-body" style="padding:24px;">
+          <div style="font-family:var(--font-serif);font-style:italic;font-size:22px;color:var(--ink);">This week's ticket weather</div>
+          <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;color:var(--dust);text-transform:uppercase;margin-top:8px;">Apr 8 — Apr 14</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px;font-family:var(--font-ko);font-size:12px;line-height:1.5;">
+            <div><strong style="color:var(--signal);font-size:28px;font-family:var(--font-serif);">214</strong><br/>tickets</div>
+            <div><strong style="color:var(--ink);font-size:28px;font-family:var(--font-serif);">22s</strong><br/>avg first reply</div>
+          </div>
+        </div>
+        <div class="shot-caption">Owner's Monday digest</div>
+      </div>
+
+      <div class="shot s-6">
+        <div class="shot-head"><span>04 / Knowledge loop</span><span class="amber">Self-learning</span></div>
+        <div class="shot-body" style="padding:24px;">
+          <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;color:var(--dust);text-transform:uppercase;margin-bottom:16px;">—How it learns</div>
+          <div style="display:flex;flex-direction:column;gap:10px;font-family:var(--font-ko);font-size:13px;">
+            <div style="display:flex;gap:12px;align-items:center;"><span style="width:24px;height:24px;border:1px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;">1</span>Agent edits draft</div>
+            <div style="display:flex;gap:12px;align-items:center;"><span style="width:24px;height:24px;border:1px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;">2</span>Diff captured</div>
+            <div style="display:flex;gap:12px;align-items:center;"><span style="width:24px;height:24px;border:1px solid var(--signal);background:var(--signal);color:var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;">3</span>Next draft improves</div>
+          </div>
+        </div>
+        <div class="shot-caption">Human-in-the-loop feedback</div>
+      </div>
+    </div>
+
+    <div class="case-takeaway">
+      <div class="case-chapter-label">04 · Take-away</div>
+      <div class="body">
+        The <span class="amber">fastest</span> way to ship AI into a <span class="amber">tiny business</span> is to let a human press <em>send.</em>
+        <span class="small">완전 자동화는 SMB에게 너무 무섭습니다. "준비는 AI, 발송은 인간"이라는 한 줄의 설계 원칙이 첫 주 도입률을 바꿨습니다.</span>
+      </div>
+    </div>
+  </article>
+
+  <!-- ════════ CASE 02 — Findably ════════ -->
+  <article class="case" id="case-findably" data-screen-label="05 Case · Findably">
+    <div class="case-cover cc-findably">
+      <div class="case-cover-grid"></div>
+      <span class="case-cover-label"><span class="amber">N°02</span>  /  Case study  ·  3 weeks  ·  Live</span>
+      <div class="case-cover-title">
+        <span class="en">Find<span class="it">ably.</span></span>
+        <span class="ko">도메인 한 줄로 마케팅 상태를 100점 만점으로 진단</span>
+      </div>
+    </div>
+
+    <div class="case-meta">
+      <div class="cell"><span class="k">Client</span><span class="v">Self-funded (B2B)</span></div>
+      <div class="cell"><span class="k">Year</span><span class="v amber">2025</span></div>
+      <div class="cell"><span class="k">Duration</span><span class="v">3 weeks</span></div>
+      <div class="cell"><span class="k">Stack</span><span class="v">Next.js · OpenAI · Stripe</span></div>
+      <div class="cell"><span class="k">Status</span><span class="v amber">● 2.4k MAU</span></div>
+    </div>
+
+    <div class="case-body">
+      <div class="case-chapter-label">01 · The Brief</div>
+      <div class="case-chapter-body">
+        <span class="serif">“40만 원짜리 컨설팅을 <span class="amber">4만 원</span>에.”</span>
+        <p>
+          대행사 감사 보고서는 비싸고, 느리고, 3개월 뒤엔 이미 구식이 됩니다. 저희는 반대로 물었습니다 — <em>진단만 잘 해주면, 전략은 클라이언트가 직접 짤 수 있지 않을까?</em> 마케터들의 "그래서 우리 회사 지금 어디쯤인데?"라는 반복 질문에 <em>스캔 한 번 + 리포트 한 장</em>으로 답하는 도구가 목표였습니다.
+        </p>
+      </div>
+
+      <div class="case-chapter-label">02 · The Move</div>
+      <div class="case-chapter-body">
+        <p>
+          4개 축으로 쪼갰습니다 — <em style="font-family:var(--font-serif);font-style:italic;">SEO</em>, <em style="font-family:var(--font-serif);font-style:italic;">Content velocity</em>, <em style="font-family:var(--font-serif);font-style:italic;">Ad presence</em>, <em style="font-family:var(--font-serif);font-style:italic;">Review sentiment</em>. 각각을 공개 API 조합(Ahrefs Lite, Similarweb free, Naver 검색광고 API, 리뷰 크롤러)으로 얇게 긁어 <code style="font-family:var(--font-mono);">0~100</code> 점수로 정규화.
+        </p>
+        <p>
+          GPT-4는 <em>숫자 요약이 아니라</em> "왜 이 점수가 낮은가, 어디부터 손대면 가장 빨리 오르는가"를 에디토리얼 톤으로 썼습니다. 그 결과 리포트는 읽히는 문서가 됐고, 공유되기 시작했습니다.
+        </p>
+        <div class="callout">
+          Findably sells a <em>number</em>, but ships a <em>narrative</em>. 점수는 미끼, 본문은 낚시.
+        </div>
+      </div>
+
+      <div class="case-chapter-label">03 · The Outcome</div>
+      <div class="case-chapter-body" style="padding-top:0;">
+        <div class="case-outcome" style="margin-bottom:0;">
+          <div class="outcome-metric">
+            <span class="value amber">2,400</span>
+            <span class="label">Monthly active users</span>
+            <span class="sub">B2B 마케터 중심, 유기 전환</span>
+          </div>
+          <div class="outcome-metric">
+            <span class="value">₩40k → ₩4k</span>
+            <span class="label">Price compression</span>
+            <span class="sub">기성 감사 대비 10분의 1</span>
+          </div>
+          <div class="outcome-metric">
+            <span class="value">11<span class="unit">%</span></span>
+            <span class="label">Free → Paid</span>
+            <span class="sub">월 리포트 구독 전환율</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="case-shots">
+      <div class="shot s-6">
+        <div class="shot-head"><span>01 / Landing</span><span class="amber">findably.kr</span></div>
+        <div class="shot-body" style="padding:32px;display:flex;flex-direction:column;justify-content:center;gap:16px;">
+          <div style="font-family:var(--font-serif);font-size:32px;line-height:1.1;letter-spacing:-0.02em;">How healthy is your <span style="font-style:italic;color:var(--signal);">marketing?</span></div>
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <div style="flex:1;padding:10px 14px;border:1px solid var(--ink);font-family:var(--font-mono);font-size:11px;color:var(--dust);">https://yourcompany.kr</div>
+            <div style="padding:10px 16px;background:var(--ink);color:var(--canvas);font-family:var(--font-mono);font-size:11px;">SCAN →</div>
+          </div>
+        </div>
+        <div class="shot-caption">Input = one URL</div>
+      </div>
+
+      <div class="shot s-6">
+        <div class="shot-head"><span>02 / Score card</span><span>Report</span></div>
+        <div class="shot-body dark" style="padding:24px;display:flex;align-items:center;gap:28px;">
+          <div style="font-family:var(--font-serif);font-size:96px;line-height:1;color:var(--signal);font-weight:500;letter-spacing:-0.03em;">82</div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;color:rgba(245,241,232,0.7);">
+            <div style="display:flex;justify-content:space-between;"><span>SEO</span><span style="color:var(--signal);">88</span></div>
+            <div style="display:flex;justify-content:space-between;"><span>CONTENT</span><span style="color:var(--signal);">76</span></div>
+            <div style="display:flex;justify-content:space-between;"><span>ADS</span><span style="color:var(--canvas);">71</span></div>
+            <div style="display:flex;justify-content:space-between;"><span>REVIEWS</span><span style="color:var(--signal);">92</span></div>
+          </div>
+        </div>
+        <div class="shot-caption">Output = one number + 4 axes</div>
+      </div>
+
+      <div class="shot s-12">
+        <div class="shot-head"><span>03 / Narrative section</span><span class="amber">The readable report</span></div>
+        <div class="shot-body" style="padding:32px 40px;display:flex;gap:40px;align-items:flex-start;">
+          <div style="flex:2;">
+            <div style="font-family:var(--font-serif);font-style:italic;font-size:22px;line-height:1.4;max-width:52ch;">
+              "귀사는 <span style="color:var(--signal);">SEO 상위 20%</span>지만, <span style="color:var(--signal);">광고 믹스 불균형</span>이 발목을 잡고 있습니다. 네이버 의존도가 84%로, 구글·메타 분산을 권합니다."
+            </div>
+            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;color:var(--dust);text-transform:uppercase;margin-top:16px;">— Editorial by GPT-4, reviewed by a human editor</div>
+          </div>
+          <div style="flex:1;padding:20px;background:var(--paper);font-family:var(--font-ko);font-size:13px;line-height:1.6;">
+            <strong style="color:var(--signal);font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;">Next 3 actions</strong>
+            <div style="margin-top:12px;">1. 메타 광고 테스트 예산 20% 배분</div>
+            <div>2. 제품 상세페이지 Schema 마크업</div>
+            <div>3. 경쟁사 벤치마크 키워드 12개</div>
+          </div>
+        </div>
+        <div class="shot-caption">The narrative is the product</div>
+      </div>
+    </div>
+
+    <div class="case-takeaway">
+      <div class="case-chapter-label">04 · Take-away</div>
+      <div class="body">
+        <span class="amber">Scores</span> get clicks. <span class="amber">Stories</span> get shared.
+        <span class="small">숫자만 보여줬다면 도구, 내러티브를 붙였더니 동료에게 보내는 링크가 됐습니다. 공유율이 마케팅의 70%였습니다.</span>
+      </div>
+    </div>
+  </article>
+
+  <!-- ════════ CASE 03 — AutoVox ════════ -->
+  <article class="case" id="case-autovox" data-screen-label="06 Case · AutoVox">
+    <div class="case-cover cc-autovox">
+      <div class="case-cover-grid"></div>
+      <span class="case-cover-label"><span class="amber">N°03</span>  /  Case study  ·  2 weeks  ·  Live</span>
+      <div class="case-cover-title">
+        <span class="en">Auto<span class="it">Vox.</span></span>
+        <span class="ko">말 한마디가 실제 액션이 되는 음성 자동화</span>
+      </div>
+    </div>
+
+    <div class="case-meta">
+      <div class="cell"><span class="k">Client</span><span class="v">Founder's own stack</span></div>
+      <div class="cell"><span class="k">Year</span><span class="v amber">2025</span></div>
+      <div class="cell"><span class="k">Duration</span><span class="v">2 weeks</span></div>
+      <div class="cell"><span class="k">Stack</span><span class="v">Whisper · Claude · Make.com</span></div>
+      <div class="cell"><span class="k">Status</span><span class="v amber">● 140 users</span></div>
+    </div>
+
+    <div class="case-body">
+      <div class="case-chapter-label">01 · The Brief</div>
+      <div class="case-chapter-body">
+        <span class="serif">“운전 중에 떠오른 아이디어가 <span class="amber">집에 도착할 즈음</span>엔 다 사라져요.”</span>
+        <p>
+          PM/디자이너/창업가들의 공통된 고통은 <em>손이 묶였을 때</em>였습니다. 메모 앱은 다시 여는 데 3초, 검색은 타이핑이 필요, 노션에 넣으려면 카테고리 고민까지 — 그 3초 사이에 생각은 이미 떠납니다. "말 한마디로 처리되길" 바라는 건 사치가 아니라 기본이어야 했습니다.
+        </p>
+      </div>
+
+      <div class="case-chapter-label">02 · The Move</div>
+      <div class="case-chapter-body">
+        <p>
+          <em style="font-family:var(--font-serif);font-style:italic;">Voice → Intent → Action</em> 세 단계 파이프라인. Whisper로 <code style="font-family:var(--font-mono);">전사</code>(50ms), Claude가 <code style="font-family:var(--font-mono);">의도 분류</code>(120ms) — 이건 노션 메모냐, 슬랙 DM이냐, 캘린더 이벤트냐, 할 일이냐 —, Make.com이 <code style="font-family:var(--font-mono);">실행</code>(70ms).
+        </p>
+        <p>
+          핵심은 <em style="font-family:var(--font-serif);font-style:italic;">3초 안</em>에 피드백. "처리됐어요"가 늦으면 신뢰가 깨집니다. 평균 240ms — 사람이 "응?" 하기도 전에 끝났습니다.
+        </p>
+      </div>
+
+      <div class="case-chapter-label">03 · The Outcome</div>
+      <div class="case-chapter-body" style="padding-top:0;">
+        <div class="case-outcome" style="margin-bottom:0;">
+          <div class="outcome-metric">
+            <span class="value amber">240<span class="unit">ms</span></span>
+            <span class="label">Voice → action latency</span>
+            <span class="sub">한국어 기준 p50</span>
+          </div>
+          <div class="outcome-metric">
+            <span class="value">94.7<span class="unit">%</span></span>
+            <span class="label">Intent accuracy</span>
+            <span class="sub">7개 주요 액션 카테고리</span>
+          </div>
+          <div class="outcome-metric">
+            <span class="value">140</span>
+            <span class="label">Active daily users</span>
+            <span class="sub">런칭 8주차 기준</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="case-shots">
+      <div class="shot s-12">
+        <div class="shot-head"><span>01 / Voice timeline</span><span class="amber">240ms target</span></div>
+        <div class="shot-body" style="padding:32px;display:flex;flex-direction:column;gap:16px;">
+          <div style="display:flex;align-items:center;gap:12px;font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;color:var(--dust);text-transform:uppercase;">
+            <span>VOICE IN</span>
+            <span style="flex:1;height:1px;background:var(--hairline-canvas);"></span>
+            <span>ACTION OUT</span>
+          </div>
+          <div style="display:flex;align-items:stretch;gap:2px;height:48px;">
+            <div style="width:22%;background:var(--ink);display:flex;align-items:center;justify-content:center;color:var(--canvas);font-family:var(--font-mono);font-size:10px;">WHISPER 50ms</div>
+            <div style="width:52%;background:var(--signal);display:flex;align-items:center;justify-content:center;color:var(--ink);font-family:var(--font-mono);font-size:10px;">CLAUDE · INTENT 120ms</div>
+            <div style="width:26%;background:var(--rust);display:flex;align-items:center;justify-content:center;color:var(--canvas);font-family:var(--font-mono);font-size:10px;">MAKE · EXEC 70ms</div>
+          </div>
+          <div style="font-family:var(--font-serif);font-style:italic;font-size:18px;color:var(--dust);margin-top:8px;">"Three stages, one breath."</div>
+        </div>
+        <div class="shot-caption">Pipeline — total budget 240ms</div>
+      </div>
+
+      <div class="shot s-6">
+        <div class="shot-head"><span>02 / On device</span><span>iOS widget</span></div>
+        <div class="shot-body" style="background:var(--ink);color:var(--canvas);padding:24px;display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;">
+          <div style="width:72px;height:72px;border-radius:50%;background:var(--signal);display:flex;align-items:center;justify-content:center;">
+            <div style="width:24px;height:24px;border-radius:50%;background:var(--ink);"></div>
+          </div>
+          <div style="font-family:var(--font-serif);font-style:italic;font-size:22px;">"김대리한테 내일 회의자료 부탁한다고 해줘"</div>
+          <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;color:var(--signal);">● SENT TO SLACK · 240ms</div>
+        </div>
+        <div class="shot-caption">Press, speak, done</div>
+      </div>
+
+      <div class="shot s-6">
+        <div class="shot-head"><span>03 / Action log</span><span class="amber">Transparency</span></div>
+        <div class="shot-body" style="padding:18px 22px;">
+          <div style="display:flex;flex-direction:column;gap:10px;font-family:var(--font-mono);font-size:11px;letter-spacing:0.05em;">
+            <div style="display:flex;justify-content:space-between;gap:12px;">
+              <span style="color:var(--dust);">14:22:08</span>
+              <span style="flex:1;font-family:var(--font-ko);color:var(--ink);">"김대리한테 회의자료 부탁"</span>
+              <span style="color:var(--signal);">→ SLACK</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:12px;">
+              <span style="color:var(--dust);">13:41:55</span>
+              <span style="flex:1;font-family:var(--font-ko);color:var(--ink);">"내일 3시 치과 예약"</span>
+              <span style="color:var(--signal);">→ CAL</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:12px;">
+              <span style="color:var(--dust);">11:03:12</span>
+              <span style="flex:1;font-family:var(--font-ko);color:var(--ink);">"아이디어: 구독 역경매"</span>
+              <span style="color:var(--signal);">→ NOTION</span>
+            </div>
+          </div>
+        </div>
+        <div class="shot-caption">Every action is auditable</div>
+      </div>
+    </div>
+
+    <div class="case-takeaway">
+      <div class="case-chapter-label">04 · Take-away</div>
+      <div class="body">
+        <span class="amber">Voice</span> isn't a UI. It's a <span class="amber">shortcut</span> past UIs.
+        <span class="small">앱을 만들지 말고, 앱에 도달하기 전에 끝내야 합니다. 240ms는 그걸 가능하게 한 엄격한 예산이었습니다.</span>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ══════════════════════ [P-04] CLOSING CTA ══════════════════════ -->
+<section class="p-cta" id="contact" data-screen-label="07 Closing CTA">
+  <span class="p-cta-bg" aria-hidden="true">next.</span>
+  <div class="container">
+    <p class="p-cta-kicker">— N°11 · <em>could be</em> yours</p>
+    <h2 class="p-cta-head">
+      Your project
+      <span class="it">could be next.</span>
+    </h2>
+    <p class="p-cta-ko">
+      다음 프로젝트의 주인공이 되어보세요. 브리프 한 줄이면 충분합니다 — 방향은 저희가 함께 정리해드리고, 실행은 <em style="font-family:var(--font-serif);font-style:italic;">2~3주</em> 안에 끝납니다.
+    </p>
+    <div class="p-cta-row">
+      <a href="Landing.html#contact" class="btn-primary">
+        Start a conversation <span class="arrow" aria-hidden="true">→</span>
+      </a>
+      <a href="mailto:hello@dairect.kr" class="btn-ghost">hello@dairect.kr</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ══════════════════════ [P-05] FOOTER (shared) ══════════════════════ -->
+<footer class="footer section-dark">
+  <div class="container">
+    <div class="footer-logo footer-logo-split" aria-hidden="true">
+      <span class="fl-part fl-d">d</span><span class="fl-gap"></span><span class="fl-part fl-ai">ai</span><span class="fl-gap"></span><span class="fl-part fl-rect">rect</span><span class="fl-gap"></span><span class="fl-part fl-dot">.</span>
+    </div>
+    <div class="footer-logo-caption">
+      <span class="fl-cap-1">D × AI × RECT</span>
+      <span class="fl-cap-sep">/</span>
+      <span class="fl-cap-2">Director of AI, working Direct</span>
+    </div>
+    <p class="footer-logo-slogan">
+      <em>“Code by machines. Direction by us.”</em><br/>
+      <span class="fls-ko">코드는 AI가, 방향은 내가.</span>
+    </p>
+
+    <div class="footer-grid">
+      <div class="footer-col">
+        <span class="footer-brand">dairect<span class="dot">.</span></span>
+        <p class="footer-tag">코드는 AI가, 방향은 내가</p>
+        <span class="footer-est">— est. 2024 / Seoul</span>
+      </div>
+
+      <div class="footer-col">
+        <span class="footer-col-head">— Menu</span>
+        <a href="Projects.html">Work</a>
+        <a href="Landing.html#services">Services</a>
+        <a href="Landing.html#pricing">Pricing</a>
+        <a href="Landing.html#founder">About</a>
+        <a href="Landing.html#journal">Journal</a>
+      </div>
+
+      <div class="footer-col">
+        <span class="footer-col-head">— Reach us</span>
+        <a href="mailto:hello@dairect.kr">hello@dairect.kr</a>
+        <a href="#">KakaoTalk Channel</a>
+        <a href="#">Instagram @dairect.studio</a>
+      </div>
+
+      <div class="footer-col">
+        <span class="footer-col-head">— Fine print</span>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms</a>
+        <p>사업자등록 000-00-00000</p>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>© 2026 dairect. Made with taste &amp; Claude.</span>
+      <span>Seoul → Global. Always building.</span>
+    </div>
+  </div>
+</footer>
+
+<!-- Back to top -->
+<button class="back-to-top" id="back-to-top" aria-label="Back to top">
+  ↑ Top
+</button>
+
+<script>
+/* ── NAV scroll state ──────────────────────────────── */
+(function(){
+  const nav = document.getElementById('nav');
+  const onScroll = () => {
+    if (window.scrollY > 40) nav.classList.add('scrolled');
+    else nav.classList.remove('scrolled');
+  };
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+})();
+
+/* ── Filter tabs ───────────────────────────────────── */
+(function(){
+  const tabs = document.querySelectorAll('.p-filter');
+  const rows = document.querySelectorAll('.p-row');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.setAttribute('aria-pressed', 'false'));
+    t.setAttribute('aria-pressed', 'true');
+    const f = t.dataset.filter;
+    rows.forEach(r => {
+      if (f === 'all' || r.dataset.cat === f) r.classList.remove('p-row-hide');
+      else r.classList.add('p-row-hide');
+    });
+  }));
+})();
+
+/* ── Cursor-follow thumbnail ───────────────────────── */
+(function(){
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) return;
+  const thumb = document.getElementById('cursor-thumb');
+  const nameEl = document.getElementById('pct-name');
+  const idEl = document.getElementById('pct-id');
+  const catEl = document.getElementById('pct-cat');
+  const rows = document.querySelectorAll('.p-row');
+  let tx = 0, ty = 0, cx = 0, cy = 0, raf = null;
+
+  const loop = () => {
+    cx += (tx - cx) * 0.18;
+    cy += (ty - cy) * 0.18;
+    thumb.style.left = cx + 'px';
+    thumb.style.top = cy + 'px';
+    raf = requestAnimationFrame(loop);
+  };
+
+  rows.forEach(r => {
+    r.addEventListener('mouseenter', () => {
+      // Parse "Name" from title en text (strip all inner spans)
+      const en = r.querySelector('.pr-title .en').textContent;
+      const firstPart = en.substring(0, Math.ceil(en.length / 2));
+      const lastPart = en.substring(Math.ceil(en.length / 2));
+      nameEl.innerHTML = firstPart + '<span class="amber">' + lastPart + '</span>';
+      idEl.textContent = r.querySelector('.pr-num').textContent.replace(/\s+/g, ' ').trim().replace(' / 10', ' / ' + (r.dataset.year || '—'));
+      catEl.textContent = (r.dataset.meta || '—');
+      thumb.classList.add('active');
+      if (!raf) raf = requestAnimationFrame(loop);
+    });
+    r.addEventListener('mouseleave', () => {
+      thumb.classList.remove('active');
+    });
+    r.addEventListener('mousemove', (e) => {
+      tx = e.clientX + 40;
+      ty = e.clientY;
+    });
+  });
+})();
+
+/* ── Back to top ───────────────────────────────────── */
+(function(){
+  const btn = document.getElementById('back-to-top');
+  const onScroll = () => {
+    if (window.scrollY > 800) btn.classList.add('visible');
+    else btn.classList.remove('visible');
+  };
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+  btn.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+
+/* ── Magnetic CTA (for Start a project button) ─────── */
+(function(){
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) return;
+  document.querySelectorAll('[data-magnetic]').forEach(el => {
+    el.addEventListener('mousemove', (e) => {
+      const r = el.getBoundingClientRect();
+      const x = e.clientX - (r.left + r.width / 2);
+      const y = e.clientY - (r.top + r.height / 2);
+      el.style.transform = `translate(${x * 0.18}px, ${y * 0.24}px)`;
+    });
+    el.addEventListener('mouseleave', () => { el.style.transform = ''; });
+  });
+})();
+</script>
+
+</body>
+</html>

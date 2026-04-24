@@ -1,15 +1,25 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { users, workspaceInvitations, workspaces } from "@/lib/db/schema";
+import {
+  activityLogs,
+  users,
+  workspaceInvitations,
+  workspaceMembers,
+  workspaces,
+} from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
 import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
 import { getCurrentWorkspaceRole } from "@/lib/auth/get-workspace-role";
 import { canManageMembers } from "@/lib/auth/workspace-permissions";
 import { sendInvitationEmail } from "@/lib/email/resend";
+import { MAX_MEMBERS } from "@/lib/plans";
+import { scrubInvitationActivityLogs } from "@/lib/privacy/scrub-pii";
+import { checkAndIncrementRateLimit, parseRateLimit } from "@/lib/rate-limit";
+import { sanitizeFreeText, sanitizeLogMessage } from "@/lib/utils/sanitize";
 import {
   createInvitationInputSchema,
   invitationIdSchema,
@@ -31,7 +41,53 @@ import {
 
 type ActionResult =
   | { success: true }
-  | { success: false; error: string; code?: "AUTH" | "FORBIDDEN" | "INVALID_INPUT" | "DUPLICATE" | "NOT_FOUND" | "EMAIL_FAILED" | "UNKNOWN" };
+  | {
+      success: false;
+      error: string;
+      code?:
+        | "AUTH"
+        | "FORBIDDEN"
+        | "INVALID_INPUT"
+        | "DUPLICATE"
+        | "NOT_FOUND"
+        | "EMAIL_FAILED"
+        | "LIMIT_EXCEEDED"
+        | "RATE_LIMITED"
+        | "UNKNOWN";
+    };
+
+// Phase 5.5 Task 5-5-4: createInvitationAction abuse 방어용 한도.
+// userId 기반 분/시간 두 단계 — 정상 admin은 절대 도달하지 않을 값.
+//   분당 5회: 자동화/스크립트 차단 (default, INVITE_RATE_LIMIT_PER_MINUTE env로 override)
+//   시간당 20회: 단일 admin이 정상 운영 충분 + 누적 abuse 방어 (INVITE_RATE_LIMIT_PER_HOUR)
+// Task 5-5-5 rate-2: env 변수화 — 운영 중 abuse 발견 시 코드 수정 없이 조정 가능.
+//
+// parseRateLimit: src/lib/rate-limit.ts (defense-in-depth).
+
+const INVITE_RATE_LIMITS = {
+  perMinute: {
+    windowSec: 60,
+    limit: parseRateLimit(process.env.INVITE_RATE_LIMIT_PER_MINUTE, 5),
+  },
+  perHour: {
+    windowSec: 3600,
+    limit: parseRateLimit(process.env.INVITE_RATE_LIMIT_PER_HOUR, 20),
+  },
+};
+
+// Task-S2a (2026-04-24 末): plan 필드 제거 — SaaS 구독 취소로 플랜 차등 폐기.
+// 단일 고정 한도 MAX_MEMBERS 도달 시 트랜잭션 안에서 throw → 외부 catch에서 분기.
+// transaction 내부에서 throw하면 drizzle이 자동 ROLLBACK + 외부로 propagate.
+class MemberLimitExceededError extends Error {
+  readonly code = "MEMBER_LIMIT_EXCEEDED" as const;
+  constructor(
+    readonly used: number,
+    readonly limit: number,
+  ) {
+    super("MEMBER_LIMIT_EXCEEDED");
+    this.name = "MemberLimitExceededError";
+  }
+}
 
 const INVITE_TTL_DAYS = 7;
 
@@ -92,6 +148,33 @@ export async function createInvitationAction(formData: FormData): Promise<Action
     };
   }
 
+  // Phase 5.5 Task 5-5-4: rate limit (validation 통과 후 — 오타로 자기 자신 차단 방지).
+  // Short-circuit: 분 한도 차단 시 시간 카운트 skip → 정상 admin이 분 차단 후 시간 한도까지
+  // 부당하게 도달하는 부작용 방지 (HIGH-1 reviewer 반영). abuser가 "분당 5회 → 1분 쉬고 반복"
+  // 패턴으로 시간 한도 우회 시도 가능하지만 4분만에 시간 한도(20) 도달 — 큰 우회 아님.
+  const minuteCheck = await checkAndIncrementRateLimit(
+    `invite:user:${userId}:m`,
+    INVITE_RATE_LIMITS.perMinute,
+  );
+  if (!minuteCheck.allowed) {
+    return {
+      success: false,
+      error: `초대 발송 횟수가 너무 많습니다. ${minuteCheck.retryAfterSec}초 후 다시 시도해주세요.`,
+      code: "RATE_LIMITED",
+    };
+  }
+  const hourCheck = await checkAndIncrementRateLimit(
+    `invite:user:${userId}:h`,
+    INVITE_RATE_LIMITS.perHour,
+  );
+  if (!hourCheck.allowed) {
+    return {
+      success: false,
+      error: `초대 발송 횟수가 너무 많습니다. ${hourCheck.retryAfterSec}초 후 다시 시도해주세요.`,
+      code: "RATE_LIMITED",
+    };
+  }
+
   // 이메일 템플릿에 표시할 workspace name + inviter 이름
   const [wsRow] = await db
     .select({ name: workspaces.name })
@@ -101,13 +184,20 @@ export async function createInvitationAction(formData: FormData): Promise<Action
   if (!wsRow) {
     return { success: false, error: "워크스페이스를 찾을 수 없습니다", code: "NOT_FOUND" };
   }
+  // Task 5-5-5 review MED-3 (sec): workspace.name도 자유 입력 → 이메일 본문/audit metadata에서
+  // BiDi/control char 스푸핑 방어. inviterName과 동일 정책으로 산출 시점 1회 정규화.
+  const wsName = sanitizeFreeText(wsRow.name);
 
   const [inviterRow] = await db
     .select({ name: users.name, email: users.email })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  const inviterName = inviterRow?.name || inviterRow?.email || "팀 관리자";
+  // Task 5-5-5 audit-3: user.name은 가입 시 자유 입력 → control char/BiDi override 포함 가능.
+  // 이메일 본문 + audit metadata 두 곳에서 사용되므로 산출 시점에 한 번 정규화 (defense-in-depth).
+  const inviterName = sanitizeFreeText(
+    inviterRow?.name || inviterRow?.email || "팀 관리자",
+  );
 
   const token = randomUUID();
   const expiresAt = computeExpiresAt();
@@ -119,8 +209,9 @@ export async function createInvitationAction(formData: FormData): Promise<Action
     inviteUrl = buildInviteUrl(token);
   } catch (err) {
     console.error("[createInvitationAction] url build error", {
+      event: "invitation.url_build_error",
       name: err instanceof Error ? err.name : typeof err,
-      message: err instanceof Error ? err.message.slice(0, 200) : "",
+      message: err instanceof Error ? sanitizeLogMessage(err.message).slice(0, 200) : "",
     });
     return {
       success: false,
@@ -129,16 +220,91 @@ export async function createInvitationAction(formData: FormData): Promise<Action
     };
   }
 
+  // Task-S2a (2026-04-24 末): plan 차등 제거 — 단일 고정 한도 MAX_MEMBERS 게이트.
+  // - advisory lock으로 workspace 단위 잠금 → 동시에 들어온 초대 INSERT 직렬화 (TOCTOU 방어).
+  // - workspace_members count + workspace_invitations pending count 합산 → used.
+  // - used >= MAX_MEMBERS이면 MemberLimitExceededError throw → 트랜잭션 ROLLBACK → 외부 catch에서 분기.
+  //
+  // Task 5-5-5 cleanup-3 + Task D: createdInvitationId — email 실패 → 자동 revoke 실패의
+  // double-fault 시 stuck row(pending 상태로 DB 잔존) 식별자로 사용.
+  // tx return value로 할당 (1회) — catch 경로는 return으로 빠져나가므로 이후 코드에서는 string 확정.
+  let createdInvitationId: string;
   try {
-    await db.insert(workspaceInvitations).values({
-      workspaceId,
-      email: parsed.data.email,
-      role: parsed.data.role,
-      token,
-      invitedBy: userId,
-      expiresAt,
+    createdInvitationId = await db.transaction(async (tx) => {
+      // Phase 5.5 Task 5-5-2 후속 HIGH-2: hashtextextended(text, bigint)는 PG 11+ 64-bit 해시.
+      // hashtext() 32-bit 공간(~65536 ws에서 생일 역설로 50% 충돌)을 2^64로 확장 — 실질 충돌 ~0.
+      // 충돌 발생 시 다른 ws 작업이 불필요하게 직렬화되어 latency 영향만 있었음 (데이터 정합은 영향 없음).
+      // xact 변형은 트랜잭션 종료 시 자동 해제.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${workspaceId}, 0))`);
+
+      const limit = MAX_MEMBERS;
+
+      const [memberCountRow] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(workspaceMembers)
+        .where(eq(workspaceMembers.workspaceId, workspaceId));
+      const memberCount = memberCountRow?.count ?? 0;
+
+      const [pendingCountRow] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(workspaceInvitations)
+        .where(
+          and(
+            eq(workspaceInvitations.workspaceId, workspaceId),
+            isNull(workspaceInvitations.acceptedAt),
+            isNull(workspaceInvitations.revokedAt),
+            sql`${workspaceInvitations.expiresAt} > NOW()`,
+          ),
+        );
+      const pendingCount = pendingCountRow?.count ?? 0;
+
+      const used = memberCount + pendingCount;
+      if (used >= limit) {
+        throw new MemberLimitExceededError(used, limit);
+      }
+
+      const [inserted] = await tx
+        .insert(workspaceInvitations)
+        .values({
+          workspaceId,
+          email: parsed.data.email,
+          role: parsed.data.role,
+          token,
+          invitedBy: userId,
+          expiresAt,
+        })
+        .returning({ id: workspaceInvitations.id });
+
+      // Phase 5.5 Task 5-5-3: 감사 로그 기록 (같은 transaction → atomicity 보장).
+      // metadata에 raw email/role 저장 — RLS로 workspace 멤버만 조회 가능 (PRD-erd:326).
+      await tx.insert(activityLogs).values({
+        userId,
+        workspaceId,
+        entityType: "workspace_invitation",
+        entityId: inserted.id,
+        action: "workspace_invitation.created",
+        description: "멤버 초대 발송",
+        metadata: {
+          email: parsed.data.email,
+          role: parsed.data.role,
+          inviterName,
+        },
+      });
+
+      // Task D: tx return value로 외부에 전달 (let-then-mutate 패턴 제거, 실질적 immutable).
+      return inserted.id;
     });
   } catch (err) {
+    // 한도 초과 분기 (가장 먼저 — instanceof 매칭이 빠름)
+    // Task-S2a: plan 차등 제거 → 단일 고정 한도 안내. 문의 링크는 랜딩 /#contact.
+    if (err instanceof MemberLimitExceededError) {
+      return {
+        success: false,
+        error: `멤버 한도(${err.limit}명)에 도달했습니다. 기존 멤버나 발송된 초대를 정리해주세요. 한도 확장이 필요하시면 /about#contact 로 문의주세요.`,
+        code: "LIMIT_EXCEEDED",
+      };
+    }
+
     // 중복 활성 초대 판정 — Drizzle ORM은 원본 PostgresError를 err.cause에 담고
     // 자체 "Failed query: ..." 메시지로 wrap함 (name="Error"). 최상위 err.code는 null.
     // 2026-04-22 1차 hotfix(7618c0d)가 최상위만 봐서 miss 확인 → cause까지 unwrap.
@@ -164,11 +330,12 @@ export async function createInvitationAction(formData: FormData): Promise<Action
       };
     }
     console.error("[createInvitationAction] insert error", {
+      event: "invitation.insert_error",
       name: err instanceof Error ? err.name : typeof err,
-      message: errMsg.slice(0, 200),
+      message: sanitizeLogMessage(errMsg).slice(0, 200),
       pgCode: typeof pgCode === "string" ? pgCode : null,
       causeName: rootCause instanceof Error ? rootCause.name : null,
-      causeMessage: causeMsg.slice(0, 200),
+      causeMessage: sanitizeLogMessage(causeMsg).slice(0, 200),
     });
     return { success: false, error: "초대 생성 중 오류가 발생했습니다", code: "UNKNOWN" };
   }
@@ -176,7 +343,7 @@ export async function createInvitationAction(formData: FormData): Promise<Action
   try {
     await sendInvitationEmail({
       to: parsed.data.email,
-      workspaceName: wsRow.name,
+      workspaceName: wsName,
       inviterName,
       inviteUrl,
       expiresAt,
@@ -185,18 +352,96 @@ export async function createInvitationAction(formData: FormData): Promise<Action
     // 이메일 실패 → row soft revoke로 일관성 복구 (재발송 경로 열림).
     // security-reviewer H1: revoke UPDATE 자체가 실패하면 pending idx 영구 잠금 → 중첩 try/catch로
     //                        double-fault를 로그로만 남기고 상위는 EMAIL_FAILED 반환 유지.
+    // Task 5-5-5 audit-1: 자동 revoke + audit log를 단일 transaction으로 묶어 atomicity 일관.
+    //                     수동 revoke와 동일하게 audit trail 남겨 디버깅/감사 추적성 확보
+    //                     (action: workspace_invitation.revoked + metadata.reason: email_send_failed).
+    // Task D: tx return value로 변수 1회 할당 (let-then-mutate 패턴 제거).
+    // skip 경로(revokedRow 없음)는 null, 성공 경로는 row.id.
+    let autoRevokedInvitationId: string | null;
     try {
-      await db
-        .update(workspaceInvitations)
-        .set({ revokedAt: new Date() })
-        .where(eq(workspaceInvitations.token, token));
+      autoRevokedInvitationId = await db.transaction(async (tx) => {
+        // Task 5-5-5 cleanup-2: 수동 revoke(revokeInvitationAction)와 동일한 isNull 가드 통일.
+        // UUID v4 token 충돌 확률 ~0이지만 invariant 강제 → 이중 revoke 방지 + audit trail 일관성.
+        const [revokedRow] = await tx
+          .update(workspaceInvitations)
+          .set({ revokedAt: new Date() })
+          .where(
+            and(
+              eq(workspaceInvitations.token, token),
+              isNull(workspaceInvitations.revokedAt),
+              isNull(workspaceInvitations.acceptedAt),
+            ),
+          )
+          .returning({ id: workspaceInvitations.id });
+        if (!revokedRow) {
+          // Task 5-5-5 sec M-2: cleanup-2 가드가 skip 시킨 경로 (이미 revoked/accepted by race).
+          // stuck row(double-fault)와 구분하여 운영 가시성 확보. 실제 DB 변경 없으니 audit log skip (멱등성).
+          console.error("[createInvitationAction] auto-revoke skipped — already revoked/accepted", {
+            event: "invitation.revoke_skipped",
+            invitationId: createdInvitationId,
+            workspaceId,
+            reason: "already_revoked_or_accepted",
+          });
+          return null;
+        }
+        await tx.insert(activityLogs).values({
+          userId,
+          workspaceId,
+          entityType: "workspace_invitation",
+          entityId: revokedRow.id,
+          action: "workspace_invitation.revoked",
+          description: "이메일 발송 실패로 자동 취소",
+          metadata: {
+            email: parsed.data.email,
+            role: parsed.data.role,
+            reason: "email_send_failed",
+            originalInviterUserId: userId,
+          },
+        });
+        return revokedRow.id;
+      });
     } catch (revokeErr) {
+      // tx throw 경로에서는 autoRevokedInvitationId 미할당. 아래 분기에서 null 기본값 보장.
+      autoRevokedInvitationId = null;
+      // Task 5-5-5 cleanup-3: double-fault 시 stuck row(pending 상태로 DB 잔존) 알림.
+      // 운영자가 event=invitation.revoke_stuck_row 로그로 즉시 감지 → invitationId로 수동 정리.
+      // email/token은 민감값이라 제외. invitationId(server-only UUID)만 박제.
+      const revokeCause = (revokeErr as { cause?: unknown })?.cause;
+      const revokePgCode =
+        (revokeErr as { code?: unknown })?.code ??
+        (revokeCause as { code?: unknown })?.code;
       console.error("[createInvitationAction] revoke after email failure also failed", {
+        event: "invitation.revoke_stuck_row",
+        invitationId: createdInvitationId,
+        workspaceId,
+        reason: "email_send_failed_and_revoke_failed",
         name: revokeErr instanceof Error ? revokeErr.name : typeof revokeErr,
+        message: revokeErr instanceof Error ? sanitizeLogMessage(revokeErr.message).slice(0, 200) : "",
+        pgCode: typeof revokePgCode === "string" ? revokePgCode : null,
+        causeName: revokeCause instanceof Error ? revokeCause.name : null,
       });
     }
+    // Task B (audit-4): 자동 revoke 성공 시 해당 invitation 관련 audit log의 PII 익명화.
+    // 별도 transaction (docs/pii-lifecycle.md §4-3) — 실패해도 상위 EMAIL_FAILED 응답 유지.
+    if (autoRevokedInvitationId) {
+      try {
+        await scrubInvitationActivityLogs(autoRevokedInvitationId, workspaceId);
+      } catch (scrubErr) {
+        console.error("[createInvitationAction] pii scrub failed (auto-revoke path)", {
+          event: "invitation.pii_scrub_failed",
+          invitationId: autoRevokedInvitationId,
+          workspaceId,
+          name: scrubErr instanceof Error ? scrubErr.name : typeof scrubErr,
+          message:
+            scrubErr instanceof Error ? sanitizeLogMessage(scrubErr.message).slice(0, 200) : "",
+        });
+      }
+    }
     console.error("[createInvitationAction] email error", {
+      event: "invitation.email_send_failed",
+      invitationId: createdInvitationId,
       name: err instanceof Error ? err.name : typeof err,
+      message: err instanceof Error ? sanitizeLogMessage(err.message).slice(0, 200) : "",
     });
     return {
       success: false,
@@ -234,21 +479,68 @@ export async function revokeInvitationAction(invitationId: string): Promise<Acti
     return { success: false, error: "잘못된 초대 ID입니다", code: "INVALID_INPUT" };
   }
 
-  const updated = await db
-    .update(workspaceInvitations)
-    .set({ revokedAt: new Date() })
-    .where(
-      and(
-        eq(workspaceInvitations.id, idCheck.data),
-        eq(workspaceInvitations.workspaceId, workspaceId),
-        isNull(workspaceInvitations.acceptedAt),
-        isNull(workspaceInvitations.revokedAt),
-      ),
-    )
-    .returning({ id: workspaceInvitations.id });
+  // Phase 5.5 Task 5-5-3: revoke + activity_log를 단일 transaction으로 묶어 atomicity 보장.
+  // 0 rows 반환 케이스(이미 수락/취소됨)는 transaction 안에서 null 반환 → 외부에서 NOT_FOUND.
+  // (실제 변경 없음 → audit log도 남기지 않음 — 멱등성 일관)
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(workspaceInvitations)
+      .set({ revokedAt: new Date() })
+      .where(
+        and(
+          eq(workspaceInvitations.id, idCheck.data),
+          eq(workspaceInvitations.workspaceId, workspaceId),
+          isNull(workspaceInvitations.acceptedAt),
+          isNull(workspaceInvitations.revokedAt),
+        ),
+      )
+      .returning({
+        id: workspaceInvitations.id,
+        email: workspaceInvitations.email,
+        role: workspaceInvitations.role,
+        invitedBy: workspaceInvitations.invitedBy,
+      });
 
-  if (updated.length === 0) {
+    if (!row) return null;
+
+    await tx.insert(activityLogs).values({
+      userId,
+      workspaceId,
+      entityType: "workspace_invitation",
+      entityId: row.id,
+      action: "workspace_invitation.revoked",
+      description: "멤버 초대 취소",
+      metadata: {
+        email: row.email,
+        role: row.role,
+        // 원래 발송자 — revoke한 사람(userId)과 다를 수 있음 (다른 admin이 취소).
+        originalInviterUserId: row.invitedBy,
+        // Task 5-5-5 audit-5: revoker의 시점 role을 박제 — 분쟁 시 "revoke 시점에 어떤 권한이었는지"
+        // 추적 정확성 (이후 role이 변경되어도 audit는 시점 정보 유지).
+        revokerRoleAtTime: role,
+      },
+    });
+
+    return row;
+  });
+
+  if (!updated) {
     return { success: false, error: "취소할 수 있는 초대가 아닙니다", code: "NOT_FOUND" };
+  }
+
+  // Task B (audit-4): 수동 revoke 성공 시 해당 invitation 관련 audit log의 PII 익명화.
+  // 별도 transaction (docs/pii-lifecycle.md §4-3) — 실패해도 상위 success 응답 유지.
+  try {
+    await scrubInvitationActivityLogs(updated.id, workspaceId);
+  } catch (scrubErr) {
+    console.error("[revokeInvitationAction] pii scrub failed", {
+      event: "invitation.pii_scrub_failed",
+      invitationId: updated.id,
+      workspaceId,
+      name: scrubErr instanceof Error ? scrubErr.name : typeof scrubErr,
+      message:
+        scrubErr instanceof Error ? sanitizeLogMessage(scrubErr.message).slice(0, 200) : "",
+    });
   }
 
   revalidatePath("/dashboard/members");

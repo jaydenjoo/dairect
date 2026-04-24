@@ -1,0 +1,246 @@
+/* ═══════════════════════════════════════════════════════════
+   auto-theme.css — Landing D: time-based auto theme
+   ═══════════════════════════════════════════════════════════
+
+   Uses [data-theme="light"|"dark"] on <html>, set by inline
+   script in <head> before first paint.
+
+   - data-theme="light" → cream base (like A)
+   - data-theme="dark"  → ink base (like B, via dark.css tokens)
+
+   Instead of shipping all of dark.css, we include only the
+   critical token flip here. For full parity, this file can
+   be extended OR Landing-D could import dark.css conditionally.
+
+   Loaded AFTER landing.css + editorial.css + a11y-patch.css.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Smooth cross-fade on section surfaces only — NOT on <body>.
+   Body transition + !important caused interrupted frame captures
+   where light bg never completed the transition from dark. */
+html[data-theme] section,
+html[data-theme] .nav,
+html[data-theme] .footer,
+html[data-theme] .contact-form,
+html[data-theme] .price-card,
+html[data-theme] .work-card {
+  transition: background-color 320ms ease, border-color 320ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme] section,
+  html[data-theme] .nav,
+  html[data-theme] .footer,
+  html[data-theme] .contact-form,
+  html[data-theme] .price-card,
+  html[data-theme] .work-card {
+    transition: none;
+  }
+}
+
+/* ═════════════════ LIGHT THEME TOKEN DEFINITION ═════════════════ */
+/* Explicit light-mode tokens — otherwise cascade doesn't know which
+   :root to fall back to once data-theme has been set to dark once. */
+html[data-theme="light"] {
+  --canvas: #F5F1E8;
+  --paper: #EDE8DB;
+  --ink: #141414;
+  --dust: #6B6B6B;
+  --rust: #B8642E;
+  --hairline: rgba(20, 20, 20, 0.08);
+  --hairline-canvas: rgba(20, 20, 20, 0.08);
+  --hairline-ink: rgba(245, 241, 232, 0.12);
+  --signal-text: #8B5A00;
+}
+
+html[data-theme="light"] body { background: var(--canvas) !important; color: var(--ink); }
+
+/* Light mode — reset dark-mode overrides that might bleed through */
+html[data-theme="light"] .nav {
+  background: rgba(245, 241, 232, 0.88);
+  border-bottom: 1px solid var(--hairline);
+}
+html[data-theme="light"] .btn-primary {
+  background: var(--ink);
+  color: var(--canvas);
+  border-color: var(--ink);
+}
+html[data-theme="light"] .btn-primary:hover {
+  background: transparent;
+  color: var(--ink);
+}
+html[data-theme="light"] .frame,
+html[data-theme="light"] .art-inner {
+  background: #FFFFFF;
+  color: var(--ink);
+}
+html[data-theme="light"] .contact-form {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+}
+
+/* ═════════════════ DARK THEME TOKEN FLIP ═════════════════ */
+html[data-theme="dark"] {
+  --canvas: #1A1A1A;
+  --paper: #242424;
+  --ink: #F5F1E8;
+  --dust: #BFB8A8;
+  --rust: #FFB800;
+  --hairline: rgba(245, 241, 232, 0.14);
+  --hairline-canvas: rgba(245, 241, 232, 0.14);
+  --hairline-ink: rgba(245, 241, 232, 0.22);
+  --signal-text: #FFB800; /* full amber is readable on ink */
+}
+
+html[data-theme="dark"] body { background: var(--canvas) !important; color: var(--ink); }
+
+/* Nav, hero, etc. read from vars correctly. A few hard-coded
+   bits from landing.css need override: */
+html[data-theme="dark"] .nav {
+  background: rgba(26, 26, 26, 0.88);
+  border-bottom: 1px solid var(--hairline);
+}
+html[data-theme="dark"] .kicker em,
+html[data-theme="dark"] .founder-body em,
+html[data-theme="dark"] .hero-sub em,
+html[data-theme="dark"] .hero-body em {
+  color: var(--signal);
+}
+html[data-theme="dark"] .btn-primary {
+  background: var(--signal);
+  color: #1A1A1A;
+  border-color: var(--signal);
+}
+html[data-theme="dark"] .btn-primary:hover {
+  background: transparent;
+  color: var(--signal);
+}
+html[data-theme="dark"] .btn-ghost {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+html[data-theme="dark"] .btn-ghost:hover {
+  color: var(--signal);
+  border-bottom-color: var(--signal);
+}
+
+/* Frames stay light inside (editorial contrast) */
+html[data-theme="dark"] .frame,
+html[data-theme="dark"] .art-inner {
+  background: var(--ink);
+  color: #1A1A1A;
+}
+html[data-theme="dark"] .frame .caption { color: rgba(26,26,26,0.6); }
+
+/* Marquee bar */
+html[data-theme="dark"] .marquee-row {
+  background: var(--paper);
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* Film grain — lighten on dark */
+html[data-theme="dark"] body::before,
+html[data-theme="dark"] body::after { opacity: 0.35; }
+
+/* Contact form */
+html[data-theme="dark"] .contact-form {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+}
+html[data-theme="dark"] .field input,
+html[data-theme="dark"] .field textarea {
+  background: transparent;
+  color: var(--ink);
+  border-bottom: 1px solid var(--hairline);
+}
+html[data-theme="dark"] .field input::placeholder,
+html[data-theme="dark"] .field textarea::placeholder { color: rgba(191,184,168,0.5); }
+html[data-theme="dark"] .field input:focus,
+html[data-theme="dark"] .field textarea:focus {
+  border-bottom-color: var(--signal);
+  color: var(--ink);
+}
+html[data-theme="dark"] .radio-opt {
+  border: 1px solid var(--hairline);
+  color: var(--ink);
+}
+html[data-theme="dark"] .radio-opt:has(input:checked) {
+  background: var(--signal);
+  color: #1A1A1A;
+  border-color: var(--signal);
+}
+html[data-theme="dark"] .submit-btn {
+  background: var(--signal);
+  color: #1A1A1A;
+  border-color: var(--signal);
+}
+
+/* ═════════════════ THEME-TOGGLE UI ═════════════════ */
+.theme-ui {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 9998;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+.theme-toggle:hover {
+  background: var(--ink);
+  color: var(--canvas);
+}
+.theme-toggle .tt-sep { opacity: 0.4; }
+.theme-toggle .tt-state { color: var(--signal); }
+
+/* On dark, flip toggle chrome */
+html[data-theme="dark"] .theme-toggle {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+html[data-theme="dark"] .theme-toggle:hover {
+  background: var(--ink);
+  color: #1A1A1A;
+}
+
+/* Variant badge (inherits from .variant-badge base) */
+.variant-badge {
+  padding: 8px 14px;
+  background: #1A1A1A;
+  color: #F5F1E8;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 500;
+  text-decoration: none;
+  box-shadow: 3px 3px 0 var(--signal);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.variant-badge:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--signal);
+}
+
+html[data-theme="dark"] .variant-badge {
+  background: var(--ink);
+  color: var(--canvas);
+}

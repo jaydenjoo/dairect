@@ -11,8 +11,15 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { safeNext } from "@/lib/utils/safe-next";
 
-const emailSchema = z.string().trim().email("올바른 이메일 형식이 아닙니다").max(200);
-const passwordSchema = z.string().min(8, "비밀번호는 8자 이상이어야 합니다").max(200);
+const emailSchema = z
+  .string()
+  .trim()
+  .email("올바른 이메일 형식이 아닙니다")
+  .max(200);
+const passwordSchema = z
+  .string()
+  .min(8, "비밀번호는 8자 이상이어야 합니다")
+  .max(200);
 
 type LoadingMode = "google" | "email" | null;
 
@@ -20,11 +27,6 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackError = searchParams.get("error");
-  // Phase 5 Task 5-2-5: /invite/[token]에서 미로그인 시 ?next=/invite/<token>으로 리다이렉트되어 옴.
-  // 로그인 성공 후 next로 복귀 (기본값 /dashboard).
-  //
-  // safeNext 유틸: `//evil.com` + `/\evil.com`(backslash bypass) + 제어문자 차단.
-  // 상세 로직/위협 모델은 @/lib/utils/safe-next 주석 참조.
   const next = safeNext(searchParams.get("next"));
 
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -39,7 +41,6 @@ function LoginForm() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        // auth/callback이 next 쿼리를 읽어 최종 리다이렉트 처리 (이미 open redirect 방지 로직 있음)
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
@@ -55,12 +56,16 @@ function LoginForm() {
 
     const emailCheck = emailSchema.safeParse(email);
     if (!emailCheck.success) {
-      setLoginError(emailCheck.error.issues[0]?.message ?? "이메일을 확인해주세요");
+      setLoginError(
+        emailCheck.error.issues[0]?.message ?? "이메일을 확인해주세요"
+      );
       return;
     }
     const passwordCheck = passwordSchema.safeParse(password);
     if (!passwordCheck.success) {
-      setLoginError(passwordCheck.error.issues[0]?.message ?? "비밀번호를 확인해주세요");
+      setLoginError(
+        passwordCheck.error.issues[0]?.message ?? "비밀번호를 확인해주세요"
+      );
       return;
     }
 
@@ -86,16 +91,33 @@ function LoginForm() {
   const disabled = loadingMode !== null;
 
   return (
-    <div className="flex min-h-screen items-center justify-center surface-base px-4 py-12">
-      <div className="w-full max-w-sm space-y-8">
+    <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-12">
+      <div className="w-full max-w-sm space-y-10">
         <div className="text-center">
-          <h1 className="font-heading text-2xl font-bold text-primary">dairect</h1>
-          <p className="mt-2 text-sm text-muted-foreground">대시보드에 로그인하세요</p>
+          <h1 className="font-serif text-3xl font-light italic text-ink">
+            dairect<span className="text-signal not-italic">.</span>
+          </h1>
+          <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.18em] text-dust">
+            — Sign in to dashboard
+          </p>
         </div>
 
-        <div className="surface-card space-y-6 rounded-xl p-8 shadow-ambient">
+        <div
+          className="space-y-6 bg-paper p-8"
+          style={{
+            border: "1px solid var(--hairline-canvas)",
+            boxShadow: "4px 4px 0 var(--ink)",
+          }}
+        >
           {errorMessage && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600" role="alert">
+            <div
+              className="p-3 font-mono text-[12px] text-ink"
+              role="alert"
+              style={{
+                border: "1px solid var(--signal)",
+                background: "rgba(255, 184, 0, 0.1)",
+              }}
+            >
               {errorMessage}
             </div>
           )}
@@ -104,12 +126,17 @@ function LoginForm() {
             type="button"
             onClick={handleGoogleLogin}
             disabled={disabled}
-            className="flex w-full items-center justify-center gap-3 rounded-lg surface-high px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-[#E7E7E5] disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-3 bg-canvas px-4 py-3 text-sm font-medium text-ink transition-colors hover:bg-[rgba(139,134,128,0.1)] disabled:opacity-60"
+            style={{ border: "1px solid var(--hairline-canvas)" }}
           >
             {loadingMode === "google" ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+              <svg
+                className="h-5 w-5"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
                   fill="#4285F4"
@@ -131,15 +158,18 @@ function LoginForm() {
             Google 계정으로 로그인
           </button>
 
-          <div className="flex items-center gap-3 text-[11px] uppercase tracking-wider text-muted-foreground">
-            <div className="h-px flex-1 bg-foreground/10" />
+          <div className="flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.14em] text-dust">
+            <div className="h-px flex-1 bg-hairline-canvas" />
             또는
-            <div className="h-px flex-1 bg-foreground/10" />
+            <div className="h-px flex-1 bg-hairline-canvas" />
           </div>
 
           <form onSubmit={handleEmailLogin} className="space-y-3">
             <div>
-              <Label htmlFor="login-email" className="mb-1.5 block">
+              <Label
+                htmlFor="login-email"
+                className="mb-1.5 block font-mono text-[11px] uppercase tracking-[0.12em] text-dust"
+              >
                 이메일
               </Label>
               <Input
@@ -157,7 +187,10 @@ function LoginForm() {
               />
             </div>
             <div>
-              <Label htmlFor="login-password" className="mb-1.5 block">
+              <Label
+                htmlFor="login-password"
+                className="mb-1.5 block font-mono text-[11px] uppercase tracking-[0.12em] text-dust"
+              >
                 비밀번호
               </Label>
               <Input
@@ -181,21 +214,14 @@ function LoginForm() {
               이메일로 로그인
             </Button>
           </form>
-
-          <div className="text-center text-xs text-muted-foreground">
-            계정이 없으신가요?{" "}
-            <Link
-              href={`/signup${next !== "/dashboard" ? `?next=${encodeURIComponent(next)}` : ""}`}
-              className="text-primary hover:underline"
-            >
-              회원가입
-            </Link>
-          </div>
         </div>
 
-        <p className="text-center text-xs text-muted-foreground">
-          <Link href="/" className="hover:text-primary transition-colors">
-            ← dairect.kr 돌아가기
+        <p className="text-center font-mono text-[11px] uppercase tracking-[0.12em] text-dust">
+          <Link
+            href="/"
+            className="transition-colors hover:text-signal"
+          >
+            ← dairect.kr
           </Link>
         </p>
       </div>

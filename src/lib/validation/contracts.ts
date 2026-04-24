@@ -19,11 +19,12 @@ export const contractStatusLabels: Record<ContractStatus, string> = {
   archived: "보관",
 };
 
+// Studio Anthem 매핑: sent → amber(signal) / 나머지 semantic
 export const contractStatusColors: Record<ContractStatus, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  sent: "bg-blue-50 text-blue-700",
+  draft: "bg-[rgba(20,20,20,0.06)] text-[#8B8680]",
+  sent: "bg-[rgba(255,184,0,0.12)] text-[#141414] border border-[#FFB800]",
   signed: "bg-green-50 text-green-700",
-  archived: "bg-gray-50 text-gray-500",
+  archived: "bg-[rgba(20,20,20,0.04)] text-[#8B8680]",
 };
 
 export const ipOwnerships = ["client", "developer", "shared"] as const;

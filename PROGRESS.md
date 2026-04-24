@@ -1,7 +1,886 @@
-# Dairect v3.1 — 진행 현황
+# Dairect v3.2 — 진행 현황
+
+> 최종 업데이트: 2026-04-25 (**Studio Anthem 리디자인 Epic 1~7 전체 완료** — 공개 영역 + 대시보드 디자인 시스템 전환)
+> 현재 위치: **v3.2 Single-user Mode + Studio Anthem 디자인 시스템 적용 완료** → main PR 대기
+> 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
+> BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
+> dogfooding 가이드: [docs/dogfooding-checklist.md](docs/dogfooding-checklist.md) 🧪
+
+## 세션 2026-04-24~25 (Studio Anthem 리디자인 Epic 1~7 — 전체 공개 영역 + 대시보드 교체)
+
+### 배경
+Jayden이 claude.ai design에게 의뢰한 Handoff 번들(`~/Downloads/dairect (2)/`)을 전면 도입 결정.
+기존 "The Intelligent Sanctuary" (Indigo + Soul Gradient + glassmorphism) ⛔ → **"The Studio Anthem"** (Warm Brutalism + editorial serif + amber signal).
+
+### Epic 1~3 ✅ 완료 (이전 세션)
+의존성 설치 + 토큰/폰트 교체 (Fraunces serif + Geist sans/mono + Pretendard) + chrome primitives (Nav/Footer 뼈대).
+
+### Epic 4 ✅ 완료 — 랜딩 9 섹션 번들 CSS 전면 이식 (10 커밋)
+Hero / Etymology / Manifesto / Proof / Services / Work / Pricing / Founder / FinalCTA + page.tsx 조립 + Footer.
+번들 `landing.css` 1721줄 + `editorial.css` 361줄 + `a11y-patch.css` 187줄 통째 이식.
+Fraunces opsz/SOFT axis 활성화를 위해 `weight` 배열 제거 → `axes: ["opsz","SOFT"]`.
+
+### Epic 5 ✅ 완료 — 공개 라우트 재생성 (6 커밋)
+- `/pricing` → `/#pricing` permanentRedirect (308)
+- `/projects` 번들 P-01/P-02/P-04 이식 + `projects.css` 784줄 + 10 정적 프로젝트
+- `/about` 번들 A-HERO~A-CTA 5섹션 + `about.css` 764줄 + 9 milestones + 3 essays. ContactSection 유지
+- `/login` Warm Brutalism 재스킨 (paper card + 4px hard shadow)
+- `/terms` + `/privacy` 재스킨 + Nav/Footer 추가
+- Nav `solidAlways` prop — dark hero 가독성 이슈 해결
+
+### Epic 6 ✅ 완료 — 대시보드 재스킨 (1 커밋)
+shadcn `:root` 토큰 전면 재매핑:
+- `--primary` indigo-600 → ink #141414 / `--accent` → signal amber / `--ring` → signal
+- `--chart-1~5` indigo spectrum → ink/signal/dust/rust/smoke
+- `--sidebar` dark indigo → ink + canvas fg + signal primary
+- `--radius-sm/md/lg/xl` 6/8/12/16px → 2/2/4/6px (sharp corners)
+- Recharts 인라인 색상 (`<Bar fill="#4F46E5">` 등) → Studio Anthem 팔레트
+- 상태 뱃지 7개 (estimates/contracts/invoices/projects/leads) amber+rust 통일
+
+### Epic 7 ✅ 완료 — 정리 + 검증 (3 커밋)
+- `components/landing/` 전체 (7 파일) + `components/pricing/` 전체 (3 파일) + `about/hero-section.tsx` 삭제
+- 검증 게이트 전부 통과: tsc noEmit + eslint + pnpm build + Serwist SW 빌드
+- E2E smoke 12 라우트 모두 예상 상태코드
+
+### 숫자로 보는 작업량
+- 커밋 수: **20+** (Epic 4=10 + Epic 5=6 + Epic 6=1 + Epic 7=3)
+- 생성: 12 컴포넌트 + 4 CSS (landing/editorial/projects/about) + Footer 재작성
+- 삭제: 11 레거시 파일 (landing/* 7 + pricing/* 3 + about hero-section)
+- 순 코드 증감: +4,600줄 / -1,320줄
+
+### 핵심 배운 점 (docs/learnings.md에 이관)
+
+1. **Next.js `next/font/google`에서 `axes`와 `weight` 배열은 상호 배타적**. Fraunces opsz/SOFT axis를 사용하려면 `weight` 배열을 제거해야 variable font 모드로 로드됨.
+2. **번들 CSS 전면 이식 > Tailwind 수동 번역**. 시각 정합성 추구 시 번들 CSS를 `src/styles/<brand>/`로 통째 복사하고 JSX는 className 일치만 맞추는 편이 재작업 최소화.
+3. **Nav over-dark 가독성**. Dark hero 페이지에서 fixed Nav 투명 배경이면 ink 텍스트가 ink 배경과 동일해 보이지 않음 → prop 기반 solid 강제.
+4. **shadcn `:root` 한 번 수정이 대시보드 전체 재스킨**. `--primary/--accent/--chart-*` 교체만으로 Button/Card/Badge/Table/Recharts가 동시 전환. 단, **인라인 hex 색상은 별도 grep + 교체 필수** (Recharts Bar fill 등).
+5. **Footer.tsx 기존 존재 시 덮어쓰기 전 Read 필수**. Write 직접 실행 시 "File has not been read yet" 보호막 발동.
+
+---
+
+## 세션 2026-04-24 末-3 (Task-S2a~f — 코드 잠금 실행 + PRD 갱신)
+
+### Task-S2a ✅ 완료 (커밋 ee6d076 — plan 차등 제거 + 단일 고정 한도)
+
+**변경 파일 11개** (계획 9개 + tsc가 잡아낸 소비처 2개 추가 — estimates/actions.ts, ai-actions.ts).
+
+**핵심 변경**:
+- `src/lib/plans.ts` 73줄 → 15줄: `MAX_MEMBERS = 10` 단일 상수
+- `src/lib/validation/ai-estimate.ts`: `AI_DAILY_LIMIT = 200` 단일 상수 (기존 free 값 유지 — 보수적)
+- AI actions 4개(briefing/report/estimates/ai-estimates) `getAiDailyLimit` 호출 제거
+- `MemberLimitExceededError` / `AcceptLimitExceededError`의 `plan` 필드 제거
+- 에러 메시지 변경: "Free 플랜... Pro 업그레이드" → "한도(10명)... 문의"
+- `schema.ts` 3개 컬럼(`subscriptionStatus` / `stripeCustomerId` / `workspace_settings.plan`)에 `@deprecated` JSDoc (DROP X)
+
+**검증**: tsc/lint/build/db:check 전부 통과, grep 잔존 0건. 순 135줄 감소.
+
+### Task-S2b ✅ 완료 (커밋 3def1de — /signup + /onboarding 라우트 잠금)
+
+**변경 파일 3개**:
+- `src/app/(public)/signup/page.tsx`: `notFound()` only (기존 17줄→13줄)
+- `src/app/onboarding/page.tsx`: `notFound()` only (기존 73줄→15줄)
+- `src/app/(public)/login/page.tsx`: 회원가입 CTA 블록 주석 처리
+
+**계획 외 발견**:
+- `WorkspacePicker` 숨김 작업 **불필요** — 이미 `singleWorkspace ≤ 1` 분기 존재(workspace-picker.tsx:53)로 Jayden 환경에서 자동 단순 텍스트 표시 중
+- `notFound()` + 기존 로직 유지 패턴은 TS narrow 실패로 에러 → 미니멀 재작성 + git history 보존 방식 채택
+
+**검증**: `/signup` 404 / `/onboarding` 404 / `/login` 200 + 회원가입 문자열 0건 (curl 확인)
+
+### Task-S2c ⛔ 취소 (경계선 결정 ①과 모순)
+
+원래 `/invite/[token]` 라우트 잠금 계획이었으나 Jayden 결정(하청 초대 유지)과 모순. Jayden이 members에서 발송한 초대 메일 속 링크가 `/invite/<token>`이라 수락 불가 → members 기능 무용지물.
+
+122-bit random UUID + 이메일 매칭 + 로그인 필수로 보안 리스크 ~0 (무작위 대입 ≈ 10^-37)이므로 그대로 유지.
+
+### Task-S2d ✅ 축소 완료 (커밋 8a504cc — /about#contact 링크 정정, 15분)
+
+**원 계획**: `/pricing` 삭제 + `PricingSummarySection` 제거 + 랜딩 CTA "디렉팅 시작하기" → "문의하기" 교체
+
+**전부 불필요 확인**:
+- `/pricing`은 SI 프로젝트 견적 패키지(진단 30만원~/MVP 100만원~/확장 300만원~) — SaaS 무관, 경계선 ② 결정에 따라 유지
+- 랜딩 모든 CTA(Hero/Nav/CtaSection)가 **이미 `/about#contact` 경로 사용 중**
+- "디렉팅 시작하기" CTA는 코드에 존재하지 않음 (v3.1 PRD 옛 언급)
+
+**실제 변경 (축소 범위)**: Task-S2a에서 걸어놓은 `/#contact` 링크를 `/about#contact`로 정정 (3개 파일).
+- `src/app/dashboard/members/actions.ts` / `accept-actions.ts` / `members-client.tsx`
+
+### Task-S2e ⛔ 취소 (/admin 라우트 미구현 + members 가드 이미 충분)
+
+원 계획 1: `/dashboard/members` Owner 가드 강화 — `canManageMembers` 체크 이미 적용됨, 추가 불필요.
+원 계획 2: `/admin/*` 2차 이관 표시 — `/admin/*` 라우트 자체가 미구현 (PRD에만 존재).
+
+### Task-S2f ✅ 완료 (본 세션 — PRD-v3.2 §4 갱신 + 2차 unlock 체크리스트 작성)
+
+**변경 파일 3개**:
+- `docs/PRD-v3.2-single-user.md` §4 Task 분해 실제 결과 반영 (완료/취소/축소 상태 명시) + §8 unlock 체크리스트 링크 + §9 버전 이력
+- `docs/2차-unlock-checklist.md` **신규 생성** (7 섹션):
+  - 2차 진입 전 확인 사항 (Jayden dogfooding 완료 + v3.3 PRD 결정)
+  - Unlock 항목 실행 순서 (signup/onboarding 복구 + login CTA 복구)
+  - 한도 정책 재검토 (3가지 옵션)
+  - DB 컬럼 DROP 여부 결정 (2가지 옵션)
+  - Billing Mock 설계 재참조 (SaaS 재도입 시)
+  - 랜딩 메시지 업데이트
+  - 2차 진입 직전 최종 검증 체크리스트
+- `PROGRESS.md` 본 세션 기록
+
+### 실제 Task-S2 진행 요약
+
+| Task | 상태 | 실제 소요 | 커밋 |
+|---|---|---|---|
+| S2a | ✅ 완료 | 1.5h | `ee6d076` |
+| S2b | ✅ 완료 | 1h | `3def1de` |
+| S2c | ⛔ 취소 | 0 | — |
+| S2d | ✅ 축소 완료 | 15min | `8a504cc` |
+| S2e | ⛔ 취소 | 0 | — |
+| S2f | ✅ 완료 | 1h | TBD (본 세션) |
+| S2g | ⬜ 대기 | 1h | — |
+| **합계** | | **~4.75h** (원 예상 7h) | |
+
+### 교훈 (다음 세션 learnings.md 반영 후보)
+
+1. **코드 조사 전 과대 계획 금지** — S2c(/invite 잠금), S2d(/pricing 삭제), S2e(/admin 이관)는 **실제 코드 상태 미확인으로 과대 예측**. 코드 조사 → 계획 순서가 맞음. v3.2 초안 시점에 코드 조사 깊이 부족.
+2. **경계선 결정의 전파 효과** — "members 유지"와 "invite 잠금"이 동시에 성립 불가 → 경계선 결정 시 관련 경로 전체 dependency 파악 필수.
+3. **"삭제"를 "잠금"으로 전환하는 원칙** — /signup, /onboarding, /pricing 모두 삭제 대신 유지(잠금 또는 그대로)로 전환하면 2차 복구 비용 0.
+4. **TS unreachable narrow 한계** — `notFound()` 이후 코드를 TS는 unreachable로 narrow 못함. 기존 로직 유지하면서 notFound 추가하는 패턴 대신 **미니멀 재작성 + git history 보존** 방식 권장.
+
+### Task-S2g ✅ 완료 (본 세션 후반 — dogfooding 체크리스트 작성)
+
+**신규 파일**: `docs/dogfooding-checklist.md`
+
+**구성 (10 섹션)**:
+1. dogfooding 의미 (왜 필요한가)
+2. 주간 리듬 (일일/주간 시작/주간 종료)
+3. End-to-End 프로젝트 생명주기 8단계 (리드 → 수금)
+4. AI 기능 검증 (브리핑/리포트/견적)
+5. 시스템 기능 검증 (로그인/설정/멤버/PWA/잠금 라우트)
+6. n8n cron 5종 검증
+7. 이슈 기록 양식 + 우선순위 3등급 (High/Med/Low)
+8. dogfooding 완료 기준 체크리스트 (1차 DoD 재확인)
+9. dogfooding 시작 전 준비물 (배포/env/Resend/고객사)
+10. dogfooding 후 다음 단계 (2차 진입 / 1차 지속 / 피봇)
+
+### Task-S2 전체 완료 선언
+
+| Task | 상태 | 실제 소요 | 커밋 |
+|---|---|---|---|
+| S2a | ✅ 완료 | 1.5h | `ee6d076` |
+| S2b | ✅ 완료 | 1h | `3def1de` |
+| S2c | ⛔ 취소 | 0 | — |
+| S2d | ✅ 축소 완료 | 15min | `8a504cc` |
+| S2e | ⛔ 취소 | 0 | — |
+| S2f | ✅ 완료 | 1h | `9d0cc83` |
+| S2g | ✅ 완료 | 1h | TBD (본 세션) |
+| **총 소요** | | **~4.75h** (원 예상 7h, 32% 단축) | |
+
+### 1차 완료 요약 (v3.2 Single-user Mode)
+
+**핵심 전환**:
+- SaaS 구독 모델 전면 취소 (Billing/Stripe/플랜 차등)
+- Multi-tenant 인프라 자산 보존 (workspaces/RLS/Server Actions 그대로)
+- 회원가입/온보딩 UI 잠금 (2차 시 UI만 풀면 재활성화)
+- 한도 정책 단일 고정 (MAX_MEMBERS=10, AI_DAILY_LIMIT=200)
+
+**문서 자산**:
+- PRD-v3.2-single-user.md (상위 스펙)
+- dogfooding-checklist.md (1차 실사용 가이드)
+- 2차-unlock-checklist.md (2차 진입 가이드)
+- PRD.md / PRD-phase5.md / PRD-phase5-erd.md (역사 보존 + v3.2 안내)
+
+**코드 변경 누적 (Task-S1 + S2)**:
+- 문서 10+ 개 생성/수정
+- 코드 파일 14개 수정
+- 코드 순증: -55 ~ -135줄 (plan 차등 제거 등)
+- 커밋 6건: 8703fbf, c131b35, ee6d076, 3def1de, 8a504cc, 9d0cc83 + 본 세션
+
+### 다음 단계: Jayden dogfooding
+
+`docs/dogfooding-checklist.md`에 따라 1~2주 실업무에서 Dairect 사용:
+
+1. **준비** — production 배포 / Resend / 실제 고객사 1곳 확보
+2. **실행** — End-to-End 프로젝트 1건 이상 관리 (리드→견적→계약→청구→수금)
+3. **기록** — 이슈 발견 시 우선순위별 정리
+4. **마감** — 1차 DoD 8항목 전부 ✅ → Jayden 판단 (2차 진입 / 1차 지속 / 피봇)
+
+---
+
+
+
+---
+
+
+
+## 세션 2026-04-24 末-2 (v3.2 수정 PRD 확정 — 옵션 B 1차 범위 + Task-S2a~g 분해)
+
+### 배경: 범위 축소 결정
+Jayden 판단: "서비스 제공 완성까지 8~13주 vs Jayden 혼자 사용 완성까지 2~3주. 1~2개월 일찍 실사용 시작하고 2차는 dogfooding 후 재설계."
+
+### 시간 비교 (PROGRESS 전체 스캔 결과)
+| 옵션 | 순수 개발 | 법적 준비 | QA | 총 |
+|---|---|---|---|---|
+| A (서비스 제공) | 37~49h | 1~2주 | 2~3주 베타 | **8~13주** |
+| B (1인 사용) | 7~8h | 불필요 | 1~2주 dogfooding | **2~3주** |
+
+### 4건 결정 (Jayden 승인)
+1. 멤버/AI 한도: B안 — 단일 고정 (전원 동일, 남용 방어용)
+2. DB 컬럼: B안 — 유지 + 읽지 않기
+3. billing-mock-design.md: B안 — archived 이동
+4. Task 분할: ①안 2단계 (S1 문서 + S2 코드)
+
+### 3건 경계선 결정 (Jayden 승인)
+1. `/dashboard/members` — **(a) 유지 + 본인만 접근** (Jayden 하청 초대 용도)
+2. 공개 랜딩 — **(a) 노출 유지 + CTA "문의하기"로 교체** (SI 수주 창구)
+3. 고객 포털 — **(a) 그대로 유지** (1차 핵심)
+
+### Task-S1 세션 결과 (완료)
+- `docs/billing-mock-design.md` → `docs/archived/`로 이동 + 폐기 헤더
+- `docs/PRD-phase5.md` Phase 5.5 / Epic 5-3 ⛔ deprecated 인라인 표시
+- `docs/PRD-phase5-erd.md` `subscription_status`/`stripe_customer_id` 컬럼 주석 업데이트
+- `docs/pii-lifecycle.md` "빌링과 함께" 언급 7건 → "향후 필요 시"
+- `docs/PRD.md` 상단 업데이트 박스 + 플랜/결제 섹션 폐기 표시
+- 커밋: `8703fbf`
+
+### v3.2 세션 결과 (이번 세션 — 수정 PRD 작성)
+
+**신규 파일 1**
+- `docs/PRD-v3.2-single-user.md` (9 섹션, 1차 범위 확정 + Task-S2a~g 분해 + 2차 복구 전략)
+
+**수정 파일 3**
+- `docs/PRD.md` — v3.2 이관 안내 상단 배너
+- `docs/PRD-phase5.md` — v3.2 이관 + "자산 보존" 명시
+- `PROGRESS.md` — 방향 전환 기록 + 1차 완료 기준 반영
+
+### 코드베이스 전면 스캔 결과 (현재 자산)
+- **공개 라우트**: 21개 (pricing 삭제 1 + signup/onboarding/invite 잠금 3 + 나머지 유지)
+- **대시보드 라우트**: 18개 전부 유지
+- **API 라우트**: 2개 (cron) 전부 유지
+- **Server Actions**: 18개 전부 유지 (잠긴 라우트 액션은 코드만 보존)
+- **DB 테이블**: 22개 전부 유지 (multi-tenant 자산 보존)
+- **마이그레이션**: 38개 (0037까지)
+
+### Task-S2 분해 (v3.2 §4에 상세)
+
+| Task | 내용 | 예상 | 상태 |
+|---|---|---|---|
+| **S2a** | plan 차등 제거 + AI 한도 단일화 (`AI_DAILY_LIMIT=200`, `MAX_MEMBERS=10`) + schema `@deprecated` | 1.5h | 대기 |
+| **S2b** | `/signup` + `/onboarding` UI 잠금 + `WorkspacePicker` 숨김 | 1h | 대기 |
+| **S2c** | `/invite/[token]` 라우트 잠금 | 0.5h | 대기 |
+| **S2d** | `/pricing` 삭제 + `PricingSummarySection` 제거 + 랜딩 CTA "문의하기" | 1h | 대기 |
+| **S2e** | `/dashboard/members` 본인 접근 가드 강화 | 0.5h | 대기 |
+| **S2f** | PRD/PROGRESS 1차 완료 기준 갱신 + 2차 unlock 체크리스트 작성 | 1h | 대기 |
+| **S2g** | `docs/dogfooding-checklist.md` 작성 | 1h | 대기 |
+| **합계** | | **~7h** | |
+
+### 세션 분할 권장
+- **다음 세션 (세션 1)**: S2a + S2b (2.5h) — 핵심 코드 정리
+- **세션 2**: S2c + S2d + S2e (2.5h) — UI 잠금/삭제
+- **세션 3**: S2f + S2g (2h) — 문서 마감 + dogfooding 시작
+
+### 1차 완료 기준 (v3.2 §2)
+- [ ] S2a~g 전부 완료
+- [ ] tsc/lint/build/db:check 통과
+- [ ] 잠근 라우트 직접 접근 시 404
+- [ ] Jayden 1~2주 실업무 dogfooding (견적/계약/청구/AI/포털 1건 이상)
+- [ ] 발견 버그 정리 + 우선순위별 수정
+
+---
+
+## 세션 2026-04-24 末 (Task-S1 — SaaS 구독 계획 폐기: 문서 정리)
+
+### 배경 / Jayden 결정
+- Jayden: "saas구독 자체를 삭제해줘 계획에서 삭제 Billing Mock및 구독에 적용되는 개발항목도 모두 삭제해줘 구독을 진행하지 않을거야"
+- 프로젝트 타겟 재확인: **한국 IT 프리랜서 / 소규모 에이전시** (맞음)
+- Dairect에 두 가지 돈 흐름이 있었음:
+  - (A) **Dairect SaaS 구독료** (프리랜서 → Dairect) ← Task C Billing Mock이 다루던 것 → **전면 취소**
+  - (B) **프리랜서-고객 프로젝트 계약 비용** ← 이미 Phase 1-2 estimates/contracts/invoices로 구현됨 (변경 없음)
+
+### 4건 결정 (Jayden 승인)
+1. **멤버/AI 한도**: B안 — 단일 고정 한도 유지 (전원 동일 규칙, 남용 방어용)
+2. **DB 컬럼**: B안 — 유지 + 읽지 않기 (재도입 여지 남김)
+3. **billing-mock-design.md**: B안 — `docs/archived/`로 이동 + "폐기됨" 헤더
+4. **Task 분할**: ①안 — 2단계 (Task-S1 문서 + Task-S2 코드). DB Drop 안 함으로 S3 제거
+
+### Task-S1 완료 내역 (6개 문서)
+
+**이동 1**
+- `docs/billing-mock-design.md` → `docs/archived/billing-mock-design.md` (+ 폐기 헤더)
+
+**수정 5**
+- `docs/PRD-phase5.md` — 상단 폐기 배너 + Phase 5.5 / Epic 5-3 / Billing / Stripe 언급 모두 ⛔ deprecated 인라인 표시 (원문은 `<details>`로 참고용 보존). 타임라인 11주 → 8주, 5 Epic → 4 Epic(Billing 제거)
+- `docs/PRD-phase5-erd.md` — `subscription_status` / `stripe_customer_id` 컬럼에 `(⛔ deprecated 2026-04-24, DB 보존)` 주석. CHECK 제약 주석도 동일
+- `docs/pii-lifecycle.md` — "Phase 5.5 빌링과 함께" 언급 전 건수(§1-1/§1-2/§2-2/§2-4/§2-5/§5/§8) "향후 필요 시 재결정"으로 재라벨
+- `docs/PRD.md` — 상단에 2026-04-24 업데이트 박스 추가 + Phase 5 마일스톤 개요 / Phase 5+ SaaS 전환 섹션 플랜/결제 부분 ⛔ 폐기 표시. "개인 사용 → SaaS 전환 가능 구조" 같은 추상적 가능성 표현은 보존 (Jayden 결정 2 "나중에 여지 남김")
+- `PROGRESS.md` — 본 세션 기록 추가 + 차기 Task 등록 Epic 5-3 항목 제거
+
+### 설계 보존 원칙
+- billing-mock-design.md의 PaymentProvider 인터페이스 / Mock checkout 플로우 / provider-중립 DB 스키마 설계는 **역사 기록으로 보존** (재도입 시 참고 가능)
+- DB 컬럼 `subscription_status` / `stripe_customer_id` / `workspace_settings.plan`은 **DROP하지 않음** (재도입 여지)
+- 부수 "SaaS 전환" 언급(추상적 가능성)은 PRD.md에서 삭제하지 않음
+
+### Task-S2 진입 준비 (다음 세션)
+- `src/lib/plans.ts` (73줄) — 플랜 차등 제거하고 단일 고정 한도로 전환 (Jayden 결정 1)
+- `src/lib/validation/ai-estimate.ts` — `workspacePlans` / `PLAN_AI_DAILY_LIMITS` 정리
+- `src/app/dashboard/members/*` — plan 분기/표시 UI 제거
+- `src/app/invite/[token]/accept-actions.ts` — 수락 게이트 plan 로직 정리
+- `src/lib/ai/*` — AI 일일 한도 단일 값으로 통합
+- schema.ts 컬럼은 유지하되 `@deprecated` 주석만 추가 (읽지 않기)
+
+---
+
+## 세션 2026-04-24 후반 (Task A~D — Phase 5.5 제도적 해결 + Epic 5-3 설계 진입)
+
+### Task A: Drizzle journal 제도적 해결 ✅ 완료 (0036 marker + db:check + 워크플로우 문서)
+
+**배경**: 0018, 0020~0030, 0032~0035가 MCP `apply_migration` 직접 경로로 cloud 적용 → `_journal.json`은 idx=31이 마지막 → `pnpm db:generate` 실행 시 drizzle이 `0032_brainy_ender_wiggin`(기존 0032_workspace_plan과 idx 충돌)을 생성하는 시한폭탄. Task 5-2-2h(2026-04-21)에 이어 **2번째 재발** → 제도적 재발 방지 가드 도입.
+
+**신규 파일 4**
+- `src/lib/db/migrations/0036_phase5_resync_marker_v2.sql` — noop marker SQL (0031 precedent 답습, `SELECT '...' AS resync_marker` 한 줄 + 상세 주석)
+- `src/lib/db/migrations/meta/0036_snapshot.json` — drizzle-kit 생성 snapshot (0032_snapshot에서 rename)
+- `scripts/check-migrations.mjs` — pure Node 정합성 체크 (최신 sql idx === journal 마지막 idx + resync marker 이후 누락 검증). cwd 독립(절대경로) + tight regex `/^\d{4}_phase\d+_resync_marker(_v\d+)?$/`
+- `docs/db-migrations-workflow.md` — 경로 A (drizzle 먼저) vs 경로 B (MCP 먼저 + noop marker 후속) 체크리스트. NNNN 번호 선택 규칙 명시
+
+**수정 파일 3**
+- `src/lib/db/migrations/meta/_journal.json` — drizzle이 추가한 idx=32 entry를 idx=36으로 수정 (tag/idx 동시)
+- `package.json` — `"db:check": "node scripts/check-migrations.mjs"` 추가
+- `CLAUDE.md` — DB 섹션에 MCP apply_migration 후속 의무 + 링크 + 검증 명령에 `db:check` 편입
+
+**code-reviewer 독립 리뷰 + 즉시 반영 3건**
+- HIGH-1 regex tight pattern (substring match → anchored 패턴, silent false-negative 차단)
+- HIGH-2 `fileURLToPath(import.meta.url)` 기반 절대경로 (cwd 의존성 제거 — `/tmp`에서도 정상 동작 실증)
+- MED-4 workflow 문서 경로 B 4단계에 "NNNN = 수동 마이그레이션 최대 번호 + 1" 규칙 명시
+
+**검증**
+- `pnpm db:generate` 재실행 → "No schema changes, nothing to migrate 😴"
+- `pnpm db:check` → sql 37개 / journal 21개 (최신 idx=36) OK
+- `pnpm tsc/lint/build` 0 errors
+
+---
+
+### Task B: PII 라이프사이클 정책 + 즉시 이벤트 기반 scrub ✅ 완료
+
+**배경**: Task 5-5-5 리뷰 audit-4 (sec MED-2) 잔여 — `activity_logs.metadata.email` 평문 저장 정책 미비. 원래 "Phase 5.5 빌링과 함께" 예정이었으나 **정책 문서화 + 최소 구현**으로 scope 축소(빌링 시점 확장 가능 기반 마련).
+
+**신규 파일 3**
+- `docs/pii-lifecycle.md` (8 섹션) — 저장 PII 목록 / 라이프사이클 / pseudonym 규칙 (`sha256(email:workspaceId:salt).slice(0,16)`) / 금지 사항 / 보존 기간 TBD / 탈퇴 연동 TBD
+- `src/lib/db/migrations/0037_chemical_timeslip.sql` — `activity_logs.pii_scrubbed_at timestamptz` 추가 (cloud 적용 완료, **drizzle 경로 A로 journal 자동 동기** — Task A 가드 즉시 payoff)
+- `src/lib/privacy/scrub-pii.ts` — `pseudonymizeEmail` / `scrubMetadataObject` (Array 가드 + shallow-only docblock) / `scrubInvitationActivityLogs` (별도 tx)
+
+**수정 파일 6**
+- `src/lib/db/schema.ts` — `activityLogs.piiScrubbedAt` 컬럼
+- `src/lib/env.ts` — `PII_PSEUDONYM_SALT` (production 필수 + dev fallback 문자열 배포 차단)
+- `src/app/dashboard/members/actions.ts` — 자동 revoke + 수동 `revokeInvitationAction` 2경로에 scrub 주입
+- `src/app/invite/[token]/accept-actions.ts` — 수락 경로 scrub
+- `src/lib/demo/sample-data.ts` — 타입 정합성 (`piiScrubbedAt: null`)
+- `docs/env-setup.md` — `PII_PSEUDONYM_SALT` 섹션
+
+**핵심 설계 결정**: scrub을 **상위 tx commit 후 별도 tx**로 실행 → scrub 실패가 비즈니스 액션 rollback시키지 않도록 격리. 호출부는 try/catch + `event: invitation.pii_scrub_failed` 구조화 로그로 swallow.
+
+**DB 실증 (MCP execute_sql)**
+- 임시 row insert → 기본 `pii_scrubbed_at = NULL` 확인
+- 수동 scrub UPDATE → `email` → `pii:...` 치환 + `pii_scrubbed_at = NOW()`
+- 멱등 재시도 → `WHERE pii_scrubbed_at IS NULL` 가드로 0 rows (기존 pseudonym 보존)
+- 테스트 row cleanup 완료. 현재 workspace_invitation 관련 activity_logs = 0건 (backfill 불요)
+
+**code-reviewer 독립 리뷰 + 즉시 반영 9건**
+- H1 scrubMetadataObject docblock `SHALLOW ONLY` 경고 (중첩 구조 확장 시 회귀 방지)
+- H2 §1-1 표에 "현재 scrub 대상 여부" 컬럼 + §1-2 본체 정책 명시 (정책-코드 drift 방지)
+- M1 env.ts에 dev fallback 문자열 prod 배포 차단
+- M2 §6 금지에 salt 회전 사실상 금지 (기존 pseudonym 불일치 회귀 위험)
+- M3 §2-2 expired_cleanup 행 TBD로 재라벨 (정책 오버커밋 제거)
+- M4 acceptedInvitationId 할당 뒤 rollback 시 no-op 주석
+- M5 §2-1에 평문 존속 기간 의도됨 명시
+- M7 `getSalt()` dev fallback 1회 `console.warn`
+- L2 `scrubMetadataObject` 가드에 `Array.isArray` 추가
+
+---
+
+### Task C: Billing Mock 설계 ✅ 완료 (문서만, Jayden 검토 대기)
+
+**변경점**: 기존 PRD "Stripe 우선" 방침 → Jayden 결정으로 **한국 PG사 계약 + Mock 기반 선개발**로 전환. 계약 완료 후 Provider 구현체만 교체.
+
+**신규 파일 1**
+- `docs/billing-mock-design.md` (10 섹션, ~270줄):
+  - **PaymentProvider 인터페이스** (6 메서드 — `ensureCustomer` / `createCheckoutSession` / `verifyAndParseWebhook` / `getSubscription` / `createPortalLink` / `updateSubscription`)
+  - **MockPaymentProvider DB-backed** (`mock_payment_sessions` / `mock_subscriptions` / `subscription_invoices` 테이블 신규)
+  - DB 스키마: `workspaces.stripeCustomerId` → `externalCustomerId` + `paymentProvider` flag + `externalSubscriptionId` 등 (provider 중립)
+  - env flag: `PAYMENT_PROVIDER=mock|toss|portone`
+  - 보안: Mock 기간 🟡 유지, 실 PG 연동 시 🔴 전환
+  - Phase A Task 10건 (5-3-1' ~ 5-3-10')
+  - Phase B 전환 시 변경 범위 사전 정의 (UI/DB/enforcement 로직 **유지**, Provider 구현체만 교체)
+
+**Jayden 결정 대기 5건**:
+1. 가격/플랜 확정 (PRD default 유지 or 베타 반영)
+2. PG 후보 방향성 (포트원 v2 권장, 토스페이먼츠도 호환)
+3. Mock 세션 유효기간 (30분 제안)
+4. 청구 주기 (월간만 Phase A)
+5. Free 플랜 PDF watermark (Phase A 구현 제안)
+
+---
+
+### Task D: createdInvitationId immutable 리팩토링 ✅ 완료
+
+**수정 파일 1** — `src/app/dashboard/members/actions.ts`
+- `let createdInvitationId: string | null = null` → `let createdInvitationId: string` (**unassigned 선언 + tx return value로 1회 할당**). tx catch 경로는 return으로 빠져나가므로 이후 코드에서 `string` 타입 확정 → null 체크 불필요
+- `let autoRevokedInvitationId: string | null = null` → `let autoRevokedInvitationId: string | null` (tx return 또는 null). skip 경로 `early return null` 패턴
+- 주석 "transaction 커밋 후에만 세팅됨 (ROLLBACK 경로 null 유지)" → "tx return value로 할당 (1회)" 갱신
+
+**배경**: Task 5-5-5 리뷰 code L-1 잔여. 글로벌 "Immutability (CRITICAL)" 규칙 준수. 완전 `const`는 try/catch async 제약상 불가능 — **"실질적 immutable"** 패턴(선언 + 1회 할당 + 재할당 없음) 채택.
+
+**검증**: tsc/lint/build/db:check 0 errors.
+
+---
+
+### 교훈 기록 3건 (docs/learnings.md)
+1. **Drizzle journal MCP drift 2번 재발 → db:check 제도화** — 같은 문제 2번 반복 시 "문서/체크리스트가 아닌 자동 게이트" 도입이 근본 해결
+2. **PII scrub은 별도 tx로 비즈니스 액션과 격리 + deterministic workspace-scoped pseudonym** — 감사 증거 정리는 본 업무를 rollback시키지 않도록 격리가 원칙. salt 회전은 기존 pseudonym 불일치라 사실상 금지
+3. **외부 서비스 계약 전 Provider 추상화 + Mock 선개발 패턴** — Stripe → 한국 PG 전환처럼 provider가 바뀌어도 UI/비즈니스 로직 보호. 보안 등급 전환도 지연 가능
+
+---
+
+### 차기 Task 등록
+
+**즉시 진행 가능** (2026-04-24 末 업데이트):
+1. ~~**Epic 5-3 Mock 구현 착수**~~ ⛔ **폐기 2026-04-24** (SaaS 구독 모델 취소 → Task-S1/S2로 대체)
+2. **Task-S2 코드 제거** — plans.ts 단일 고정 한도화 + plan 분기 제거 (예상 1.5~2시간, Task-S1 승인 후 진입)
+
+**Jayden 수동 작업 대기**:
+1. Resend Sending Access key 발급/회전
+2. ~~Task C 설계 검토 + 결정 5건 응답~~ ⛔ 완료됨 (2026-04-24 末 — 구독 계획 취소로 종결)
+3. `PII_PSEUDONYM_SALT` production 값 설정 (`openssl rand -hex 32`)
+
+**후속 (기술 부채)**:
+- Task A 후속: MED-1 try-catch UX / MED-2 drizzle-kit 업그레이드 재확인 / LOW-1 0036 `duplicate_object` 경고 보강
+- Task B 후속: ~~H3 scrub 실패 탐지 주기 health check (빌링 cron과 함께)~~ → 별도 cron 도입 시 / L3 `pseudonymizeEmail` vitest unit / L4 `entityId` 부분 인덱스 / §2-4 보존 기간 확정 / §2-5 탈퇴 플로우 연동
+- 이전 세션 이월: Task 5-5-1 LOW-1 vitest 이관, ~~Task 5-5-2 Existing-over-limit (Billing과 함께)~~ ⛔ 불필요 (플랜 차등 제거로 downgrade 시나리오 소멸), Task 5-5-3 audit-2 활동 피드 정책, Task 5-5-4 sec MED-2 IPv6 /64 / sec LOW-1 fake success
+
+---
+
+## 세션 2026-04-24 (Task 5-5-2 후속 HIGH 2건 + MED-4 실증 + rate-1 cron — 커밋 2건)
+
+### Task 5-5-2 후속 HIGH 2건 ✅ 완료 (d676d69 — page race + hashtextextended + reviewer 즉시 반영 3건)
+
+**범위**: Task 5-5-2(멤버 한도 게이트) 잔여 HIGH 2건 묶음 + reviewer 즉시 반영 3건.
+
+**수정 파일 3**
+- `src/app/dashboard/members/page.tsx` — HIGH-1 race 가드:
+  - 기존 4개 독립 SELECT(memberRows / invitationRows / settingsRow / pendingCountRow) → 단일 `db.transaction` + REPEATABLE READ snapshot 고정.
+  - code LOW-1 반영: 수동 `SET TRANSACTION...` 제거 → Drizzle 공식 config 인자(`{ isolationLevel: "repeatable read", accessMode: "read only" }`) 채택. accessMode="read only"로 실수 INSERT/UPDATE 이중 방어.
+  - sec M1 반영: `SET LOCAL statement_timeout = '3s'` 추가 → 병렬 탭/스크립트 DoS 경화.
+  - sec M3 반영: NOW() = transaction_timestamp() 고정 시점 주석 보완 (snapshot 시점 통일성 명시).
+  - console.error(settings row 누락 알림)은 transaction 밖으로 이동 (side effect 커밋 후 처리).
+- `src/app/dashboard/members/actions.ts` — HIGH-2 advisory lock 공간 확장:
+  - `pg_advisory_xact_lock(hashtext(workspaceId))` → `pg_advisory_xact_lock(hashtextextended(workspaceId, 0))`.
+  - hashtext(int4 32-bit) → hashtextextended(bigint 64-bit). 공간 2^32 → 2^64 — ~65536 ws 50% 충돌 → ~42억 ws.
+- `src/app/invite/[token]/accept-actions.ts` — HIGH-2 동일 패턴. 발송/수락 양측 같은 lock key space 공유 유지 (멤버 한도 invariant 직렬화 의도).
+
+**검증**
+- `pnpm tsc/lint/build` 0 errors (무관 기존 warning 1).
+- Cloud Supabase SQL:
+  - `pg_typeof(hashtextextended('test-uuid', 0)) = 'bigint'` 확인.
+  - `pg_advisory_xact_lock(hashtextextended(...))` 획득 + COMMIT 후 `pg_locks` 0건 (xact 자동 해제 정상).
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL 0 / HIGH 0. 즉시 반영 3건 모두 반영.
+- 잔여 (후속 Task):
+  - code LOW-2: RR connection 점유 모니터링 (관측 선행, 별도 Task 불필요)
+  - sec M2 논의: 2-arg advisory lock 격리 — 이미 hashtextextended 64-bit로 해결된 범위, 추가 격리는 공간 축소 역행이라 기각
+  - sec M3 stuck row expires_at 단축 — 운영 관찰 후
+
+### Task 5-5-1 MED-4 instrumentation 부팅 차단 실증 ✅ 완료 (코드 변경 없음)
+
+**범위**: Task 5-5-1 잔여 MED-4 — env.ts validateEnv가 실제 Next.js 부팅을 차단하는지 실증.
+
+**실증 방법 2단**
+1. **envSchema 단위 검증** (일회성 스크립트, 실행 후 삭제):
+   - 4 시나리오 모두 PASS — NEXT_PUBLIC_APP_URL 누락 / DATABASE_URL 빈 문자열 / production + RESEND 누락 / INVITE_RATE_LIMIT_PER_MINUTE=0 regex 거부
+2. **실제 `pnpm start` 부팅 차단 관측**:
+   - shell `NEXT_PUBLIC_APP_URL=''` override로 .env.local 무수정 검증
+   - 로그: `Failed to prepare server Error: An error occurred while loading instrumentation hook: [env] 환경변수 검증 실패 (NODE_ENV=production) - NEXT_PUBLIC_APP_URL: ...` + `unhandledRejection` → 프로세스 exit
+   - 한국어 에러 + 누락 key 명시 + 해결법 안내 모두 정상 노출
+
+**발견 (learnings.md 기록)**
+- Next.js 16.2 async instrumentation hook은 "Ready in 99ms" 메시지 뒤에 평가되는 경로 존재 → HTTP 포트는 바인드된 상태에서 async fail → crash
+- 운영 로그 패턴 "Ready 직후 dying"은 env validation 실패 우선 의심
+- `next build`는 register()를 호출하지 않음 — env validation 실증은 `next start`/`next dev` 필수
+
+### Task 5-5-4 rate-1 cleanup cron ✅ 완료 (2026c5f — pg_cron 매시 정각 + reviewer 즉시 반영 3건)
+
+**범위**: `rate_limit_counters` 자동 정리 cron — rate limit row의 영구 잔존 방지.
+
+**신규 파일 1**
+- `src/lib/db/migrations/0035_rate_limit_counters_cleanup_cron.sql` — pg_cron extension 설치 + 매시 정각 cleanup job 등록
+  - 주기: `0 * * * *` (매시)
+  - 임계: `window_start < NOW() - INTERVAL '2 hours'` (최장 window 3600s + 1h buffer)
+  - 멱등: DO $$ 블록으로 기존 동일 이름 job unschedule 후 재등록
+  - sec M2 반영: unschedule fail-soft (`EXCEPTION WHEN OTHERS THEN RAISE NOTICE`) → migration rerun 안전
+  - code MED-2 반영: 롤백 순서 주석 명시 (0035 unschedule 먼저 → 0034 table drop)
+  - sec L1 반영: DROP EXTENSION pg_cron 금지 경고 강화 (Supabase plan extension, 다른 tenant/후속 cron 영향)
+
+**검증**
+- `apply_migration` 성공 (최초) + `execute_sql` 재적용 성공 (3건 반영 후)
+- cron.job 등록 확인 (jobid=2, active=true, schedule/command 정상)
+- Functional test: 3 row(3h/1.5h/now) 삽입 후 DELETE 실행
+  - age=10800s(3h) → 삭제 ✅
+  - age=5400s(1.5h) → 보존 ✅ (2h buffer 안)
+  - age=0s → 보존 ✅
+- 테스트 row 정리 후 total_rows=0
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL 0 / HIGH 0. 즉시 반영 3건 완료.
+- 후속 (잔여 기술 부채 — 운영 시점에 자연 검증 또는 별도 Task):
+  - Drizzle journal 0032~0035 미갱신 (Task 5-2-2g 반복 — 제도적 해결 필요)
+  - cron 실패 모니터링 (cron.job_run_details 주기 점검)
+  - 정각 thundering herd (향후 rate-1 확장 시 분 offset)
+  - 2h buffer 재검토 (더 긴 window 도입 시 상향)
+
+### 교훈 기록 4건 (docs/learnings.md)
+1. Drizzle 공식 `db.transaction(..., { isolationLevel, accessMode })` config가 수동 `SET TRANSACTION`보다 안전
+2. `pg_advisory_xact_lock`의 32-bit 공간 한계 — 2-key 변형은 네임스페이스 상수일 때 효과 없음, `hashtextextended`로 64-bit 확장이 본질적 해결
+3. Next.js 16.2 async instrumentation hook은 "Ready" 메시지 뒤에 평가 — "Ready 직후 dying" 로그 패턴은 env validation 실패 우선 의심
+4. pg_cron cleanup cron 임계는 "최장 활성 window + buffer", DROP EXTENSION은 Supabase plan extension이라 절대 금지
+
+### 차기 Task 등록 (Phase 5.5 잔여 2건 + 후속 8건)
+
+1. **Resend Sending Access key 발급/회전** (Jayden 수동, 개발 완료 후)
+2. **Phase 5 Epic 5-3** 진입 검토 (PRD 재확인 필요)
+
+후속 (잔여 기술 부채):
+- Task 5-5-1 잔여: LOW-1 vitest 이관
+- Task 5-5-2 잔여: Existing-over-limit 정책 (Phase 5.5 billing과 함께)
+- Task 5-5-3 잔여: audit-2 활동 피드 정책 / audit-4 PII 라이프사이클
+- Task 5-5-4 잔여: sec MED-2 IPv6 /64 그룹핑 / sec LOW-1 fake success 정책 / cron 실패 모니터링 / Drizzle journal 미갱신 (0032~0035)
+- Task 5-5-5 cleanup 분리: sec M-3 `expires_at` 단축 / code L-1 immutable 리팩토링
+
+---
+
+## 세션 2026-04-23 (Task 5-5-5 cleanup + Task 5-5-4 rate-4 contact form — 커밋 2건)
+
+### Task 5-5-5 cleanup 묶음 ✅ 완료 (cdf0073 — 로그 구조화 + revoke 가드 + stuck row + reviewer MEDIUM 4건)
+
+**범위**: Task 5-5-5 잔여 ToDo 3건(cleanup-1/2/3) + 리뷰 MEDIUM 4건 즉시 반영.
+
+**수정 파일 5**
+- `src/lib/utils/sanitize.ts` — `sanitizeLogMessage` 신규 export. 제어문자(\x00-\x1F, \x7F) + BiDi override 공백 치환. sanitizeFreeText와 달리 tab/newline/ANSI escape도 제거 (한 줄 로그 오염 방지).
+- `src/app/dashboard/members/actions.ts` — cleanup-1 event 필드 5개, cleanup-2 자동 revoke WHERE `isNull` 가드, cleanup-3 stuck row alert (`createdInvitationId` 상위 스코프 + `workspaceId`/`pgCode`/`causeName` 박제), sec M-2 `revoke_skipped` audit 분기 (race revoked), 6 로그 sanitize 적용.
+- `src/app/dashboard/members/page.tsx` — event 필드.
+- `src/app/invite/[token]/accept-actions.ts` — event 필드 2개 + sanitize.
+- `src/app/invite/[token]/page.tsx` — event 필드 + sanitize.
+
+**검증**: tsc 0 / lint 0 / build 39 routes + SW 정상.
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL 0 / HIGH 0 / MEDIUM 3+3 → **즉시 반영 4건**:
+  - code M-1: stuck row 로그에 `workspaceId` (운영 복구 편의)
+  - code M-2: `email_send_failed`에 `message` 필드 (Resend 장애 분류)
+  - sec M-1: `sanitizeLogMessage` 유틸 + 6 로그 sanitize 적용
+  - sec M-2: cleanup-2 0-row skip 분기에 `invitation.revoke_skipped` 로그 (stuck row와 race-revoked 구분, audit log INSERT는 skip — 실제 DB 변경 없음)
+- **후속 Task로 분리**:
+  - sec M-3: stuck row의 `expires_at` 단축 (triple-fault 리스크 대비 효익 불확실 → 운영 관찰 후)
+  - code L-1: `createdInvitationId` immutable 전환 (transaction return 패턴 리팩토링)
+
+---
+
+### Task 5-5-4 rate-4 contact form ✅ 완료 (8092d29 — submitInquiryAction IP 기반 rate limit + Supabase GoTrue 문서화 + reviewer MEDIUM 3건)
+
+**범위**: Task 5-5-4 잔여 rate-4 (login/signup/password reset/contact form) 중 실질 가능한 contact form만 적용 + 나머지는 Supabase GoTrue 정책 위임.
+
+**발견 (scope 축소 사유)**:
+- login, signup, password reset 모두 `"use client"` + `supabase.auth.*` 직접 호출 → 서버 미경유 → Dairect rate limit 주입 불가.
+- Server Action 리팩토링은 SSR cookie 흐름 재설계 필요 → ROI 낮음.
+- contact form(`submitInquiryAction`)만 Server Action → 즉시 적용 가능.
+
+**수정 파일 5**
+- `src/lib/rate-limit.ts` — `parseRateLimit` 공통 export로 이관 + key 컨벤션 주석에 `inquiry:ip:{ip}:*` 추가.
+- `src/lib/env.ts` — `INQUIRY_RATE_LIMIT_PER_MINUTE/HOUR` 2건 추가 (INVITE_* 동일 regex `^[1-9]\d*$`).
+- `src/app/(public)/about/actions.ts` — submitInquiryAction에 rate limit 주입. honeypot → timing → **rate limit** → zod parse → insert 순서. 분 3 + 시간 20. short-circuit. IP null 시 rate limit skip (review MED-1 반영).
+- `src/app/dashboard/members/actions.ts` — 로컬 `parseRateLimit` 제거 → lib import.
+- `docs/env-setup.md` — INVITE/INQUIRY env 2건 문서화 + 🛡️ Supabase GoTrue Auth Rate Limit 가이드 섹션 신설 (Dashboard 위치 + 대략적 카테고리 + 공식 링크 2건).
+
+**검증**: tsc 0 / lint 0 / build 39 routes + SW 정상.
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL 0 / HIGH 0 / MEDIUM 2+3 → **즉시 반영 3건**:
+  - code MED-1/2 + sec MED-1 통합: IP null 시 rate limit skip (공유 `"unknown"` 버킷 false positive 방어 — 정상 모바일 사용자 보호)
+  - sec MED-3: env-setup.md GoTrue 수치 박제 제거 → Supabase 공식 문서/Dashboard 참조 + 공식 링크 2건
+  - code LOW-2: 이관 흔적 주석 축약
+- **후속 Task로 분리**:
+  - sec MED-2: IPv6 /64 CIDR 그룹핑 (rate-limit.ts 인프라 개선 — 모든 IP 기반 rate-limit 공통 적용)
+  - sec LOW-1: rate limit fake success vs real error 비대칭 정책 결정 (봇이 rate limit 존재 학습 가능 vs 정상 사용자 UX 피해 trade-off)
+
+### 차기 Task 등록 (Phase 5.5 잔여 2건 + 후속 11건)
+
+1. **Resend Sending Access key 발급/회전** (Jayden 수동, 개발 완료 후)
+2. **Phase 5 Epic 5-3** 진입 검토 (PRD 재확인 필요)
+
+후속 (잔여 기술 부채):
+- Task 5-5-1 잔여: MEDIUM-4 instrumentation 부팅 차단 실증 / LOW-1 vitest 이관
+- Task 5-5-2 잔여: HIGH-1 page.tsx race / HIGH-2 hashtext 32-bit 충돌 / Existing-over-limit 정책
+- Task 5-5-3 잔여: audit-2 활동 피드 정책 / audit-4 PII 라이프사이클
+- Task 5-5-4 잔여: rate-1 cleanup cron
+- Task 5-5-5 cleanup 분리: sec M-3 `expires_at` 단축 / code L-1 immutable 리팩토링
+- Task 5-5-4 rate-4 분리: sec MED-2 IPv6 /64 그룹핑 / sec LOW-1 fake success 정책
+
+---
+
+## Task 5-5-5 ✅ 완료 (Phase 5.5 잔여 정리 묶음 7건 + reviewer 즉시 반영 3건)
+
+**범위**: Task 5-5-1~4의 잔여 MEDIUM/LOW 7건 단일 묶음 처리.
+
+**신규 파일 1**
+- `src/lib/utils/sanitize.ts` — `sanitizeFreeText(text: string)` + `sanitizeFreeTextOrNull` export. control char(\x00-\x08\x0B\x0C\x0E-\x1F\x7F) + BiDi override(\u202A-\u202E, \u2066-\u2069) 제거. tab/newline/HTML 특수문자는 의도적 보존 (React가 자동 escape, 자연 입력 허용).
+
+**수정 파일 5**
+- `src/lib/env.ts`:
+  - n8n webhook URL 5종 (PROJECT_STATUS_CHANGED / PROJECT_COMPLETED / PORTAL_FEEDBACK_RECEIVED / INVOICE_OVERDUE / WEEKLY_SUMMARY) 옵션 등록 (drift 방지). **`.url()` 검증은 의도적으로 빼서** 부가 시스템 1개 오설정으로 전체 앱 부팅 차단되는 운영 risk 회피 (review MED-1 반영).
+  - INVITE_RATE_LIMIT_PER_MINUTE/HOUR 옵션 등록. regex `^[1-9]\d*$`로 `"0"` 거부 (review HIGH-1 반영, limit=0이면 모든 admin 초대 영구 차단 위험).
+- `src/app/dashboard/members/actions.ts`:
+  - INVITE_RATE_LIMITS에 `parseRateLimit` 헬퍼 추가 (env 빈 문자열/NaN/0/음수 fallback to default — review HIGH-1 defense-in-depth).
+  - inviterName + wsName(workspace.name)에 sanitizeFreeText 적용 (이메일 본문 + audit metadata BiDi 스푸핑 차단 — audit-3 + sec MED-3).
+  - createInvitationAction transaction 안 workspaceSettings row missing console.error 알림 (HIGH-4).
+  - 이메일 발송 실패 자동 revoke를 transaction으로 묶어 audit log 동시 INSERT (audit-1, action: workspace_invitation.revoked + metadata.reason: email_send_failed).
+  - revokeInvitationAction metadata에 revokerRoleAtTime 박제 (audit-5).
+- `src/app/invite/[token]/accept-actions.ts`:
+  - workspaceSettings row missing 알림 (HIGH-4 동일 패턴).
+- `src/app/dashboard/members/page.tsx`:
+  - workspaceSettings row missing 알림 (HIGH-4 동일 패턴).
+- `docs/env-setup.md`:
+  - RESEND_FROM_EMAIL 표기 명문화 (LOW-2): "Vercel UI에 따옴표 없이" 사고 이력 + 표준 안내 문구 추가.
+
+**검증**
+- `pnpm tsc/lint/build` 통과 (lint warning 1건 무관).
+- sanitize 단위 동작 확인 (Bash 1줄):
+  - control char "Hello\\x07World" → "HelloWorld" ✅
+  - BiDi "Hello\\u202EWorld" → "HelloWorld" ✅
+  - newline/tab/HTML chars 보존 (의도) ✅
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL 0, HIGH 1 (code, 두 리뷰 공통 지적) → **즉시 반영 3건**:
+  - HIGH-1 (code) / MED-1 (sec): INVITE_RATE_LIMITS env 빈 문자열/0/NaN 처리 부재 → parseRateLimit 헬퍼 + env.ts regex `^[1-9]\d*$` 강화. fail-closed라 보안은 안전하지만 운영 가용성 0 회귀 위험.
+  - MEDIUM-1 (code): n8n URL .url() fail-fast 정책 → A안 채택 (`.url()` 제거, client.ts graceful 처리에 위임).
+  - MEDIUM-3 (sec): wsRow.name(workspace.name)도 sanitize 적용 (이메일 본문 BiDi 스푸핑 defense-in-depth).
+- **잔여 ToDo 추가** (다음 정리 묶음 또는 운영 시점에):
+  - cleanup-1: console.error 형식 통일 (`event: "..."` 구조화 로그) — 모니터링 일관성 (code MED-2)
+  - cleanup-2: revoke transaction에 isNull(revokedAt) 가드 추가 (code LOW-1)
+  - cleanup-3: revoke transaction ROLLBACK 시 stuck row alert 강화 (sec MED-2)
+
+### 차기 Task 등록 (Phase 5.5 잔여 2건 + 후속 11건)
+1. **Resend Sending Access key 발급/회전** (Jayden 수동, 개발 완료 후 — 2026-04-22 결정)
+2. **Phase 5 Epic 5-3** 진입 검토 (PRD 재확인 필요)
+
+후속 (잔여 기술 부채 — 운영 시점에 자연 검증 또는 별도 Task):
+- Task 5-5-1 잔여: MEDIUM-4 instrumentation 부팅 차단 실증 / LOW-1 vitest 이관
+- Task 5-5-2 잔여: HIGH-1 page.tsx race / HIGH-2 hashtext 32-bit 충돌 / Existing-over-limit 정책
+- Task 5-5-3 잔여: audit-2 활동 피드 정책 / audit-4 PII 라이프사이클 (Phase 5.5 빌링과 함께)
+- Task 5-5-4 잔여: rate-1 cleanup cron / rate-3 Promise.all 보류 / rate-4 추가 엔드포인트 확장
+- Task 5-5-5 cleanup-1/2/3: 구조화 로그 / revoke isNull 가드 / stuck row alert
+
+---
+
+## Task 5-5-4 ✅ 완료 (createInvitationAction rate limit — fixed window counter)
+
+## Task 5-5-4 ✅ 완료 (createInvitationAction rate limit — fixed window counter)
+
+**범위**: createInvitationAction abuse 방어. 분 5회 + 시간 20회 한도, userId 기반 식별자.
+
+**신규 파일 3**
+- `src/lib/db/migrations/0034_rate_limit_counters.sql` — `rate_limit_counters` 테이블(key PK + window_start + count + updated_at) + window_start 인덱스(향후 cleanup용) + RLS RESTRICTIVE deny anon/authenticated. Cloud Supabase apply 완료.
+- `src/lib/db/schema.ts` — rateLimitCounters drizzle 정의 추가 (라인 749 이후).
+- `src/lib/rate-limit.ts` — `checkAndIncrementRateLimit(key, { windowSec, limit })` 단일 export. UPSERT + ON CONFLICT DO UPDATE의 SET CASE로 window expired면 reset(count=1) 아니면 increment(count+1). RETURNING으로 갱신 후 count + window_start 받아 retryAfterSec 산출. PG single-statement atomicity로 race 방어 (advisory lock 불필요).
+
+**수정 파일 1**
+- `src/app/dashboard/members/actions.ts`:
+  - `INVITE_RATE_LIMITS` 상수 (perMinute / perHour) 추가
+  - createInvitationAction validation 직후 분 한도 → 차단 시 즉시 RATE_LIMITED → 시간 한도 → 차단 시 RATE_LIMITED. **Short-circuit 패턴**: 분 차단 시 시간 카운트 skip (HIGH-1 reviewer 반영).
+  - ActionResult 타입에 RATE_LIMITED 추가
+  - validation 통과 후 체크 (오타로 자기 자신 차단 방지)
+
+**검증**
+- `pnpm tsc/lint/build` 통과
+- Cloud Supabase `apply_migration` 성공 (테이블 + 인덱스 + RLS 정책 생성)
+- DO 블록 회귀 PASS:
+  - iter1~5: count 1~5 PASS
+  - iter6: count=6 BLOCK (limit 5 초과)
+  - window 강제 만료 후 호출: count=1 RESET_OK
+- 자동 ROLLBACK으로 테스트 row 무손상
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL 0, HIGH 1 (code) — **즉시 반영 3건**:
+  - HIGH-1 (code): minute/hour 양쪽 카운트 동시 증가 → 분 차단 시 시간 카운트도 +1되어 정상 admin이 abuser 직후 시간 한도에 부당 도달 → **short-circuit으로 변경** (분 차단 시 시간 카운트 skip).
+  - MEDIUM-2 (sec): UPSERT row 미반환 fail-closed 시 retryAfterSec=windowSec 그대로 노출 → "3600초 후 다시 시도" 부정확 → **60초 캡 적용** (`Math.min(windowSec, 60)`).
+  - LOW-2 (code): NaN guard 추가 (`Number.isNaN(windowStartMs)` 분기 — driver upgrade/type cast 변경 안전망).
+- **Phase 5.5 잔여 ToDo로 이관 4건**:
+  - rate-1 (code MED-2 / sec LOW-2): stale key cleanup cron (Supabase pg_cron + DELETE WHERE window_start < NOW() - 24h) — 운영 1년 후에도 백만 row 미만 예상이지만 prefix 확장 시 누적 가능.
+  - rate-2 (code MED-3): 한도값 환경변수화 (INVITE_RATE_LIMIT_PER_MINUTE/HOUR) — 운영 중 abuse 발견 시 코드 수정 없이 조정.
+  - rate-3 (sec MED-3): Promise.all 병렬화 — short-circuit 채택으로 의미 작아짐, 보류.
+  - rate-4: 추가 엔드포인트(login/signup/password reset/contact form/AI burst)에 rate limit 확장 — Supabase auth 자체 정책 확인 후.
+
+### 차기 Task 등록 (Phase 5.5 잔여 2건 + 후속 8건)
+1. **Resend Sending Access key 발급/회전** (Jayden 수동, 개발 완료 후 — 2026-04-22 결정)
+2. **Phase 5 Epic 5-3** 진입 검토 (PRD 재확인 필요) — 또는 audit/rate/MEDIUM/LOW 후속 정리 묶음 Task
+
+후속 (잔여 기술 부채):
+- audit-1~5 (Task 5-5-3 잔여): 자동 revoke audit / 활동 피드 정책 / inviterName 정규화 / PII 라이프사이클 / revokerRole 박제
+- rate-1~4 (Task 5-5-4 잔여): cleanup cron / 한도 env / Promise.all / 추가 엔드포인트 확장
+- Task 5-5-1/2 잔여: n8n schema / instrumentation 실증 / vitest 이관 / page.tsx HIGH-1 / hashtext HIGH-2 / settings row missing HIGH-4 / Existing-over-limit 정책
+
+---
+
+## Task 5-5-3 ✅ 완료 (멤버 초대/수락/취소 activity_logs 감사 — 3 이벤트 atomically + 리뷰 통과)
+
+## Task 5-5-3 ✅ 완료 (멤버 초대/수락/취소 activity_logs 감사 — 3 이벤트 atomically + 리뷰 통과)
+
+**범위**: 3가지 이벤트를 같은 transaction에 INSERT (atomicity 보장).
+- `workspace_invitation.created` (createInvitationAction)
+- `workspace_invitation.accepted` (acceptInvitationAction)
+- `workspace_invitation.revoked` (revokeInvitationAction)
+
+**수정 파일 2**
+- `src/app/dashboard/members/actions.ts`:
+  - createInvitationAction transaction에 `tx.insert(activityLogs).values({...})` 추가. invitation INSERT를 `.returning({ id })`로 변경하여 entityId 확보. metadata: { email, role, inviterName }.
+  - revokeInvitationAction을 `db.transaction`으로 감쌈 (기존 단일 UPDATE → tx). UPDATE returning에 email/role/invitedBy 추가. 0 rows 반환 시 null 반환 → 외부 NOT_FOUND (멱등성 일관, audit log skip). metadata: { email, role, originalInviterUserId }.
+- `src/app/invite/[token]/accept-actions.ts`:
+  - acceptInvitationAction transaction의 invitation UPDATE returning에 id 추가. workspace_members INSERT + last_workspace_id UPDATE 다음에 activityLogs INSERT. metadata: { email(invitation 저장값), role, inviteeUserId }.
+
+**기존 패턴 재사용**: `src/app/dashboard/projects/[id]/portal-actions.ts:188` 의 portal_token activity_log 패턴 그대로.
+
+**검증**
+- `pnpm tsc/lint/build` 통과 (lint warning 1건 무관 estimate-form.tsx).
+- Cloud Supabase schema 호환성 확인: 코드 INSERT 필드(userId, workspaceId, entityType, entityId, action, description, metadata) 모두 schema와 일치.
+- DO 블록 시뮬레이션 PASS: workspace_invitations + activity_logs 3건 INSERT 모두 schema 위반 없이 통과 → `RAISE EXCEPTION 'TEST_ROLLBACK_OK_LOGS=3'`로 자동 ROLLBACK (테스트 데이터 무손상).
+- RLS 호환성: `0021_rls_policies_multitenant.sql:191~202`의 `activity_logs_select_members` 정책으로 같은 workspace 멤버만 조회 가능 + anon RESTRICTIVE deny로 cross-tenant 차단.
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL/HIGH **0건** — 즉시 반영 필요 변경 없음.
+- transaction atomicity / RLS 격리 / token metadata 누락 / entityId 일관성(invitation.id) / nullable invitedBy / inviterName snapshot 시점 등 모두 의도된 설계로 OK.
+- **Phase 5.5 잔여 ToDo로 이관 5건**:
+  - audit-1 (code MED): 이메일 발송 실패 후 자동 soft revoke 시 audit log 부재 → 같은 패턴으로 추가 (action: workspace_invitation.revoked + metadata.reason: "email_send_failed"). 일관성 강화.
+  - audit-2 (code MED): 활동 피드(`getRecentActivity`)가 본인 row만 조회 → 다른 admin이 revoke한 초대를 invitee가 못 봄. 정책 변경(workspace 단위 표시) 별도 PRD 검토.
+  - audit-3 (sec MED-1): inviterName(user.name 자유 텍스트) control char 정규화 — 향후 audit UI 도입 시 XSS 자동 보호. 5줄 수정.
+  - audit-4 (sec MED-2): metadata.email 평문 저장 정책의 PII 라이프사이클(보존 기간 / 익명화 / 삭제 정책) 결정 — Phase 5.5 빌링과 함께.
+  - audit-5 (sec MED-3): revokeInvitation metadata에 revokerRoleAtTime 박제 — 분쟁 시 "revoke 시점의 권한" 추적 정확성.
+
+### 차기 Task 등록 (Phase 5.5 잔여 3건 + audit 후속 5건)
+1. **Resend Sending Access key 발급/회전** (Jayden 수동, 개발 완료 후 — 2026-04-22 결정)
+2. **rate limit** (members 초대 / login — Vercel KV vs Upstash Redis 결정 선행)
+3. **audit-1~5 + Task 5-5-1/2의 MEDIUM/LOW 후속 정리** (자동 revoke audit / 활동 피드 정책 / inviterName 정규화 / PII 라이프사이클 / revokerRole 박제 / n8n schema / instrumentation 실증 / vitest 이관 / page.tsx HIGH-1 / hashtext HIGH-2 / settings row missing HIGH-4 / Existing-over-limit 정책)
+
+또는 **Phase 5 Epic 5-3** 진입 검토 (PRD 재확인 필요).
+
+---
+
+## Task 5-5-2 ✅ 완료 (멤버 수 상한 게이트 — invite + accept 양측 + reviewer 즉시 반영 3건)
+
+## Task 5-5-2 ✅ 완료 (멤버 수 상한 게이트 — invite + accept 양측 + reviewer 즉시 반영 3건)
+
+**범위**: workspace plan별 max members enforcement (베타: Free 3 / Pro 5 / Team ∞).
+- PRD-phase5.md:154-162 정의(1/1/∞)는 베타 종료 후 Phase 5.5 빌링 진입 시점에 회귀 — `src/lib/plans.ts` 한 줄 변경.
+
+**신규 파일 1**
+- `src/lib/plans.ts` — `PLAN_MAX_MEMBERS` 상수 + `getMaxMembers` / `getPlanLabel` / `suggestUpgradeTarget` 헬퍼. 무제한은 `Number.POSITIVE_INFINITY`(server JSON 직렬화 시 page.tsx에서 null로 정규화). "INSERT-time + ACCEPT-time enforcement only" + "Existing-over-limit 정책은 Phase 5.5 빌링 ToDo" 명시 주석.
+
+**수정 파일 4**
+- `src/app/dashboard/members/actions.ts` (createInvitationAction):
+  - `db.transaction` 안에 `pg_advisory_xact_lock(hashtext(workspaceId))` → 동시 INSERT 직렬화.
+  - workspace_settings.plan SELECT + workspace_members count + workspace_invitations pending count(`acceptedAt IS NULL AND revokedAt IS NULL AND expiresAt > NOW()`) 합산.
+  - `used >= limit`이면 `MemberLimitExceededError` throw → 트랜잭션 ROLLBACK → 외부 catch에서 instanceof 분기로 LIMIT_EXCEEDED 반환 (DUPLICATE 분기보다 먼저).
+  - 메시지에 동적 업그레이드 안내 (Free → Pro / Pro → Team — `suggestUpgradeTarget` 사용).
+- `src/app/dashboard/members/page.tsx`:
+  - workspace_settings.plan SELECT + 별도 COUNT(*) 쿼리로 pending count(`Date.now()` 호출 회피 → React Server Component purity 규칙 준수, DB NOW()로 actions.ts와 동일 정의).
+  - planLabel/upgradeTarget/limit(Infinity → null 정규화)/used를 client에 prop 전달.
+- `src/app/dashboard/members/members-client.tsx`:
+  - 초대 폼 헤더에 "N / M (Free 플랜)" 사용량 표시.
+  - 한도 도달 시 amber 배너(role="alert") + email/role select/submit button 모두 disabled.
+  - 동적 업그레이드 안내 ("…또는 {upgradeTarget} 플랜으로 업그레이드하면 더 추가할 수 있어요").
+- `src/app/invite/[token]/accept-actions.ts` (acceptInvitationAction) — **code-reviewer CRIT-1 즉시 반영**:
+  - 발송 게이트 통과 후에도 plan downgrade(pro→free) 또는 SQL 직접 INSERT 우회 시 수락 시점 한도 깨짐 가능 → 같은 트랜잭션 패턴(advisory lock + plan SELECT + members count) 추가.
+  - `existingMember` 체크로 재수락(idempotent) 시 한도 체크 skip → onConflictDoNothing과 일관.
+  - 자기 자신 invitation은 곧 member로 전환되므로 pending 카운트 제외 → `memberCount >= limit`만 검사.
+  - `AcceptLimitExceededError` throw → catch에서 LIMIT_EXCEEDED 반환 (ACCEPT_RACE 분기보다 먼저).
+
+**검증**
+- `pnpm tsc/lint/build` 통과 (lint warning 1건 무관 estimate-form.tsx).
+- Cloud Supabase SQL 격리 시나리오 12건 PASS:
+  - 발송 게이트 6건 (T1~T6): Free/Pro/Team × used 매트릭스 + edge case + unknown plan fallback.
+  - 수락 게이트 6건 (A1~A6): Free/Pro/Team × member_count + downgrade 누적 초과 시나리오 + unknown plan fallback.
+  - 핵심 시나리오 A5 Free downgrade 후 members=4 → BLOCKED — CRIT-1 우회 경로 봉쇄 확인.
+- advisory lock 동작 검증 (reentrant + 다른 ws 동시 가능).
+
+**code-reviewer + security-reviewer 결과**
+- CRITICAL 1 (code) + HIGH 0 (sec) → **즉시 반영 3건**:
+  - CRIT-1: accept-actions.ts 한도 게이트 추가 (위에 기록).
+  - LOW-2: "팀 플랜으로 업그레이드" 정적 안내 → `suggestUpgradeTarget`로 동적("Free → Pro" / "Pro → Team").
+  - INFO: plans.ts에 "INSERT-time + ACCEPT-time only enforcement, existing-over-limit은 Phase 5.5 ToDo" 주석 추가.
+- **Phase 5.5 잔여 ToDo로 이관 3건**:
+  - HIGH-1 (code): page.tsx의 memberRows + pendingCount 두 SELECT 사이 race로 표시값 일시 불일치 — UX 영향만 (server transaction이 신뢰 경계).
+  - HIGH-2 (code): hashtext()는 32-bit 해시 → 워크스페이스 1만 개 시점에 충돌 가능 (다른 ws 직렬화로 latency 영향만, 데이터 정합 영향 없음). 2-key advisory lock 전환은 Phase 5.5 빌링 후 ToDo.
+  - HIGH-4 (code): workspaceSettings row 누락 시 free fallback이 silent — `console.error` 알림 추가 권장.
+- **Existing-over-limit 정책**: plan downgrade 시점에 이미 한도 초과한 워크스페이스의 자동 정리/강제 다운그레이드는 Phase 5.5 billing webhook과 함께 결정.
+
+### 차기 Task 등록 (Phase 5.5 잔여 4건)
+1. **Resend Sending Access key 발급/회전** (Jayden 수동, 개발 완료 후 진행 예정 — 2026-04-22 결정)
+2. **rate limit** (members 초대 / login — Vercel KV vs Upstash Redis 결정 선행)
+3. **activity_logs 감사** (초대 발송/수락/revoke + plan 변경 audit trail)
+4. **MEDIUM/LOW 후속 정리** (n8n webhook URL schema / instrumentation 부팅 차단 실증 + next.config build-time import / vitest 이관 / RESEND_FROM_EMAIL 표기 명문화 / page.tsx HIGH-1 / hashtext HIGH-2 / settings row missing HIGH-4 / Existing-over-limit 정책)
+
+또는 **Phase 5 Epic 5-3** 진입 검토 (PRD 재확인 필요).
+
+---
+
+## Task 5-5-1 ✅ 완료 (Phase 5.5 보안 강화 묶음 3건 + 리뷰 4건 반영)
+
+## Task 5-5-1 ✅ 완료 (Phase 5.5 보안 강화 묶음 3건 + 리뷰 4건 반영)
+
+**범위**: Phase 5.5 ToDo 8건 중 3건 묶음 처리.
+
+**신규 파일 3**
+- `src/lib/env.ts` — Zod 스키마로 모든 필수 env 정의 + production-only superRefine(RESEND 2종 강제). top-level `validateEnv()` 호출 + cached `env` export. `import "server-only"`로 client 번들 leak 빌드 타임 차단.
+- `src/instrumentation.ts` — Next.js 공식 부팅 훅. `register()`에서 `nodejs runtime`이면 `./lib/env` import → top-level validate 실행 → throw 시 부팅 차단.
+- `scripts/test-env-validation.mjs` — zod superRefine 5개 케이스 일회성 검증 스크립트(dev/prod RESEND 누락, prod 충족, bad URL, empty DATABASE_URL). 모두 PASS 확인.
+
+**수정 파일 2**
+- `next.config.ts` — `headers()` async function 추가. `/invite/:path*`, `/portal/:path*`, `/auth/:path*`에 `Referrer-Policy: no-referrer` 응답 헤더. 응답 헤더 방식(메타 태그 대비 HTML 변조 강건). `/auth/`는 OAuth `?code=...` query 5xx 시 잔류 leak 방어(MEDIUM-1 리뷰 반영).
+- `docs/env-setup.md` — RESEND_API_KEY/FROM_EMAIL/REPLY_TO 항목 + Resend Sending Access(only) key 분리 절차 5단계 + 분기 회전 권장 + startup 검증 안내 + 트러블슈팅 2건(따옴표 leak / 부팅 차단).
+
+**의존성 추가 1**
+- `pnpm add server-only@0.0.1` — Vercel 공식 패턴. server 전용 모듈이 client component에서 import될 때 빌드 타임 즉시 차단. env.ts 최상단 `import "server-only"`로 적용.
+
+**검증**
+- `pnpm tsc --noEmit && pnpm lint && pnpm build` — 전 단계 통과. SW artifact verified.
+- `node scripts/test-env-validation.mjs` — 5/5 PASS (dev RESEND 누락 PASS, prod RESEND 누락 FAIL, prod 충족 PASS, bad url FAIL, empty DATABASE_URL FAIL).
+- dev 서버 부팅 + curl 헤더 검증:
+  - `/invite/<uuid>` → 200 + `Referrer-Policy: no-referrer` ✅
+  - `/portal/<uuid>` → 200 + `Referrer-Policy: no-referrer` ✅
+  - `/auth/callback?code=test` → 307 + `Referrer-Policy: no-referrer` ✅
+  - `/` → 200 + 헤더 미적용 ✅ (대조군)
+
+**security-reviewer 결과**
+- CRITICAL 0건. HIGH 1건 + MEDIUM 4건 + LOW 2건 + INFO 다수.
+- **즉시 반영 4건**:
+  - HIGH-1: `RESEND_REPLY_TO`를 `.email()` 강제 → `.min(1)`로 완화. "Name <email>" 표기 입력 시 production 부팅 차단되는 회귀 위험 제거. 실제 형식 검증은 Resend SDK가 발송 시점 처리.
+  - MEDIUM-1: `/auth/:path*` Referrer-Policy 추가 (OAuth code 5xx 잔류 leak 방어).
+  - MEDIUM-3: `import "server-only"` 추가 (client 번들 leak 빌드 타임 차단).
+  - 부수: 코드 주석에 리뷰 사유 명기.
+- **Phase 5.5 잔여 ToDo로 이관 4건**:
+  - MEDIUM-2: n8n webhook URL 5종을 env schema에 옵션 등록 (drift 방지). trade-off: 잘못된 URL 1개로 production 부팅 차단되는 부작용.
+  - MEDIUM-4: instrumentation 부팅 차단 효과 end-to-end 실증 (`pnpm start` + 누락 env 시나리오) + `next.config.ts`에서 `import "@/lib/env"` 검토 (build 타임 차단 보강).
+  - LOW-1: `scripts/test-env-validation.mjs`를 vitest 케이스로 이관 (현재 schema 사본이라 drift 위험).
+  - LOW-2: `docs/env-setup.md`의 RESEND_FROM_EMAIL "주소만 vs Name <email>" 표기 일관성 명문화.
+
+### 차기 Task 등록 (Phase 5.5 잔여 ToDo 5건)
+1. **Resend Sending Access key 발급/회전** (Jayden 수동, docs/env-setup.md 절차 따름) — 가장 우선 권장
+2. **rate limit** (members 초대 발송 / login 시도 등 — Vercel KV 또는 Upstash Redis)
+3. **activity_logs 감사** (멤버 초대 발송/수락/revoke 이벤트 audit trail)
+4. **멤버 수 상한 게이트** (workspace_settings.plan별 max members enforce)
+5. **MEDIUM-2/4 + LOW-1/2 후속** (n8n schema 등록 / instrumentation 실증 / vitest 이관 / docs 명문화)
+
+또는 **Phase 5 Epic 5-3** 진입 검토 가능 (PRD 재확인 필요).
+
+---
+
+## 이전 Task — Phase 5 Epic 5-2 Phase C (5-2-4, 5-2-5)
 
 > 최종 업데이트: 2026-04-22 저녁 (Task 5-2-5 ✅ + 부수 4건 묶음 완료 — 프로덕션 E2E: 초대 발송→수신→수락→대시보드 진입 전 경로 실측 성공)
-> 현재 위치: **Phase 5 Epic 5-2 Phase C 완결 (5-2-4, 5-2-5 완료) + Phase 5.5 선행 1건(pending idx LOWER) + Supabase Auth 보안 강화 5건 + send.dairect.kr 도메인 prod 전환**. 남은 Phase C Task: workspace switcher UI(이미 구현되어 있어 추가 구현 0 / 실전 드롭다운 UX는 타계정 초대→수락 시 자동 검증됨), 이후는 Phase 5.5 ToDo 또는 Phase D.
+> 위치: **Phase 5 Epic 5-2 Phase C 완결 (5-2-4, 5-2-5 완료) + Phase 5.5 선행 1건(pending idx LOWER) + Supabase Auth 보안 강화 5건 + send.dairect.kr 도메인 prod 전환**. 남은 Phase C Task: workspace switcher UI(이미 구현되어 있어 추가 구현 0 / 실전 드롭다운 UX는 타계정 초대→수락 시 자동 검증됨), 이후는 Phase 5.5 ToDo 또는 Phase D.
 
 ## Task 5-2-5 ✅ 완료 (/invite/[token] 초대 수락 + 리뷰 CRITICAL 2 + HIGH 6 반영)
 

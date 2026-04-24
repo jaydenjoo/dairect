@@ -1,17 +1,25 @@
 import type { Metadata } from "next";
-import { LandingNav } from "@/components/landing/nav";
-import { LandingFooter } from "@/components/landing/footer";
-import { AboutHero } from "@/components/about/hero-section";
+import { Nav } from "@/components/chrome/Nav";
+import { Footer } from "@/components/chrome/Footer";
+import {
+  AboutHero,
+  AboutTimeline,
+  AboutPhilosophy,
+  AboutProcess,
+  AboutCTA,
+} from "@/components/sections/about/AboutSections";
 import { ContactSection } from "@/components/about/contact-section";
 import type { PackageId } from "@/lib/validation/inquiry";
 
 export const metadata: Metadata = {
-  title: "소개",
+  title: "About — Vibe Architect",
   description:
     "AI는 자동차입니다. 운전을 못해도 괜찮아요. 택시를 타면 되니까요. — Jayden, Vibe Architect",
 };
 
-function parsePackage(raw: string | string[] | undefined): PackageId | undefined {
+function parsePackage(
+  raw: string | string[] | undefined
+): PackageId | undefined {
   const value = Array.isArray(raw) ? raw[0] : raw;
   if (value === "diagnosis" || value === "mvp" || value === "expansion") {
     return value;
@@ -29,12 +37,16 @@ export default async function AboutPage({
 
   return (
     <>
-      <LandingNav active="about" />
-      <main className="min-h-screen surface-base">
+      <Nav solidAlways />
+      <main id="main" className="relative z-[2] bg-canvas">
         <AboutHero />
+        <AboutTimeline />
+        <AboutPhilosophy />
+        <AboutProcess />
+        <AboutCTA />
         <ContactSection initialPackage={initialPackage} />
       </main>
-      <LandingFooter />
+      <Footer />
     </>
   );
 }

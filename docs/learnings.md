@@ -1,5 +1,321 @@
 # Dairect — 교훈 기록
 
+## 2026-04-25 — Studio Anthem 리디자인 5가지 교훈 (Epic 1~7 종합)
+
+1. **Next.js `next/font/google`에서 `axes`와 `weight` 배열은 상호 배타적** — Fraunces의 opsz/SOFT axis를 사용하려면 `weight: ["300","400",...]` 배열을 제거하고 variable font 모드로 로드해야 함. 시도 시 에러: "Axes can only be defined for variable fonts when the weight property is nonexistent or set to `variable`". Etymology 섹션의 RECT 글자 폭 이슈(127→144px, 1000px wrap 초과) → axis 활성화 후 번들 수치(436px) 정확 매칭.
+   - **규칙**: 가변축(axes)을 사용하려면 weight 배열을 비우거나 `"variable"`로 설정. 특정 weight 고정이 필요하면 axes를 포기.
+
+2. **번들 CSS 전면 이식 > Tailwind 수동 번역** — Etymology 섹션 초기에 Tailwind 유틸로 재작성 시도 시 번들과 시각 차이 발생. Jayden "핸드오프 번들과 동일한 디자인으로 만들어줘" 지시 후 전략 변경: 번들 CSS를 `src/styles/studio-anthem/`로 통째 복사 + JSX는 `className`만 일치시킴 → 재작업 0.
+   - **규칙**: 디자이너가 넘긴 CSS 번들(Handoff bundle)은 그대로 이식하되 명명 규칙만 프로젝트 레이어(Tailwind `@theme inline`, CSS vars)와 조화시킨다. 픽셀 단위 재현은 수동 번역으로 불가능.
+
+3. **Nav over-dark 가독성 이슈 — prop 기반 solid 강제** — About 페이지처럼 hero가 section-dark(#141414)이면 fixed Nav의 ink 텍스트가 ink 배경과 동일 색상이라 **완전 비가시**. scroll detection이 동작하기 전(scrollY=0) 상태에서 발생. 해결: `<Nav solidAlways />` prop 추가로 초기에도 `scrolled` 클래스 강제 적용.
+   - **규칙**: fixed/sticky chrome의 초기 상태가 투명이라면, 어떤 hero bg와 조합돼도 작동하는지 체크. 예외 페이지는 prop/variant로 opt-in solid 강제.
+
+4. **shadcn `:root` 토큰 재매핑 한 번 수정으로 대시보드 전체 재스킨** — `--primary`/`--accent`/`--ring`/`--chart-*`/`--sidebar`/`--radius-*` 교체만으로 Button/Card/Badge/Table/Recharts/Sidebar가 즉시 Studio Anthem 색상으로 전환. 개별 컴포넌트 수정 불필요. **단, Recharts 인라인 hex(`<Bar fill="#4F46E5">`)는 별도 grep + 교체 필수** — 토큰 외부로 빠진 하드코딩 색상은 shadcn 변경에 반응 안 함.
+   - **규칙**: 디자인 시스템 교체는 `:root` 변수 재정의부터. 그 후 `grep -r "bg-indigo\|#4F46E5\|#3525CD\|soul-gradient"`로 누수 탐지. status color 매핑(`bg-blue-50 text-blue-700`)도 별도 grep 대상.
+
+5. **기존 컴포넌트 overwrite 전 Read 필수 (Write 보호막)** — `components/chrome/Footer.tsx`가 이미 존재하는 상태에서 바로 Write → "File has not been read yet" 에러. 이전 세션에서 생성된 파일을 잊고 새 구현 작성 시 데이터 손실 위험이 있어 런타임에서 차단됨.
+   - **규칙**: `ls` / `Glob`으로 디렉토리 내용 확인 후 Write, 또는 Read 후 overwrite. 특히 chrome/layout처럼 여러 세션에 걸쳐 진화하는 파일.
+
+## 2026-04-24 — 같은 문제 2번 재발 = 문서·체크리스트로는 부족, **자동 게이트(스크립트 + 검증 체인 편입)로 제도화**해야 근본 해결 (Task A — drizzle journal MCP drift)
+
+- **증상**: Phase 5 이후 MCP `apply_migration`으로 cloud에 SQL 직접 적용 → `.sql` 파일만 수동 추가 → `_journal.json` 갱신 누락. 2026-04-21 Task 5-2-2h에서 `0031_phase5_resync_marker` noop marker로 1차 해결. 3일 뒤 0032~0035가 다시 같은 경로로 쌓여 **재발**. `pnpm db:generate` 실행 시 drizzle이 누적 drift를 재합성한 SQL이 기존 0032 번호와 충돌하는 시한폭탄 상태.
+- **원인**: 1차 해결(noop marker + 워크플로우 주석)은 **"사람이 기억하고 지켜야 하는 규칙"**. MCP apply_migration 호출 후 `pnpm db:generate` 실행을 매번 수행해야 하는 운영 의무가 자연스럽게 잊힘. 특히 긴급 작업(RLS/pg_cron 같은 extension)일수록 후속 generate 생략 빈도 높음. 문서만으로는 drift 방지 불가능.
+- **해결**: **자동 게이트 2단**.
+  - `scripts/check-migrations.mjs` (Pure Node, tsx 없어도 동작) — sql 파일 최신 idx vs journal 마지막 idx 일치 + resync_marker 이후 미등록 sql 검출. 실패 시 exit 1 + 한국어 해결 안내.
+  - `package.json` `"db:check"` 스크립트 + **`CLAUDE.md` 검증 명령 체인에 편입** (`tsc && lint && build && db:check`). Task 완료 선언 전 자동 실행 경로.
+  - `docs/db-migrations-workflow.md` — 경로 A(drizzle 먼저) vs 경로 B(MCP 먼저 + noop marker 후속) + NNNN 번호 규칙 체크리스트.
+- **실효성 증명**: Task B에서 `activity_logs.pii_scrubbed_at` 컬럼을 경로 A(drizzle 먼저)로 추가 → drizzle이 `0037_chemical_timeslip.sql` + journal entry 자동 생성 → `db:check` 즉시 통과. **같은 세션에서 제도가 payoff**됨.
+- **규칙**:
+  1. **같은 문제가 2번 재발하면 문서/주석 강화는 충분하지 않다** — "사람이 기억하고 지켜야 하는 규칙"은 결국 빠진다. 자동 검증 스크립트 + 검증 명령 체인 편입 **한 세트**로 제도화.
+  2. **외부 도구(MCP / SaaS API)가 프로젝트의 내부 상태를 건드릴 수 있는 경로는 반드시 정합성 체크 가드 둘 것** — MCP apply_migration / Supabase Studio manual SQL / 수동 DB edit 등 drizzle journal 바깥 경로가 존재하면 drift 조기 탐지가 Day-1 필수.
+  3. **정합성 체크 스크립트는 pure Node + 외부 deps 없이** — tsx/ts-node 같은 런타임 의존성은 설치/버전 이슈로 가드 자체가 작동 안 할 리스크. `.mjs` + `node:fs` 만으로 충분.
+  4. **체크 스크립트에도 code review 받기** — regex substring vs anchored 차이가 silent false-negative 원인. cwd 상대경로 vs 절대경로는 다른 working dir에서 stack trace 노출. 가드 코드 자체가 신뢰도를 결정.
+
+## 2026-04-24 — PII 익명화는 **상위 tx commit 후 별도 tx**로 격리 + deterministic workspace-scoped pseudonym (Task B — audit-4)
+
+- **증상**: `activity_logs.metadata.email` 평문 저장 구조에서 감사 로그 PII 라이프사이클 정책이 미비. 초대 이벤트(create/revoke/accept) 종료 시점에 평문이 영구 잔존. 원래 Phase 5.5 빌링과 함께 예정이었으나 빌링은 외부 PG 계약 대기 중 → 정책 문서화 + 최소 구현 필요.
+- **핵심 결정 2가지**:
+  1. **scrub은 별도 transaction** — `revoke/accept` 같은 비즈니스 액션 tx가 commit된 **후** 별도 tx로 scrub 실행. 호출부는 `try/catch` swallow + `event: invitation.pii_scrub_failed` 구조화 로그. 이유: scrub 실패가 비즈니스 성공 응답을 rollback시키면 UX가 맞지 않고(사용자가 `성공/실패` 이중 상태 인지), scrub은 **감사 증거 정리**라 본 업무보다 낮은 critical path.
+  2. **deterministic workspace-scoped pseudonym** — `sha256(email:workspaceId:salt).slice(0,16)`. 같은 email+workspace는 **같은 pseudonym**(감사 추적성 유지). workspace 격리(tenant 간 cross 추적 방지)는 hash 입력에 workspaceId 포함으로 구현. 16자 hex = 2^64 공간 → workspace 내부 충돌 실질 0.
+- **회귀 방지 설계 3가지**:
+  1. **멱등 가드** — `WHERE pii_scrubbed_at IS NULL` (이미 scrub된 row 재처리 skip) + `!email.startsWith("pii:")` 코드 가드 (이미 pseudonym을 다시 hash하지 않음).
+  2. **salt 회전 금지** — production salt가 바뀌면 같은 email이 다른 pseudonym으로 분기 → 기존 scrub된 row와 불일치. 감사 추적성 단절. `docs/pii-lifecycle.md` §6 "금지 사항"으로 격상 + 코드로는 막을 수 없음(규칙으로만 강제).
+  3. **env 방어 2중** — (1) `PII_PSEUDONYM_SALT` 미설정 시 production 부팅 차단 (2) `"dev-only-salt-do-not-use-in-prod"` 문자열 자체를 prod에 설정한 경우도 차단. 모두 `env.ts` zod superRefine에서.
+- **규칙**:
+  1. **감사 증거 정리(PII scrub/audit cleanup 등)는 본 업무와 별도 tx로 격리**. 실패해도 본 응답은 유지. 호출부는 try/catch + 구조화 로그. "원자성이 필요한가"를 **두 작업의 실패 허용도가 다른가**로 판단.
+  2. **pseudonym은 deterministic + tenant-scoped** — 같은 입력이 항상 같은 출력이어야 감사 추적성 유지. tenant(workspace) 격리는 hash 입력에 tenant ID 포함으로.
+  3. **salt 회전 가능성이 감사 추적성을 무효화한다** — 이게 감사 로그용 pseudonym의 본질적 한계. 문서화하고 금지 사항에 명시, 회전이 정말 필요하면 per-email translation table을 먼저 도입 (별도 Task).
+  4. **정책 문서의 PII 표에 "현재 scrub 대상 여부" 컬럼 필수** — 정책이 "이 필드는 PII"라고만 명시하고 구현이 일부만 scrub하면 drift 위험. "정책상 PII이지만 빌링과 함께 구현 예정"을 표로 명시.
+  5. **shallow copy 유틸은 docblock에 SHALLOW ONLY 경고** — 향후 metadata 구조에 중첩 필드 추가 시 silent PII 유출 가능. 재귀 처리 전까지 top-level key 화이트리스트 또는 명시적 경고 유지.
+
+## 2026-04-24 — 외부 서비스(결제 PG 등) 계약 전 **Provider 추상화 + Mock 선개발** 패턴 (Task C — Billing Mock Design)
+
+- **증상**: Epic 5-3 Billing 원래 PRD는 "Stripe 우선"이었으나 Jayden 결정으로 **한국 PG사(토스페이먼츠/포트원) 계약 후 연동**으로 전환. 계약 체결 전까지는 개발 진행 필요.
+- **설계**: `PaymentProvider` 인터페이스 추상화 + `MockPaymentProvider` 구현 + env flag `PAYMENT_PROVIDER=mock|toss|portone`.
+  - Mock도 **DB-backed** (in-memory 아님) — Vercel 서버리스 / Next.js 재시작 환경에서 일관성. `mock_payment_sessions` / `mock_subscriptions` 테이블 신규.
+  - Mock Checkout은 **실 플로우와 동일한 모양** — redirect URL → fake checkout 페이지(공개 라우트) → success/fail 시뮬 버튼 → Mock Webhook 호출 → 상태 업데이트. UI/UX E2E 리허설 가능.
+  - 6개 메서드만 인터페이스 노출: `ensureCustomer` / `createCheckoutSession` / `verifyAndParseWebhook` / `getSubscription` / `createPortalLink` / `updateSubscription`. **Stripe / 토스 / 포트원 공통분모** → 어떤 PG 계약 완료 시에도 UI/비즈니스 로직 재작업 최소.
+  - **보안 등급 지연** — Mock 기간 🟡 유지 (돈 안 오감), 실 PG 연동 시점에 🔴 전환. 이 덕분에 Mock 기간에는 자동화/코드 작성 제한 없이 진행 가능.
+- **DB 스키마 Provider 중립화** — 기존 `workspaces.stripeCustomerId` 같은 Stripe-specific 이름 → `externalCustomerId` + `paymentProvider` flag로 전환 계획. CHECK 제약 enum(`free`|`active`|`past_due`|`canceled`|`paused`)에서 `free` → `none`으로 변경해 "결제 상태"와 "플랜"을 분리 (플랜은 `workspace_settings.plan`, 상태는 `workspaces.subscription_status`).
+- **Phase 전환 시 변경 범위 사전 정의** — 계약 완료 후 교체 대상은 **Provider 구현체**만. UI / 한도 enforcement / DB 스키마 / 청구서 인프라 전부 유지. Mock 전용 테이블(`mock_*`)만 drop.
+- **규칙**:
+  1. **외부 계약(PG / 공급사 등)이 확정되기 전에 개발을 기다리지 말고 Provider 추상화로 선행** — 계약 협상은 몇 주~몇 달 소요. 그 기간을 UI/비즈니스 로직 구현에 쓰면 계약 완료 시점 착수 비용 크게 감소.
+  2. **Mock도 DB-backed로** — in-memory는 로컬 개발만 가능, 실제 배포 환경에서 state가 휘발. fake provider라도 외부 동작 모방은 **실 플로우와 동일한 모양** 원칙.
+  3. **인터페이스 시그니처는 최대공약수** — Stripe가 제공하는 고유 기능(예: Stripe Tax, Stripe Billing Thresholds)을 상위 코드에 노출하면 PG 교체 시 그 부분 재작업. 공통분모(Customer / Subscription / Checkout / Webhook / Portal)만 인터페이스로.
+  4. **보안 등급 전환은 실제 돈 오가는 시점** — 🟡 → 🔴 전환을 "계약 시점"으로 오해하지 않기. Mock 기간 자동화 허용 유지, 실 연동 시점부터 🔴 엄격 모드.
+  5. **DB 스키마는 Day-1부터 provider 중립 네이밍** — `stripeCustomerId` 같은 특정 provider 이름 지양, `externalCustomerId` + `paymentProvider` 컬럼 조합. 나중 마이그레이션 비용 절약.
+  6. **플랜 한도 enforcement는 Mock과 무관한 영역** — 실제 동작 필요 (플랜별 멤버/프로젝트 수 제한). 이 부분은 Mock Phase에서도 real 코드로 구현 → Phase B 전환 시 변경 없음.
+
+## 2026-04-24 — Drizzle `db.transaction(..., { isolationLevel, accessMode })` 공식 config가 수동 `SET TRANSACTION`보다 안전 — 오탈자/순서 실수 원천 차단 (Task 5-5-2 후속 HIGH-1 reviewer LOW-1)
+
+- **상황**: Task 5-5-2 후속 HIGH-1으로 `/dashboard/members/page.tsx`의 4개 독립 SELECT(memberRows / invitationRows / settingsRow / pendingCountRow)를 단일 transaction + REPEATABLE READ snapshot으로 묶어 race 가드. 초안에서 `db.transaction(async (tx) => { await tx.execute(sql\`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ\`); ...})` 으로 수동 SET. code-reviewer가 "Drizzle 공식 API가 config 인자로 같은 기능을 더 안전하게 제공 (`{ isolationLevel: "repeatable read", accessMode: "read only" }`)"을 LOW-1로 제안.
+- **수동 SET vs 공식 config 비교**:
+  - 수동: 문자열 오탈자(e.g. "REPEATABLE-READ" 하이픈) 리스크, BEGIN 직후 첫 statement로 실행돼야 snapshot 고정 유효 — callback 첫 줄에서 await 순서 실수 가능.
+  - 공식 config: Drizzle이 `BEGIN` 직후 `SET TRANSACTION` 자동 발행 + **`accessMode: "read only"` 추가 시 INSERT/UPDATE가 섞이면 PG가 거부** → read-only 의도를 타입/런타임 양쪽에서 강제.
+- **해결**: `db.transaction(async (tx) => { ... }, { isolationLevel: "repeatable read", accessMode: "read only" })`으로 전환. 수동 `SET TRANSACTION` 제거. 별도로 `statement_timeout = '3s'` (sec M1)는 여전히 `tx.execute(sql\`SET LOCAL ...\`)`로 처리 — isolation level/accessMode와 별개 축.
+- **규칙**:
+  1. **Drizzle transaction에서 isolation level/accessMode 강제가 필요하면 config 인자 사용**. 수동 `SET TRANSACTION`은 "Drizzle API가 제공하지 않는 케이스"(e.g. `SET LOCAL statement_timeout`)에만. 두 방법 혼용하되 역할 분리 명확.
+  2. **Read-only transaction은 `accessMode: "read only"` 명시가 이중 방어**. read-only 의도 코드에 실수로 INSERT/UPDATE가 섞이는 회귀를 PG 레벨에서 차단. 성능 오버헤드 거의 0.
+  3. **REPEATABLE READ snapshot은 transaction 시작 시점에 고정** — callback 안 SELECT 순서 무관. read-only 부하에서는 serialization failure/write skew 위험 0.
+  4. **side effect(`console.error` 등)는 transaction 밖으로 이동** — transaction abort 시 로그 소실 방지 + snapshot 순수성 유지. transaction 안에서 snapshot 데이터만 뽑아 return → 밖에서 가공/로깅.
+
+## 2026-04-24 — `pg_advisory_xact_lock(hashtext(uuid))`의 32-bit 공간 한계 — 2-key 변형은 네임스페이스 상수일 때 효과 없음, `hashtextextended`로 64-bit 확장이 본질적 해결 (Task 5-5-2 후속 HIGH-2)
+
+- **상황**: Task 5-5-2 `createInvitationAction`/`acceptInvitationAction`에서 `pg_advisory_xact_lock(hashtext(workspaceId))`로 동시 멤버 추가 race 방어. `hashtext`는 int4(32-bit) 반환 → sqrt(2^32) ≈ 65536 워크스페이스 시점에 생일 역설로 50% 충돌. 충돌 시 무관한 ws가 불필요하게 직렬화되어 latency 영향 (데이터 정합 영향 없음). PROGRESS.md 후속 Task로 "2-key advisory lock 전환"이 적혀있었으나 실제 분석 결과 방향 재검토 필요.
+- **2-key 방식의 함정**:
+  - PG advisory lock signature: `pg_advisory_xact_lock(key1 int4, key2 int4)` — 두 32-bit를 **독립 키 공간의 한 좌표**로 인식. 즉 (1, 0) ≠ (1, 1).
+  - 그러나 `key2`를 상수(e.g. `hashtext('workspace-members')`)로 두면 실질 사용 공간은 key1의 2^32 — **공간 확장 효과 없음**. 2-key를 유의미하게 쓰려면 key2에도 variable 필요 (e.g. `(uuid_top32, uuid_bottom32)` UUID 분할) — 복잡도 ↑.
+  - PG 공식 문서: "The two key spaces are distinct from each other, i.e., keys in one space cannot conflict with keys in the other" — 오독 시 "상수 key2로 확장" 착각 유발.
+- **해결**: `pg_advisory_xact_lock(hashtextextended(${workspaceId}, 0))`. PG 11+ 표준 64-bit 해시(`hashtextextended(text, bigint) → bigint`). `pg_advisory_xact_lock(bigint)` signature와 직접 매칭. 공간 2^32 → 2^64 → ~42억 ws 시점 50% 충돌 — 실질 0. Cloud Supabase에서 `pg_typeof(hashtextextended(text, 0)) = 'bigint'` + xact lock 획득/자동 해제 검증 완료.
+- **규칙**:
+  1. **PostgreSQL advisory lock 공간 확장은 `hashtextextended(text, 0)` 우선**. `pg_advisory_xact_lock(bigint)` signature와 자연 매칭 + 한 줄 변경. PG 11+ 기본 내장이라 extension 불필요.
+  2. **2-key `(int4, int4)` 변형은 key1/key2 둘 다 가변일 때만 공간 확장**. 상수 네임스페이스로 2-key를 쓰는 건 의미 없는 코드 복잡도 — 개선 효과 0.
+  3. **advisory lock seed 상수 선택은 네임스페이스 격리 vs 공간 효율 trade-off**. `hashtextextended(uuid, 0)`처럼 seed=0 통일이 발송/수락 양측 같은 key space 공유 (invariant 직렬화 의도). 서로 다른 resource면 seed 분리하되 `hashtextextended`는 seed=bigint라 풍부한 분리 공간 확보.
+  4. **이 유형의 개선은 "기존 설계의 대체"가 아닌 "내부 함수만 swap"** — 한 줄 변경, 기존 locking semantic 유지, 회귀 리스크 최소. 공간 확장은 생일 역설로 시각화 → 1만 ws 시점(50% 충돌) → 선제 조치가 저비용.
+
+## 2026-04-24 — Next.js 16.2 async instrumentation hook은 "Ready" 메시지 뒤에 평가 — "Ready 직후 dying" 로그 패턴은 env validation 실패 우선 의심 (Task 5-5-1 MED-4 실증)
+
+- **상황**: Phase 5.5 Task 5-5-1 MED-4 "instrumentation 부팅 차단 실증"을 위해 `NEXT_PUBLIC_APP_URL=''` shell env override + `pnpm start` 실행. 출력 로그:
+  ```
+  ▲ Next.js 16.2.4
+  - Local:         http://localhost:3700
+  ✓ Ready in 99ms
+  ...
+  Failed to prepare server Error: An error occurred while loading instrumentation hook:
+  [env] 환경변수 검증 실패 (NODE_ENV=production):
+    - NEXT_PUBLIC_APP_URL: 앱 베이스 URL — 초대/포털 링크 생성에 사용
+  ...
+  ⨯ unhandledRejection: Error: An error occurred while loading instrumentation hook:
+  ```
+- **관찰**: "Ready in 99ms" 메시지가 먼저 출력된 후 instrumentation hook async loading 실패. HTTP 포트는 바인드된 상태에서 instrumentation hook async 평가가 실패 → `Failed to prepare server` → `unhandledRejection` → 프로세스 exit. 즉 **Next.js 16+ instrumentation은 HTTP listen 후 평가되는 비동기 경로 존재**.
+- **운영 의미**:
+  - 헬스체크 도구가 "`/` 도달 전 포트 open" 만으로 ready 판정하면 false positive 가능.
+  - 로그에 "Ready in 99ms" 다음 "Failed to prepare server" 조합이 나타나면 **env validation 실패 우선 의심** (다른 instrumentation 에러보다 흔함 — 배포 시 env 누락이 가장 빈번).
+  - `unhandledRejection` 스택 트레이스에 `instrumentation.js` 경로가 보이면 → `register()` 내부 throw → 우리 `src/instrumentation.ts` → `src/lib/env.ts` `validateEnv()` 체인 추적.
+- **실증 방법론 교훈**:
+  - `next build`는 `register()`를 호출하지 않음 → env validation 실증 불가. `next start`/`next dev`가 실제 경로.
+  - shell `VAR=''` override로 `.env.local` 값을 덮어 쓸 수 있음 (shell env > .env 파일 우선순위). 단 **Next.js가 빈 문자열을 "set"으로 인식 → `z.string().url()` 등 포맷 검증 실패**. 이 경로로 .env.local 수정 없이 검증 가능.
+  - envSchema 단위 검증(시나리오 4건, 임시 스크립트)도 병행 실시 후 스크립트 즉시 삭제(schema duplication drift 리스크 회피).
+- **규칙**:
+  1. **운영 로그에서 "Ready 직후 dying" 패턴은 instrumentation 에러 우선 의심**. `unhandledRejection` + `instrumentation hook` 키워드 조합 로그 grep을 모니터링 룰로 추가 고려.
+  2. **Next.js instrumentation 변경은 `next start` 또는 `next dev` 로컬 실증 필수**. `next build` 통과는 register() 동작 보증 안 함. CI 파이프라인에 "env 누락 시 start 실패" 검증 단계 추가 고려 (별도 Task).
+  3. **env-level 실증은 shell override로 충분** — `.env.local` 직접 수정보다 안전. `VAR=''` 또는 Node `--env-file` + `delete process.env.X` 조합.
+  4. **임시 검증 스크립트는 schema 복제 → 사용 직후 삭제**. 영구 CI 테스트로 승격 시 env.ts와 schema 공유 (zod export) — drift 방지 필수.
+
+## 2026-04-24 — pg_cron cleanup cron 임계는 "최장 활성 window + buffer", DROP EXTENSION은 Supabase plan extension이라 절대 금지 (Task 5-5-4 rate-1)
+
+- **상황**: Task 5-5-4 rate-1으로 `rate_limit_counters` 자동 정리 cron 도입. 순진한 접근은 "최장 활성 window(3600s=1h) 초과 row 삭제" — 즉 `NOW() - INTERVAL '1 hour'`. 그러나 경계 race(cron 실행 tick과 마지막 UPSERT 사이 1초 내 활성 row가 `1h - 1s`였다가 cron이 `1h + 1ms` 시점에 판단 → 아직 사용 중인 row 삭제 가능성) 위험. 동시에 롤백/확장 경로 설계 필요.
+- **해결 3축**:
+  1. **임계 = 최장 활성 window + buffer** → `NOW() - INTERVAL '2 hours'` (1h + 1h buffer). 활성 row 실수 삭제 risk 0, 저장 낭비는 2h분이라 베타 트래픽에서 무시 가능. 규칙: buffer는 최소 cron 주기와 동일 이상 (매시 cron → 1h buffer).
+  2. **cron 주기는 비용/row 잔존 시간 trade-off** → `0 * * * *` (매시 정각). row 잔존 < 1h + 매시 DELETE 비용 미미. 확장 시 thundering herd 대비해 후속 job은 offset(`5 * * * *`, `15 * * * *`) 권장.
+  3. **DO $$ 블록 unschedule 실패 시 EXCEPTION WHEN OTHERS THEN RAISE NOTICE fail-soft** → production migration rerun이 중간 실패로 차단되는 경로(incident 대응 지연) 봉쇄. schedule 단계는 fail-fast 유지 — 실제 문제 노출이 맞음.
+- **DROP EXTENSION 금지 원칙** (sec L1):
+  - Supabase Cloud의 `pg_cron`은 **plan extension** — 내부 관리 cron job들이 의존 (realtime / pgsodium 등). `DROP EXTENSION pg_cron`은 프로젝트 전체 cron 인프라 파괴.
+  - 후속 Task(cleanup cron 추가)도 같은 extension 공유 → 한 곳에서 drop하면 모두 파괴.
+  - 롤백 주석에 "⚠️ DROP EXTENSION pg_cron 절대 금지" 명시 필수. 정리 필요 시 Supabase Support 경유.
+- **규칙**:
+  1. **Cleanup cron 임계 = 최장 활성 window + cron 주기 이상 buffer**. 경계 race + clock skew + lock contention으로 인한 활성 row 실수 삭제 방어. buffer 없는 1h 임계는 간헐적 rate limit 무효화 위험.
+  2. **멱등 migration의 unschedule류 destructive step은 EXCEPTION fail-soft**. schedule/create류는 fail-fast 유지 (실제 의도 실패 노출). 두 방향이 혼재하면 재적용 시 절반 실패 → stuck state.
+  3. **Supabase Cloud plan extension(`pg_cron`, `pg_net`, `pgsodium` 등)은 migration에서 DROP 절대 금지** — 내부 관리 cron/function 파괴. 롤백 주석에 명시 + 후속 Task 검토 시 재확인. extension 자체를 정리해야 하면 Support 티켓.
+  4. **Drizzle journal 미갱신 수동 SQL 패턴(이 프로젝트 0032~0035)은 팀 규모 확장 시 혼란 리스크**. 신규 환경(staging/CI)에서 `drizzle-kit migrate`가 0034/0035 재apply 가능 (멱등 SQL이라 문제 없지만 상태 추적 불가). 제도적 해결(migrations/README + drizzle journal 수동 갱신) 필요 — Phase 5.5 후속 Task로 분리 (Task 5-2-2g와 동일 패턴 반복).
+
+## 2026-04-23 — 구조화 로그 `event` 필드 표준 + 민감값 제외 + sanitize 유틸 분리 (Task 5-5-5 cleanup 묶음 + reviewer)
+
+- **상황**: Task 5-5-5 cleanup에서 `console.error` 9군데가 "일기장" 스타일(`"[file/action] message", { name, ... }`)로 흩어져 있어 Vercel/Datadog에서 grep/필터링 어려움. 운영 중 "어떤 카테고리 에러가 가장 많이 발생하나?" 질문에 답하려면 한 군데씩 수동 집계해야 함. 동시에 stuck row(email 실패 + revoke 실패 double-fault) 발생 시 `invitationId`/`workspaceId` 등 복구 컨텍스트가 로그에 없어 수동 복구 불가.
+- **해결**:
+  1. **`event: "domain.action"` 네임스페이스 표준 도입**. 로그 객체 최상단 필드에 `invitation.url_build_error`, `invitation.insert_error`, `invitation.revoke_stuck_row`, `workspace_settings.missing_fallback` 등 도메인 접두어로 분류. grep 1회로 "event=invitation." prefix 전체 쿼리 가능.
+  2. **민감값 제외 원칙 유지**: email/token 로그 금지, server-only UUID(`invitationId`)만 박제. stuck row 운영자는 `invitationId`로 DB SELECT 1회면 수동 정리 가능.
+  3. **sanitize 유틸 분리 (`sanitizeFreeText` vs `sanitizeLogMessage`)**:
+     - `sanitizeFreeText`(기존): 사용자 자유 텍스트 — tab/newline 보존 (자연 입력 허용).
+     - `sanitizeLogMessage`(신규): 로그 전용 — tab/newline/ANSI escape 모두 공백 치환 (한 줄 로그 오염 방지 + 로그 인젝션 차단).
+     - 두 유틸이 같은 파일에 공존하되 정책 차이(tab/newline 처리)가 목적 차이(자연 입력 vs 로그 라인)에서 기원.
+- **규칙**:
+  1. **새 `console.error` 도입 시 `event: "domain.action"` 필드 필수**. 도메인 접두어 명명: `invitation.*`, `workspace_settings.*`, `portal.*`, `payment.*` 등 1-depth 그룹 유지 (`invitation.revoke.stuck_row` 같은 2-depth는 피함 — grep 복잡).
+  2. **로그 객체 최상단 4필드 순서 표준**: `event` → `invitationId`/`workspaceId` 등 식별자 → `reason`(정책 분기) → 에러 상세(`name`/`message`/`pgCode`). 운영자가 필드 위치로 의미 즉시 파악.
+  3. **외부 유입 문자열(`err.message`, `causeMessage`)은 `sanitizeLogMessage` 후 `.slice(200)`** 체인. sanitize → slice 순서 (sanitize가 길이 증가시키지 않으므로 순서 무관하지만 관례로 통일).
+  4. **민감값 분리 정책 유지**: server-only UUID(`invitationId`, `workspaceId`) = 로그 허용. PII/토큰(email, auth token, password) = 로그 금지. 중간 영역(`pgCode`, `causeName`)은 Postgres 표준 코드라 허용.
+  5. **stuck row(double-fault) 같은 복구 필요 상황은 `event`로 구분 가능하게 + 운영자가 DB로 찾아가는 데 필요한 최소 식별자만 박제**. Sentry/Datadog 실시간 알림은 별도 Task(인프라 레벨).
+  6. **revoke/delete 류 `UPDATE WHERE` 쿼리는 수동/자동 경로 모두 `isNull(revokedAt)+isNull(acceptedAt)` 가드 패턴 통일**. race로 이미 처리된 row를 재처리하면 audit log 중복/오기록. 가드 추가 비용 거의 0, invariant 일관성 가치 큼.
+
+## 2026-04-23 — Rate limit IP null 정책 — 공유 "unknown" 버킷은 false positive 비용이 abuse 방어 가치보다 큼 (Task rate-4 review code MED-2 + sec MED-1)
+
+- **상황**: Task 5-5-4 rate-4로 contact form(`submitInquiryAction`)에 IP 기반 rate limit 도입. 초안에서는 `extractClientIp()`가 null 반환 시 `"unknown"` 공유 버킷(`inquiry:ip:unknown:m`)으로 묶어 전역 제한. 의도는 "헤더 조작으로 우회 시도하는 봇도 unknown에 묶여 차단". code + security reviewer 모두 MEDIUM으로 지적:
+  - Vercel 환경에서는 XFF 자동 주입되어 null 가능성 낮으나, **self-hosted/로컬/비표준 proxy**에서는 모든 사용자가 unknown 한 버킷에 묶임.
+  - 분 3회 한도 공유 → 정상 사용자 3명이 각 1회 전송하면 4번째 사용자부터 차단.
+  - 모바일 앱이 XFF 미설정으로 요청하는 케이스도 잠재적 피해.
+- **trade-off 분석**:
+  - **공유 버킷 유지**: 이론상 헤더 제거 봇 차단. 실제로는 봇도 IP 하나는 있고 CDN이 주입 → 효과 제한적. false positive(정상 희생) 피해 큼.
+  - **IP null skip**: false positive 0. 봇 방어는 1차선(honeypot + timing guard + Zod)에 위임 — timing 3초 하한이 대다수 봇 차단.
+  - 소규모 서비스(dairect 베타)는 정상 사용자 희생이 치명적 → **skip 채택**.
+- **해결**: `if (ipAddress) { ... rate limit 검사 ... }` — IP 있을 때만 rate limit 적용. null은 1차선 방어에 위임.
+- **규칙**:
+  1. **Rate limit 식별자가 null일 때의 정책은 명시적 결정**. 공유 버킷(묶기)/skip(패스)/reject(무조건 차단) 3가지 중 서비스 규모 + 1차선 방어 강도로 선택. 소규모 + 1차선 강함 → skip이 default.
+  2. **공유 버킷은 false positive 비용을 먼저 계산**. 한도(분 N)를 "공유하는 정상 사용자 수"로 나눈 값이 한 사람당 실질 한도. 3명이 분 3 공유 = 1인당 분 1회 — 너무 빡빡함.
+  3. **1차선 방어가 있으면 rate limit은 "추가 레이어"로 설계**. 1차선(honeypot/timing/Zod)만으로도 봇 방어 가능하면 rate limit null skip은 안전. 1차선이 없는 엔드포인트는 null skip 대신 reject(무조건 차단) 고려.
+  4. **IPv6 /64 그룹핑은 공통 인프라 Task로 분리**. 수천 IP로 rate limit 우회는 IP 기반 엔드포인트 전체 엣지 — 개별 엔드포인트가 아닌 `rate-limit.ts` 레벨에서 처리.
+  5. **검사 순서: honeypot/timing 먼저 → rate limit → Zod parse**. 봇은 1차선에서 `success: true` fake로 탈락해 카운터 소진 안 함 → 정상 사용자의 실질 한도 보호.
+
+## 2026-04-23 — 3rd party 정책 수치는 문서에 박제 금지 — 링크 + 날짜 스탬프로 문서 rot 방지 (Task rate-4 review sec MED-3)
+
+- **상황**: Task rate-4에서 env-setup.md에 Supabase GoTrue Auth Rate Limit 가이드 섹션 신설. 초안에서는 "Sign up / Sign in (password): 30/5min per IP" 등 구체 수치를 표로 박제. security-reviewer가 MEDIUM으로 지적:
+  - Supabase는 플랜(Free/Pro/Enterprise)에 따라 수치가 다르고 Dashboard UI에서 hourly 단위로 표시 (분 단위 표기와 괴리).
+  - 문서에 박제된 수치가 실제 현재값과 불일치하면 운영자가 오인식 → abuse 탐지 시 잘못된 한도 기준으로 판단.
+  - 외부 정책은 공급자 정책 변경에 따라 자동 drift → 문서 rot가 시간 지남에 따라 악화.
+- **해결**: 수치 박제 제거 → Supabase Dashboard 참조 + 공식 링크 2건(`going-into-prod`, `auth-rate-limits`) + "현재값은 Dashboard에서 확인" + "분기 점검 시 현재값 + 점검 날짜 기록 권장" 문구로 교체.
+- **규칙**:
+  1. **3rd party 공급자 정책 수치는 내부 문서에 박제 금지**. 공급자 Dashboard/공식 문서 링크로 대체. 수치는 "대략적 카테고리"(IP당 단시간 N회, 이메일당 시간 단위 제한)로만 표기.
+  2. **박제가 불가피하면 날짜 스탬프 필수**: "2026-04-23 기준 Supabase Free plan 기본값 X" 형식. 스탬프 없으면 문서 rot 시 아무도 오류를 인지 못 함.
+  3. **운영 가이드에 "분기 점검 + 현재값 기록" 루틴 명시**. 공급자 정책 변경을 선제 감지하려면 subject(운영자)가 주기적 확인을 해야 함. 문서가 루틴을 안내.
+  4. **공급자 공식 링크 2건 이상 첨부**(going-into-prod + 해당 기능 상세). 링크 하나만이면 rot(404) 리스크. 여러 경로로 진입 가능하게.
+  5. **반대로 자체 앱의 한도값(INVITE/INQUIRY env 기본값)은 박제 OK**. 내부에서 통제하므로 drift 없음 + env 설정 참조 가치 있음. 외부 vs 내부 구분 중요.
+
+## 2026-04-22 밤 — Fail-fast의 양면성 — startup 검증을 부가 시스템에 적용하면 1개 오설정으로 전체 앱 부팅 차단되는 가용성 회귀 + env 한도값은 빈 문자열/0/NaN 가드 + zod regex 이중 방어 (Task 5-5-5 review HIGH-1 + MED-1)
+
+- **상황**: Task 5-5-5에서 잔여 정리 7건 묶음 처리 중 두 가지 fail-fast 관련 결정에 대해 reviewer가 다른 권고를 함:
+  - **Case A — 핵심 시스템 (rate limit env)**: `INVITE_RATE_LIMIT_PER_MINUTE/HOUR`에 `Number(process.env.X ?? 5)` 만 사용 → env가 `""`/`"0"`/`"NaN"`이면 limit=0 → 모든 admin 첫 초대부터 RATE_LIMITED 차단. **fail-closed로 보안은 안전하지만 운영 가용성 0**. 두 리뷰 모두 HIGH로 지적.
+  - **Case B — 부가 시스템 (n8n webhook URL)**: env.ts에 `z.string().url().optional()`로 형식 강제 → 운영자가 잘못된 URL 1개 입력 시 production 부팅 차단 → **n8n과 무관한 dashboard도 죽음**. code reviewer MED.
+- **두 케이스의 핵심 차이**:
+  - Case A: 한도값이 의도와 다르면 즉시 모든 사용자 영향 → fail-closed가 위험. 가드 추가 필요.
+  - Case B: 부가 시스템 오설정은 본래 client.ts의 `new URL(raw)` try/catch graceful 처리로 해당 워크플로만 no-op 가능. startup fail-fast가 graceful한 기존 정책을 역전시켜 가용성 risk 증대.
+- **해결**:
+  - Case A: parseRateLimit 헬퍼 추가 (`!envVal || !Number.isFinite(n) || n <= 0` → fallback to default) + env.ts regex `^[1-9]\d*$`로 zod 단계에서도 "0" 거부. **두 곳에서 같은 invariant 강제 (defense-in-depth)** — env.ts 우회 시나리오/race 모두 방어.
+  - Case B: env.ts에서 `.url()` 제거하고 `z.string().optional()`로만. graceful 처리에 위임. 정책 결정을 코드 주석에 명시.
+- **규칙**:
+  1. **Fail-fast의 적용 대상은 "이 값이 잘못되면 시스템 핵심 기능이 정상 작동 못 하는 경우"로 한정**. 핵심: Supabase URL, DATABASE_URL, RESEND production. 부가: n8n webhook, optional integration → graceful 처리에 위임.
+  2. **부가 시스템에 fail-fast를 추가하기 전 "기존 graceful 처리가 있는가?" 확인**. 있으면 fail-fast가 graceful을 역전 → 운영 risk ↑. 없으면 fail-fast가 첫 가드 → OK.
+  3. **env 한도/임계값 변수화 시 항상 가드 4종**:
+     - 빈 문자열 → fallback (`if (!envVal) return fallback`)
+     - 비숫자/NaN → fallback (`!Number.isFinite(n)`)
+     - 0 이하 → fallback (`n <= 0`)
+     - 정수 강제 (`Math.floor(n)`)
+  4. **zod env 검증 + 코드 fallback은 중복이 아닌 이중 방어**. zod가 env.ts 단계에서 부팅 차단해도 코드의 fallback이 race/우회/typo 모두 방어. 같은 invariant를 두 곳에서 강제하는 게 비용 < 가용성 가치.
+  5. **fail-closed가 운영 가용성 0이 되는 경우는 fail-open으로 전환 검토**. rate limit limit=0이면 모든 사용자 차단보다 default(5)로 fallback이 안전. 단 이 정책은 보안 리뷰와 함께 결정 — 무조건적인 fail-open은 abuse 위험.
+  6. **fail-fast 정책 변경(Case B)은 learnings.md에 명시**. "왜 .url() 검증을 안 두었는지" 후속 개발자가 추가하려는 시도를 사전에 차단 (반복 검토 비용 절감).
+
+## 2026-04-22 밤 — Multi-tier rate limit(분/시간)에서 양쪽 카운트 동시 증가는 정상 user 부당 차단 → short-circuit으로 정상 user 보호 우선 (Task 5-5-4 리뷰 HIGH-1)
+
+- **상황**: createInvitationAction abuse 방어로 fixed window counter(Supabase 기반) 도입. 분당 5회 + 시간당 20회 두 단계 한도. 초안에서는 두 체크를 독립 await으로 호출 → 분 한도 차단 시에도 시간 카운트도 +1. code-reviewer가 "정상 admin이 abuser 트래픽 직후 합법 사용 시 시간 한도(20)에 부당 도달"을 HIGH로 지적.
+- **부당 차단 시나리오**:
+  1. abuser X가 분당 5회 시도 → 분 한도 도달, 시간 카운트도 5
+  2. 1분 후 X가 다시 5회 → 분 reset되어 통과 + 시간 카운트 10
+  3. 4분 후 시간 카운트 20 도달 → **모든 사용자**가 1시간 동안 차단 (X 외 정상 admin Y도 영향)
+  - 분 한도가 abuser X에게만 적용된다고 착각하기 쉬우나, 같은 userId라면 X=Y인 경우(같은 admin이 정상 운영 중 잠시 abuse 의심 트래픽). 다른 userId면 X와 Y는 별개 → 영향 없음. 다만 같은 userId의 한도에서 "분 차단 → 시간 카운트도 누적"은 정상 admin 본인의 두 한도가 의도와 다르게 빠르게 소진되는 효과.
+- **본질**: multi-tier rate limit 설계에서 "더 짧은 window가 차단되면 더 긴 window는 카운트하지 않음" (short-circuit) vs "양쪽 모두 카운트하여 abuse를 모든 tier에 누적" (full count) 두 정책의 trade-off:
+  - **Short-circuit**: 정상 user 보호 + UX 친화. abuser는 짧은 window 차단을 피해 "burst → wait → burst" 패턴으로 긴 window 우회 시도 가능 (다만 4분만에 시간 한도 도달이라 큰 우회 아님).
+  - **Full count**: 모든 tier에 abuse 시도 누적 → 강한 deterrent. 단 정상 user가 분 차단 후 시간 한도에 빠르게 도달.
+- **해결**: short-circuit 채택. 분 한도 차단 시 시간 카운트 skip. abuser가 우회 시도해도 4분 만에 시간 한도(20) 도달 — 긴 우회는 불가.
+- **규칙**:
+  1. **Multi-tier rate limit은 default short-circuit**. 정상 user 보호가 우선이고, abuser 누적 효과는 "burst → wait → burst" 우회 비용으로 이미 차단 효과 충분.
+  2. **Full count 채택은 명시적 deterrent 의도가 있을 때만**. 그 경우 코멘트로 "의도: 분 차단 시에도 시간 카운트 → 지속 abuse가 시간 한도까지 강제 도달" 명시 — 향후 유지보수 시 혼동 방지.
+  3. **fail-closed 시 retryAfterSec를 windowSec 그대로 노출하면 부정확 안내 위험**. windowSec=3600(시간 한도)이면 "3600초 후 다시 시도" 메시지 노출 → 보수적으로 60초 캡 (`Math.min(windowSec, 60)`) — 사용자 안내는 짧게, 실제 차단은 다음 요청에서 정확히 재계산.
+  4. **rate limit 식별자는 "abuse 비용"을 기준으로 결정**. userId(인증된 사용자)는 가입 비용으로 abuse 비용 ↑. IP는 동적 IP 사용자에게 부당 차단 위험. 인증 후 호출이라면 userId 만으로 충분.
+  5. **rate limit 자체의 비용 검토**: 매 호출 1 UPSERT (Supabase). 베타 트래픽(일 100건)은 무시 가능이지만 prefix 확장(login/signup/AI 등) 시 cleanup cron 필요 — Phase 5.5 ToDo로 명시.
+  6. **fixed window vs sliding window의 trade-off**: fixed는 단순(1 row/key) + race 방어 자연(ON CONFLICT) + 경계 burst 가능. sliding은 정확하지만 row 누적 + cleanup 복잡. 베타에서 burst 시나리오 가능성 작으면 fixed로 시작 → Upstash Redis로 swap 가능한 인터페이스(`checkAndIncrementRateLimit`) 유지.
+
+## 2026-04-22 밤 — Audit log INSERT는 primary mutation과 같은 transaction에 묶어야 atomicity 확보 + 도입 시점에 "PII 라이프사이클 + 표시 정책" 후속 ToDo도 함께 기록 (Task 5-5-3)
+
+- **상황**: Task 5-5-3에서 `workspace_invitation.created/accepted/revoked` 3 이벤트를 activity_logs에 추가. 기존 portal_token audit 패턴(`portal-actions.ts:188`) 재사용 — primary mutation(workspace_invitations INSERT/UPDATE)과 activity_logs INSERT를 **같은 db.transaction에 묶어 atomicity 보장**. 구현 후 code-reviewer + security-reviewer 모두 CRITICAL/HIGH 0건 통과. 다만 두 리뷰 합쳐 MEDIUM 5건이 모두 "감사 로그 도입 자체는 OK이지만 그 데이터를 어떻게 다룰지(자동 revoke audit / 표시 정책 / PII 라이프사이클 / XSS 정규화 / 권한 박제) 정책 미정"임을 지적.
+- **Atomicity의 가치 (재확증)**:
+  - primary mutation 성공 + audit log 실패 → "정상 처리됐는데 audit 누락" → 분쟁/추적 불가 (false negative).
+  - primary mutation 실패 + audit log 성공 → "발생 안 한 일이 audit에 남음" → 잘못된 사고 보고 (false positive).
+  - 같은 transaction에 묶으면 두 케이스 모두 차단. 트랜잭션 비용은 INSERT 1건 추가뿐 — 거의 무시 가능.
+  - 단, transaction 안 INSERT가 main row의 returning id에 의존하면 INSERT 순서가 중요 (workspace_invitations INSERT → returning id → activityLogs INSERT 순).
+- **PII 라이프사이클 + 표시 정책의 잠복 리스크**:
+  - audit log에 raw email/name 저장 → RLS로 workspace 멤버만 조회 가능(현재) → 안전. 그러나 6개월~1년 누적 후:
+    - "GDPR 삭제 요청": 사용자가 자기 PII 삭제를 요구하면 audit log도 삭제? 보존? 익명화? — 결정 미정이면 법적 리스크.
+    - "audit log UI 도입": 누군가 React로 metadata.email을 그대로 렌더링 → user.name(자유 텍스트)에 control char/HTML/JS 포함 시 XSS. 도입 시점에서야 인지.
+    - "보존 기간": 90일 / 1년 / 영구? cold storage 이관 정책? — 미정이면 DB 비대화.
+  - 이 모든 결정을 audit 도입 시점(=지금)에 미리 ToDo로 기록해두면 후속 누락 방지. 도입 시점에 미정인 정책일수록 후속에 잊혀짐.
+- **규칙**:
+  1. **Audit log INSERT는 primary mutation과 같은 transaction에 묶어 atomicity 강제**. 별도 transaction이면 partial failure 시 거짓 audit 발생. 트랜잭션 비용 < 데이터 무결성 가치.
+  2. **Audit 도입 시 함께 결정/문서화해야 할 후속 정책 4종**:
+     - **표시 정책**: 누가(workspace 멤버 vs admin only) 어디서(대시보드 활동 피드 vs 별도 audit UI) audit를 보는가
+     - **PII 라이프사이클**: 보존 기간 + 삭제/익명화 정책 + GDPR 대응
+     - **render escape 정책**: metadata에 자유 텍스트(user.name)가 들어가면 UI 도입 전에 control char 정규화 + escape 강제
+     - **권한 snapshot 정책**: actor의 role을 audit 시점에 박제할지(분쟁 정확성) vs 현재 role을 join할지(단순성)
+  3. **Audit 데이터는 INSERT만 추가하고 표시 정책 미결정이면 데이터가 누적되며 잠복 리스크가 됨**. PROGRESS.md에 Phase 5.5 ToDo로 5건(자동 revoke / 표시 정책 / 정규화 / PII / role 박제) 명시 — 이번 Task 종료가 미해결 이슈 누락이 아님을 보장.
+  4. **기존 패턴 재사용 시 패턴이 가정한 후속 단계까지 따라가는지 점검**. portal_token audit를 그대로 복사했으나 portal_token도 동일한 표시 정책 미결정 상태. 재사용한다고 안전하다는 착각 금지 — 패턴이 만든 미해결 이슈가 같이 복사됨.
+  5. **revokeInvitationAction처럼 단일 UPDATE를 transaction으로 감싸 audit를 추가할 때, 0 rows 분기를 trans 안에서 null 반환 + audit skip으로 처리**. transaction throw로 처리하면 외부 catch가 NOT_FOUND를 정상 분기로 다뤄야 해서 흐름이 부자연. null 반환이 멱등성 일관 + audit skip으로 "변경 없으면 audit 없음" 원칙 유지.
+
+## 2026-04-22 밤 — INSERT-time only enforcement는 비대칭 게이트 — plan downgrade로 한도 우회 가능, 모든 mutation 진입점에 동일 게이트 필요 (Task 5-5-2 리뷰 CRIT-1)
+
+- **상황**: Task 5-5-2에서 멤버 수 상한 게이트를 `createInvitationAction`(초대 발송)에만 도입. 발송 시 (members + pending + 1 > limit) 비교로 정확한 한도 enforcement 구현 + 6 시나리오 SQL PASS. code-reviewer가 "발송 게이트 자체는 견고하나 `acceptInvitationAction`(수락)에는 한도 체크 부재 → plan downgrade(pro→free) 시점 우회 가능"을 CRITICAL로 지적.
+- **우회 시나리오**:
+  1. T0: plan=pro(한도 5), members=4, pending=1 → used=5 (한도 도달, 정상).
+  2. T1: admin이 plan을 free(한도 3)로 downgrade (Phase 5.5 후속 UI 또는 직접 SQL).
+  3. T2: T0 시점에 발송된 pending 초대 수신자가 수락 → `acceptInvitationAction`이 한도 체크 없이 INSERT → members=5 (free 한도 3을 영구 초과한 잠금 상태).
+  4. 이후 발송 게이트는 정상 작동하지만 "이미 5명이라 신규 초대 거부" + "기존 5명은 어떻게 정리할지" 미정의 → 운영 사고.
+- **본질**: "INSERT-time only enforcement"는 같은 한도가 여러 mutation 경로에서 적용될 때 한 곳만 막아도 다른 경로로 우회 가능. 한도가 진짜 invariant라면 **모든 mutation 진입점에 동일한 게이트가 대칭으로 적용**되어야 함.
+- **해결**: `acceptInvitationAction`에도 같은 패턴(advisory lock + workspace_settings.plan SELECT + workspace_members count + memberCount >= limit이면 throw) 추가. SQL 회귀 6건 추가(A1~A6) — 핵심 A5(Free downgrade 후 members=4) BLOCKED 확인.
+- **규칙**:
+  1. **"한도 enforcement"는 최소 2개 진입점(발송 + 수락) 양쪽에 대칭으로 설치**. 발송만 막으면 plan downgrade/SQL 직접 INSERT/Phase 5.5 후속 UI 등 우회 경로가 시간이 지나며 누적. 새 mutation 경로 추가 시 "이 경로가 한도와 무관한가?" 명시 점검.
+  2. **CRITICAL 게이트는 단일 진입점이 아니라 invariant 단위로 설계**. "어디에서 막느냐"가 아니라 "어떤 상태가 절대 안 되는가"를 정의 → 그 상태를 만들 수 있는 모든 경로 식별 → 각 경로에 게이트.
+  3. **plan/role/quota 같은 정책 변경 시 기존 데이터의 호환성 별도 검토**. plan 변경(pro→free)은 단순 한 줄 UPDATE지만 그 시점부터 "이미 한도 초과"인 워크스페이스가 정상 운영 불가 상태가 됨. Phase 5.5 billing webhook은 단순 plan 변경뿐 아니라 "기존 데이터 정리 정책"(자동 archive / admin 알림 / grace period 등)도 함께 결계.
+  4. **트랜잭션 게이트의 sub-throw 클래스 패턴 일관성**: `MemberLimitExceededError` (invite) + `AcceptLimitExceededError` (accept). 둘 다 `instanceof` 분기를 catch 블록 가장 위에 두어 다른 분기(DUPLICATE/RACE)와 메시지 매칭 충돌 방지. 동일 패턴 적용으로 코드 review/디버그 시 한 곳 보면 다른 곳 추정 가능.
+  5. **idempotent 재수락 보호**: 자기 자신이 이미 멤버면 한도 체크 skip → page render와 accept 사이 race(다른 탭에서 먼저 수락)로 false positive 차단. `onConflictDoNothing`과 함께 두 층의 idempotent 보장.
+  6. **`acceptInvitationAction`처럼 다단계 트랜잭션은 새 단계 추가 시 "기존 단계 사이의 race가 깨지지 않는가" 점검**. advisory lock을 트랜잭션 시작점에 두면 모든 후속 SELECT/UPDATE가 직렬화되어 race 차단. lock 위치를 INSERT 직전에 두면 lock 이전의 SELECT 결과가 stale될 수 있음.
+
+## 2026-04-22 밤 — Server-only 모듈은 `import "server-only"`로 빌드 타임 명시 차단 — zod fail에 간접 의존은 신뢰성 부족 (Task 5-5-1 리뷰 MEDIUM-3)
+
+- **상황**: Phase 5.5 보안 강화로 `src/lib/env.ts`(Zod env 검증)를 신규 도입. 초안에서는 "client component가 실수로 import해도 `process.env.DATABASE_URL`이 client 번들에서 undefined → zod fail로 빌드/런타임 에러 노출"이라고 자연스러운 server-only 강제를 의도. security-reviewer가 이 간접 방어의 한계를 MEDIUM으로 지적.
+- **간접 방어의 약점**:
+  1. `NEXT_PUBLIC_*` 4개는 client에서도 정의됨 → superRefine을 통과할 가능성 → server 전용 env 참조가 client 번들에 포함되는 경로가 이론적으로 존재.
+  2. webpack의 `process.env.X` 정적 치환은 server secret 자체를 leak하지 않지만, **schema 객체와 에러 메시지 한국어 텍스트가 client 번들에 직렬화되어 들어감** — 번들 사이즈 + 정보 노출.
+  3. 에러가 build/runtime 어느 시점에 나타날지 상황에 따라 다름 → 간헐적 사고 디버깅 어려움.
+- **해결**: `pnpm add server-only` (0.0.1, ~10 LOC 작은 패키지) + `src/lib/env.ts` 최상단에 `import "server-only";` 한 줄. Next.js/React Server Components 표준 패턴 — client component(또는 'use client' 트리)에서 import 시도 시 webpack/turbopack이 빌드 타임에 즉시 throw.
+- **규칙**:
+  1. **DB 연결, secret, 외부 API SDK 같은 server 전용 모듈은 항상 `import "server-only";` 최상단**. zod fail이나 `typeof window` 체크 같은 간접 방어는 보조이지 주방어가 아니다. 명시적 contract가 안전.
+  2. **공식 패턴(`server-only` 패키지) > 직접 만든 가드**. 직접 작성한 `if (typeof window !== "undefined") throw`는 런타임 차단만 가능 (빌드 차단 못 함). server-only는 webpack loader 단계에서 차단 → CI에서 잡힘.
+  3. **server-only가 설치 안 되어 있다고 우회 금지**. `pnpm add server-only`로 한 번 설치하면 Next.js 프로젝트 표준 도구. 새 server 모듈마다 보일러플레이트 없이 한 줄 import.
+  4. **client에 노출 가능한 env는 명시적으로 분리** — `src/lib/env.ts`(server) + `src/lib/env.public.ts`(NEXT_PUBLIC만, server-only 안 붙임)의 2파일 패턴. 이번 Task에서는 `env` export 사용처가 0건이라 분리 보류했으나 향후 사용 시점에 같이 분리.
+
+## 2026-04-22 밤 — Zod schema의 형식 강제(`.email()` 등)는 SDK가 처리하는 영역이면 위임 — production 부팅 회귀 위험 (Task 5-5-1 리뷰 HIGH-1)
+
+- **증상**: `src/lib/env.ts` 초안에서 `RESEND_REPLY_TO: z.string().email("RESEND_REPLY_TO는 이메일 형식이어야 함").optional()`로 작성. security-reviewer가 "Vercel UI에서 사용자가 `Jayden <hidream72@gmail.com>` 같은 'Name <email>' 표기로 입력하면 production 부팅 즉시 차단됨"을 HIGH로 지적. RESEND SDK는 양 형식을 모두 허용하는데 startup이 더 엄격한 비대칭 → 사고 시나리오는 외부 공격이 아닌 운영자 본인의 형식 입력 실수.
+- **비대칭의 함정**: 같은 schema 안에서 `RESEND_FROM_EMAIL`은 `.email()` 없이 `.string().optional()`로 통과시키는데, **옵션 항목인 REPLY_TO만 엄격하게 막음** — 검증 우선순위가 거꾸로. from 쪽 형식 오류가 발송 실패로 더 큰 사고인데 옵션 항목만 잡고 있는 모순.
+- **해결**: `RESEND_REPLY_TO: z.string().min(1).optional()`로 완화. 형식 검증은 발송 시점에 Resend SDK가 자체 처리하도록 위임. 비공백만 startup에서 보장(빈 문자열 set 사고 방지).
+- **규칙**:
+  1. **Startup env 검증의 strict-ness는 "SDK가 어떻게 처리하는가"를 기준으로**. SDK가 형식을 강제하면 startup도 같은 수준으로 강제 (정렬). SDK가 관용적이면 startup도 관용적이어야 함 (운영자가 SDK 동작을 신뢰해서 입력하는데 startup이 거부하면 부팅 차단 = 가용성 사고).
+  2. **옵션 필드를 필수 필드보다 엄격하게 검증하는 비대칭은 즉시 의심**. 같은 도메인 값이라면 strict-ness가 일관되어야 함 — 한쪽만 strict면 누락된 검증을 추가할지, 과한 검증을 완화할지 결정 필요.
+  3. **`.email()`, `.url()` 같은 형식 검증은 도메인 라이브러리(Resend SDK, fetch URL parser)가 어차피 수행하는 영역**. startup의 fail-fast는 "값이 존재하는가" 위주로 좁히고, 형식은 라이브러리에 위임 → schema가 production 부팅을 막는 잘못된 트리거가 되는 경로 차단.
+  4. **검증 메시지에 "어떻게 입력해야 하는가"의 예시 포함**. 단순 "이메일 형식이어야 함"보다 "예: invite@send.dairect.kr (Name <email> 표기 시 따옴표 없이)"가 운영자 디버깅 시간 단축. 이번엔 검증 자체를 제거했지만, 남기는 검증은 메시지 품질에 신경.
+
+## 2026-04-22 밤 — Referrer-Policy는 `/invite/`, `/portal/`뿐 아니라 `/auth/callback?code=...`에도 필요 — OAuth code 5xx 잔류 leak (Task 5-5-1 리뷰 MEDIUM-1)
+
+- **상황**: Phase 5.5 보안 강화로 URL path에 토큰이 박힌 `/invite/[token]`, `/portal/[token]`에 `Referrer-Policy: no-referrer` 응답 헤더 추가. security-reviewer가 "`/auth/callback?code=...&next=...`도 query string에 단명 OAuth code를 잠시 노출 — `redirect()`로 즉시 빠져나가는 happy path는 leak 창이 좁지만, **callback이 5xx error로 떨어지면 사용자가 그 페이지에 머물게 됨** → 그때 외부 자원(이미지/링크) 클릭 시 code가 referer로 leak"을 MEDIUM으로 지적.
+- **OAuth code의 위험성**: PKCE/code는 단명(short-lived, 1분 내외)이지만, **TOCTOU race에서 재교환 시 세션 탈취 이론적으로 가능**. 외부 서버 로그에 잔류한 code가 즉시 사용 시도되면 정당한 사용자보다 먼저 토큰 교환 가능.
+- **해결**: `next.config.ts` headers에 `/auth/:path*` 추가:
+  ```typescript
+  { source: "/auth/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] }
+  ```
+  비용 0(redirect 응답에도 헤더 적용 — 발송하는 쪽이 이미 빠져나가서 의미 없어 보이지만 5xx 경로 보호) + happy path 영향 0 + 실패 경로 보호.
+- **규칙**:
+  1. **"URL에 비밀이 들어가는 경로 목록"에 path 토큰뿐 아니라 query 토큰도 포함**. `/auth/callback?code=`, `/api/...?token=`, `/reset?nonce=` 등 query에 1회용 비밀이 박히는 모든 라우트가 대상. path/query 구분 없이 응답 헤더로 동일 보호.
+  2. **happy path만 보고 정책 결정 금지**. "redirect로 즉시 빠져나가니까 보호 불필요"는 5xx/4xx 에러 페이지에서 사용자가 머무르는 경로를 놓침. **에러 응답에도 동일 정책이 적용되도록 path-prefix 매칭으로 통째로 보호**가 안전.
+  3. **새로운 토큰/code-bearing 라우트 추가 시 체크리스트**: SW matcher 등록(Task 4-4 패턴) + Referrer-Policy 적용(Task 5-5-1 패턴) + open redirect sanitizer 사용(Task 5-2-5 패턴) **세 가지가 묶음**. 새 dynamic 라우트 PR에서 이 3건 점검을 자동화(예: GitHub PR template + grep 스크립트)하면 매번 인간 기억에 의존하지 않음.
+  4. **Referrer-Policy 사이트 전체 vs 경로별 trade-off**: 사이트 전체 `strict-origin-when-cross-origin` 기본 + 민감 경로만 `no-referrer` 강화의 2단 정책이 이상적. 단 사이트 전체 정책 변경은 분석/광고 referer 손실 영향 분석 필요 — Phase 5.5 후속 ToDo로 명시.
+
 ## 2026-04-22 저녁 — Open Redirect에는 backslash bypass도 있다: WHATWG URL 파서는 `/\evil.com`을 `https://evil.com/`로 정규화한다 (Task 5-2-5 리뷰 CRITICAL C-1)
 
 - **증상**: `/invite/[token]` 플로우에서 `sanitizeNext`는 "상대경로만 허용, `//`(protocol-relative) 차단"으로 4곳(login/signup/callback/signout)에 중복 구현되어 있었음. code-reviewer가 **`/\evil.com` 입력 시 현재 정규식(`!startsWith("//")`)을 통과하지만 브라우저 URL 파서가 backslash를 forward slash로 정규화해 결과적으로 외부 사이트로 리다이렉트 가능**함을 지적. WHATWG URL 스펙: `new URL("/\\evil.com", "https://dairect.kr").href` → `https://evil.com/` (Chromium/Firefox 공통).

@@ -141,6 +141,20 @@
       "when": 1776754900262,
       "tag": "0031_phase5_resync_marker",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1776994908864,
+      "tag": "0036_phase5_resync_marker_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1776996109385,
+      "tag": "0037_chemical_timeslip",
+      "breakpoints": true
     }
   ]
 }

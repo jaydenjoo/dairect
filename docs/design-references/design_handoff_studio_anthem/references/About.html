@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>About — dairect.</title>
+  <meta name="description" content="dairect의 창립자 Jayden Joo. Vibe Architect. 방향을 사는 스튜디오." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" as="style" crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.min.css" />
+
+  <link rel="stylesheet" href="landing.css" />
+  <link rel="stylesheet" href="about.css" />
+  <link rel="stylesheet" href="editorial.css" />
+</head>
+<body>
+
+<!-- ══════════════════════ NAV (shared) ══════════════════════ -->
+<nav class="nav" id="nav" aria-label="Primary">
+  <a href="Landing.html" class="brand" aria-label="dairect">
+    <span class="bp bp-d">d</span><span class="bp bp-ai">ai</span><span class="bp bp-rect">rect</span><span class="dot">.</span>
+  </a>
+  <div class="menu" role="menubar">
+    <a href="Projects.html" role="menuitem">Work</a>
+    <a href="Landing.html#services" role="menuitem">Services</a>
+    <a href="Landing.html#pricing" role="menuitem">Pricing</a>
+    <a href="About.html" role="menuitem" class="is-active">About</a>
+    <a href="Landing.html#journal" role="menuitem">Journal</a>
+  </div>
+  <a href="Landing.html#contact" class="cta-mini magnetic" data-magnetic>
+    Start a project <span aria-hidden="true">→</span>
+  </a>
+</nav>
+
+<main>
+
+<!-- ══════════════════════ [A-HERO] ══════════════════════ -->
+<section class="a-hero" data-screen-label="01 About Hero">
+  <!-- Left: portrait frame -->
+  <div class="a-hero-portrait">
+    <div class="a-portrait-frame" id="portrait" data-style="empty">
+      <span class="pf-corner tl" aria-hidden="true"></span>
+      <span class="pf-corner tr" aria-hidden="true"></span>
+      <span class="pf-corner bl" aria-hidden="true"></span>
+      <span class="pf-corner br" aria-hidden="true"></span>
+
+      <div class="pf-top">
+        <span>N°<span class="amber"> 01</span></span>
+        <span>FILE /DAIRECT/FOUNDER.TIF</span>
+      </div>
+
+      <!-- empty variant -->
+      <div class="pf-label">
+        <span class="amber">[ PORTRAIT ]</span><br/>
+        1 : 1 · B&amp;W · 35MM
+        <span class="serif">to be <em>photographed</em>.</span>
+      </div>
+
+      <!-- svg variant -->
+      <div class="a-portrait-svg" aria-hidden="true">
+        <svg viewBox="0 0 200 240" width="100%" height="100%">
+          <defs>
+            <pattern id="pgrain" width="3" height="3" patternUnits="userSpaceOnUse">
+              <rect width="3" height="3" fill="none"/>
+              <circle cx="1" cy="1" r="0.3" fill="rgba(245,241,232,0.08)"/>
+            </pattern>
+          </defs>
+          <!-- silhouette -->
+          <ellipse cx="100" cy="88" rx="38" ry="46" fill="none" stroke="#F5F1E8" stroke-width="1.2"/>
+          <path d="M 36 240 C 36 180, 60 150, 100 150 C 140 150, 164 180, 164 240" fill="none" stroke="#F5F1E8" stroke-width="1.2"/>
+          <!-- glasses hint -->
+          <circle cx="86" cy="86" r="9" fill="none" stroke="#FFB800" stroke-width="1"/>
+          <circle cx="114" cy="86" r="9" fill="none" stroke="#FFB800" stroke-width="1"/>
+          <line x1="95" y1="86" x2="105" y2="86" stroke="#FFB800" stroke-width="1"/>
+          <!-- hair line -->
+          <path d="M 62 70 Q 100 42, 138 70" fill="none" stroke="#F5F1E8" stroke-width="1.2"/>
+          <!-- grain overlay -->
+          <rect x="0" y="0" width="200" height="240" fill="url(#pgrain)"/>
+          <!-- signature -->
+          <text x="14" y="232" font-family="Fraunces, serif" font-style="italic" font-weight="300" font-size="12" fill="rgba(245,241,232,0.55)">— J.J.</text>
+        </svg>
+      </div>
+
+      <!-- type variant -->
+      <div class="pf-type-mark">
+        <span class="jj">J<span class="dot">.</span>J<span class="dot">.</span></span>
+        <span class="etym">Jayden <span class="amber">·</span> Joo <span class="amber">·</span> Director</span>
+      </div>
+
+      <div class="pf-bot">
+        <span>SEOUL · 2025</span>
+        <span>—<span class="amber"> DAIRECT</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: bio + quote -->
+  <div class="a-hero-text">
+    <p class="a-persona-label">
+      — VIBE · ARCHITECT
+      <span class="sub">바이브 아키텍트 / 방향 설계자</span>
+    </p>
+
+    <h1 class="a-name">Jayden<br/>Joo<span class="dot">.</span></h1>
+
+    <div class="a-title-strip">
+      <span>Founder</span>
+      <span class="sep">/</span>
+      <span class="role-it">Director</span>
+      <span class="sep">/</span>
+      <span class="role-it">Writer</span>
+      <span class="sep">/</span>
+      <span>Seoul</span>
+    </div>
+
+    <blockquote class="a-quote">
+      I don't write the code.<br/>
+      I write the <em>direction.</em>
+      <span class="ko">제가 코드를 쓰지 않습니다. 저는 방향을 씁니다.</span>
+    </blockquote>
+  </div>
+</section>
+
+<!-- ══════════════════════ [A-TIMELINE] ══════════════════════ -->
+<section class="a-timeline" data-screen-label="02 Timeline">
+  <div class="a-tl-head">
+    <div>
+      <p class="a-tl-kicker">— §02 / <em>timeline</em> · 2025→2026</p>
+      <h2 class="a-tl-title">
+        Six months,
+        <span class="it">ten projects.</span>
+      </h2>
+    </div>
+    <div class="a-tl-aside">
+      2025년 말, 첫 번째 <em>direction</em>을 썼다. 그로부터 반 년 사이에
+      스튜디오 이름이 생겼고, 열 개의 <code>execution</code>이 출고됐다.
+      — <em>짧은 시간이 아니라, 밀도의 문제.</em>
+    </div>
+  </div>
+
+  <div class="a-tl-drag-hint">
+    <span><span class="amber">←</span> &nbsp;DRAG &nbsp;/&nbsp; SCROLL &nbsp;/&nbsp; SWIPE&nbsp; <span class="amber">→</span></span>
+    <span class="dots" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+    </span>
+  </div>
+
+  <div class="a-tl-scroll" id="tl-scroll" tabindex="0" aria-label="Timeline, scroll horizontally">
+    <div class="a-tl-track">
+
+      <!-- 01 -->
+      <article class="a-tl-mile is-signal">
+        <div class="a-tl-date">2025 · <span class="amber">OCT</span></div>
+        <div class="a-tl-year">2025<span class="it">.10</span></div>
+        <h3 class="a-tl-title-m">First <em>direction.</em></h3>
+        <p class="a-tl-desc">
+          8년간 써온 워드프레스 블로그를 Claude Code로 다시 지으며 깨닫다 — <em>나는 코드를 쓰는 게 아니라, 방향을 쓰고 있었다.</em>
+        </p>
+      </article>
+
+      <!-- 02 -->
+      <article class="a-tl-mile">
+        <div class="a-tl-date">2025 · NOV</div>
+        <div class="a-tl-year">2025<span class="it">.11</span></div>
+        <h3 class="a-tl-title-m">Chatsio, <em>v0.</em></h3>
+        <p class="a-tl-desc">
+          미용실 예약 챗봇 초기 버전. 고객과 첫 <em>자동 대화</em>가 성사된 밤 — 작동하는 제품의 감각을 확인하다.
+        </p>
+      </article>
+
+      <!-- 03 -->
+      <article class="a-tl-mile">
+        <div class="a-tl-date">2025 · DEC</div>
+        <div class="a-tl-year">2025<span class="it">.12</span></div>
+        <h3 class="a-tl-title-m">Findably <em>launches.</em></h3>
+        <p class="a-tl-desc">
+          소상공인 SEO 대시보드. 첫 유료 고객. <em>월 4만 원이 가능한 소프트웨어</em>에 대한 질문이 서비스의 모양을 정했다.
+        </p>
+      </article>
+
+      <!-- 04 -->
+      <article class="a-tl-mile is-signal">
+        <div class="a-tl-date">2026 · <span class="amber">JAN</span></div>
+        <div class="a-tl-year">2026<span class="it">.01</span></div>
+        <h3 class="a-tl-title-m">dairect<span style="color:var(--signal)">.</span> — <em>the name.</em></h3>
+        <p class="a-tl-desc">
+          D (Director) + AI + RECT (Direct). 워드마크와 어원, 슬로건이 같은 날 정해졌다. <em>이름은 방향의 첫 증거다.</em>
+        </p>
+      </article>
+
+      <!-- 05 -->
+      <article class="a-tl-mile">
+        <div class="a-tl-date">2026 · FEB</div>
+        <div class="a-tl-year">2026<span class="it">.02</span></div>
+        <h3 class="a-tl-title-m">AutoVox · Sōbun Daily.</h3>
+        <p class="a-tl-desc">
+          음성 에이전트와 일본어 뉴스 다이제스트가 같은 주에 배포됐다. <em>execution</em>이 동시에 두 방향으로 흘렀다.
+        </p>
+      </article>
+
+      <!-- 06 -->
+      <article class="a-tl-mile">
+        <div class="a-tl-date">2026 · MAR</div>
+        <div class="a-tl-year">2026<span class="it">.03</span></div>
+        <h3 class="a-tl-title-m">PM Dashboard &amp; <em>Briefcase.</em></h3>
+        <p class="a-tl-desc">
+          내부 도구 2종. 스튜디오의 하루를 스튜디오가 만든 도구로 돌리기 시작 — <em>dogfooding as discipline.</em>
+        </p>
+      </article>
+
+      <!-- 07 -->
+      <article class="a-tl-mile is-signal">
+        <div class="a-tl-date">2026 · <span class="amber">APR</span></div>
+        <div class="a-tl-year">2026<span class="it">.04</span></div>
+        <h3 class="a-tl-title-m">The Studio <em>Anthem.</em></h3>
+        <p class="a-tl-desc">
+          색 팔레트와 타이포 시스템, 그리드와 모션 규약을 문서화. <em>브랜드가 언어가 되는 순간.</em> 이 페이지도 그 위에 서 있다.
+        </p>
+      </article>
+
+      <!-- 08 -->
+      <article class="a-tl-mile">
+        <div class="a-tl-date">2026 · APR</div>
+        <div class="a-tl-year">2026<span class="it">.04</span></div>
+        <h3 class="a-tl-title-m">Ten shipped.</h3>
+        <p class="a-tl-desc">
+          Ledgerly · Preface · Relay · dairect.kr — 여섯 달 사이 <em>열 개의 실체</em>. 이 리스트가 이 스튜디오의 첫 포트폴리오다.
+        </p>
+      </article>
+
+      <!-- 09 -->
+      <article class="a-tl-mile">
+        <div class="a-tl-date">2026 · <span class="amber">NOW</span></div>
+        <div class="a-tl-year">NOW<span class="it">.</span></div>
+        <h3 class="a-tl-title-m">Writing the <em>next one.</em></h3>
+        <p class="a-tl-desc">
+          다음 방향을 쓰고 있다. <em>Manuscript in progress.</em> — 당신의 프로젝트가 여기에 들어올 수도 있다.
+        </p>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ [A-PHILOSOPHY] ══════════════════════ -->
+<section class="a-philosophy" data-screen-label="03 Philosophy">
+  <div class="container">
+    <div class="a-ph-head">
+      <div>
+        <p class="a-ph-kicker">— §03 / <em>philosophy</em></p>
+        <h2 class="a-ph-title">
+          Three essays,
+          <span class="it">in progress.</span>
+        </h2>
+      </div>
+      <p class="a-ph-lead">
+        스튜디오의 <em>방향</em>을 세 편의 글로 정리하는 중입니다.
+        제목과 골격이 먼저 섰고, 본문은 다음 계절에 완성됩니다.
+        —이 페이지에 먼저 공개됩니다.
+      </p>
+    </div>
+
+    <div class="a-essays">
+
+      <!-- Essay 01 -->
+      <article class="a-essay">
+        <span class="a-essay-num">ESSAY № 01</span>
+        <h3 class="a-essay-title">
+          Why <em>direction</em>
+          <br/>is a product.
+        </h3>
+        <p class="a-essay-ko">방향은, 이미 하나의 제품이다.</p>
+        <div class="a-essay-body">
+          <span class="mip-label">MANUSCRIPT IN PROGRESS</span>
+          <p class="mip-text">
+            — the first draft lives in my notebook.
+            I'll translate it here when the ink is dry.
+          </p>
+          <p class="mip-ko">
+            초고는 아직 노트에 있습니다. 잉크가 마르면 옮겨 적습니다.
+          </p>
+          <div class="mip-meta">
+            <span>~ 2,400 words · drafted</span>
+            <span>Q2 · 2026</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Essay 02 -->
+      <article class="a-essay">
+        <span class="a-essay-num">ESSAY № 02</span>
+        <h3 class="a-essay-title">
+          The cost of <em>not</em>
+          <br/>being a coder.
+        </h3>
+        <p class="a-essay-ko">코더가 아닌 자의 값.</p>
+        <div class="a-essay-body">
+          <span class="mip-label">MANUSCRIPT IN PROGRESS</span>
+          <p class="mip-text">
+            — on what Jayden gained by <em>not</em> learning to type semicolons,
+            and what he paid for that choice.
+          </p>
+          <p class="mip-ko">
+            세미콜론을 배우지 않음으로써 얻은 것, 그리고 그 대가에 대하여.
+          </p>
+          <div class="mip-meta">
+            <span>~ 3,100 words · outlined</span>
+            <span>Q3 · 2026</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Essay 03 -->
+      <article class="a-essay">
+        <span class="a-essay-num">ESSAY № 03</span>
+        <h3 class="a-essay-title">
+          A studio of <em>one,</em>
+          <br/>and a thousand hands.
+        </h3>
+        <p class="a-essay-ko">한 명의 스튜디오, 천 개의 손.</p>
+        <div class="a-essay-body">
+          <span class="mip-label">MANUSCRIPT IN PROGRESS</span>
+          <p class="mip-text">
+            — how Jayden runs ten projects with one head and many machines,
+            and why the math still favors the human.
+          </p>
+          <p class="mip-ko">
+            한 사람이 열 개의 프로젝트를 운전한다는 것, 그 산수에 대하여.
+          </p>
+          <div class="mip-meta">
+            <span>~ 1,800 words · titled</span>
+            <span>Q4 · 2026</span>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ [A-PROCESS] ══════════════════════ -->
+<section class="a-process" data-screen-label="04 Process">
+  <div class="container">
+    <p class="a-proc-kicker">— §04 / <em>how</em> it works</p>
+    <h2 class="a-proc-title">
+      Direction in,
+      <span class="it">product out.</span>
+    </h2>
+
+    <div class="a-proc-diagram" aria-hidden="true">
+      <div class="proc-node">
+        <span class="marker it">You.</span>
+        <span class="label">DIRECTOR</span>
+        <span class="ko">방향을 가진 사람</span>
+      </div>
+      <div class="proc-link"></div>
+      <div class="proc-node">
+        <span class="marker mono">⟶ AI</span>
+        <span class="label">EXECUTION</span>
+        <span class="ko">기계가 코드를 씁니다</span>
+      </div>
+      <div class="proc-link"></div>
+      <div class="proc-node">
+        <span class="marker">Product<span style="color:var(--signal)">.</span></span>
+        <span class="label">RESULT</span>
+        <span class="ko">작동하는 제품</span>
+      </div>
+    </div>
+
+    <p class="a-proc-caption">
+      You bring the <em>direction.</em><br/>
+      The machine brings the hands. The studio brings the <em>taste.</em>
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ [A-CTA] ══════════════════════ -->
+<section class="a-cta" data-screen-label="05 CTA">
+  <div class="container">
+    <h2 class="a-cta-head">
+      Your direction,
+      <span class="it">our execution.</span>
+    </h2>
+    <p class="a-cta-ko">
+      방향이 있다면, 나머지는 저희가 맡겠습니다. —24시간 내 답신, 상담은 무료.
+    </p>
+    <div class="a-cta-row">
+      <a href="Landing.html#contact" class="btn-primary magnetic" data-magnetic>
+        Start a project <span class="arrow" aria-hidden="true">→</span>
+      </a>
+      <a href="Projects.html" class="btn-ghost">See the ten projects →</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ══════════════════════ FOOTER (shared) ══════════════════════ -->
+<footer class="footer section-dark">
+  <div class="container">
+    <div class="footer-logo footer-logo-split" aria-hidden="true">
+      <span class="fl-part fl-d">d</span><span class="fl-gap"></span><span class="fl-part fl-ai">ai</span><span class="fl-gap"></span><span class="fl-part fl-rect">rect</span><span class="fl-gap"></span><span class="fl-part fl-dot">.</span>
+    </div>
+    <div class="footer-logo-caption">
+      <span class="fl-cap-1">D × AI × RECT</span>
+      <span class="fl-cap-sep">/</span>
+      <span class="fl-cap-2">Director of AI, working Direct</span>
+    </div>
+    <p class="footer-logo-slogan">
+      <em>&ldquo;Code by machines. Direction by us.&rdquo;</em><br/>
+      <span class="fls-ko">코드는 AI가, 방향은 내가.</span>
+    </p>
+
+    <div class="footer-grid">
+      <div class="footer-col">
+        <span class="footer-brand">dairect<span class="dot">.</span></span>
+        <p class="footer-tag">코드는 AI가, 방향은 내가</p>
+        <span class="footer-est">— est. 2025 / Seoul</span>
+      </div>
+      <div class="footer-col">
+        <span class="footer-col-head">— Menu</span>
+        <a href="Projects.html">Work</a>
+        <a href="Landing.html#services">Services</a>
+        <a href="Landing.html#pricing">Pricing</a>
+        <a href="About.html">About</a>
+        <a href="Landing.html#journal">Journal</a>
+      </div>
+      <div class="footer-col">
+        <span class="footer-col-head">— Reach us</span>
+        <a href="mailto:hello@dairect.kr">hello@dairect.kr</a>
+        <a href="#">KakaoTalk Channel</a>
+        <a href="#">Instagram @dairect.studio</a>
+      </div>
+      <div class="footer-col">
+        <span class="footer-col-head">— Fine print</span>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms</a>
+        <p>사업자등록 000-00-00000</p>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>© 2026 dairect. Made with taste &amp; Claude.</span>
+      <span>Seoul → Global. Always building.</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ══════════════════════ TWEAKS PANEL ══════════════════════ -->
+<aside class="a-tweaks" id="tweaks" aria-label="Tweaks">
+  <div class="t-head">
+    <span>— TWEAKS</span>
+    <button class="t-close" aria-label="Close">×</button>
+  </div>
+  <div class="t-group">
+    <span class="t-label">PORTRAIT · 초상 스타일</span>
+    <div class="t-opts" role="radiogroup" aria-label="Portrait style">
+      <button class="t-opt" data-portrait="empty" aria-pressed="true">Empty</button>
+      <button class="t-opt" data-portrait="svg" aria-pressed="false">SVG</button>
+      <button class="t-opt" data-portrait="type" aria-pressed="false">Type</button>
+    </div>
+  </div>
+  <div class="t-group">
+    <span class="t-label">TIMELINE · 정렬</span>
+    <div class="t-opts" role="radiogroup" aria-label="Timeline layout">
+      <button class="t-opt" data-tl="horizontal" aria-pressed="true">Horizontal</button>
+      <button class="t-opt" data-tl="stack" aria-pressed="false">Stack</button>
+    </div>
+  </div>
+</aside>
+
+<script>
+(() => {
+  // ——— Magnetic buttons (shared behavior) ———
+  document.querySelectorAll('[data-magnetic]').forEach(el => {
+    el.addEventListener('mousemove', (e) => {
+      const r = el.getBoundingClientRect();
+      const x = e.clientX - r.left - r.width/2;
+      const y = e.clientY - r.top - r.height/2;
+      el.style.transform = `translate(${x*0.18}px, ${y*0.22}px)`;
+    });
+    el.addEventListener('mouseleave', () => { el.style.transform = ''; });
+  });
+})();
+</script>
+<script>
+(() => {
+  // ——— Portrait style toggle ———
+  const frame = document.getElementById('portrait');
+  const styleMap = {
+    empty: 'empty',
+    svg: 'style-svg',
+    type: 'style-type'
+  };
+  function setPortrait(v) {
+    frame.classList.remove('style-svg','style-type');
+    if (v === 'svg') frame.classList.add('style-svg');
+    if (v === 'type') frame.classList.add('style-type');
+    frame.dataset.style = v;
+    document.querySelectorAll('[data-portrait]').forEach(b => {
+      b.setAttribute('aria-pressed', b.dataset.portrait === v ? 'true' : 'false');
+    });
+  }
+  document.querySelectorAll('[data-portrait]').forEach(b => {
+    b.addEventListener('click', () => setPortrait(b.dataset.portrait));
+  });
+
+  // ——— Timeline layout toggle ———
+  const tl = document.getElementById('tl-scroll');
+  function setTl(v) {
+    if (v === 'stack') {
+      tl.style.overflowX = 'hidden';
+      tl.querySelector('.a-tl-track').style.flexDirection = 'column';
+      tl.querySelector('.a-tl-track').style.width = '100%';
+      tl.querySelectorAll('.a-tl-mile').forEach(m => {
+        m.style.width = '100%';
+        m.style.borderLeft = 'none';
+        m.style.borderTop = '1px solid var(--hairline-canvas)';
+        m.style.paddingLeft = '0';
+        m.style.paddingTop = '32px';
+      });
+    } else {
+      tl.style.overflowX = 'auto';
+      tl.querySelector('.a-tl-track').style.flexDirection = '';
+      tl.querySelector('.a-tl-track').style.width = '';
+      tl.querySelectorAll('.a-tl-mile').forEach(m => {
+        m.style.width = '';
+        m.style.borderLeft = '';
+        m.style.borderTop = '';
+        m.style.paddingLeft = '';
+        m.style.paddingTop = '';
+      });
+    }
+    document.querySelectorAll('[data-tl]').forEach(b => {
+      b.setAttribute('aria-pressed', b.dataset.tl === v ? 'true' : 'false');
+    });
+  }
+  document.querySelectorAll('[data-tl]').forEach(b => {
+    b.addEventListener('click', () => setTl(b.dataset.tl));
+  });
+
+  // ——— Tweaks panel show/hide via host ———
+  const panel = document.getElementById('tweaks');
+  const closeBtn = panel.querySelector('.t-close');
+  window.addEventListener('message', (e) => {
+    const d = e.data || {};
+    if (d.type === '__activate_edit_mode') panel.classList.add('open');
+    if (d.type === '__deactivate_edit_mode') panel.classList.remove('open');
+  });
+  closeBtn.addEventListener('click', () => {
+    panel.classList.remove('open');
+    window.parent.postMessage({type:'__edit_mode_dismissed'}, '*');
+  });
+  window.parent.postMessage({type:'__edit_mode_available'}, '*');
+
+  // ——— Timeline drag to scroll ———
+  let isDown = false, startX = 0, scrollL = 0;
+  tl.addEventListener('mousedown', (e) => {
+    isDown = true;
+    tl.classList.add('dragging');
+    startX = e.pageX - tl.offsetLeft;
+    scrollL = tl.scrollLeft;
+  });
+  ['mouseleave','mouseup'].forEach(ev => tl.addEventListener(ev, () => {
+    isDown = false; tl.classList.remove('dragging');
+  }));
+  tl.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - tl.offsetLeft;
+    tl.scrollLeft = scrollL - (x - startX) * 1.4;
+  });
+  // trackpad/wheel horizontal
+  tl.addEventListener('wheel', (e) => {
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      tl.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  }, { passive: false });
+  // keyboard
+  tl.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight') tl.scrollBy({left: 300, behavior: 'smooth'});
+    if (e.key === 'ArrowLeft')  tl.scrollBy({left: -300, behavior: 'smooth'});
+  });
+})();
+</script>
+
+</body>
+</html>
