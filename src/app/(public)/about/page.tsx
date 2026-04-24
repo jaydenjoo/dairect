@@ -37,7 +37,7 @@ export default async function AboutPage({
 
   return (
     <>
-      <Nav />
+      <Nav solidAlways />
       <main id="main" className="relative z-[2] bg-canvas">
         <AboutHero />
         <AboutTimeline />

@@ -12,7 +12,15 @@ const menu = [
   { label: "Journal", href: "/#journal" },
 ] as const;
 
-export function Nav() {
+type NavProps = {
+  /**
+   * 페이지 최상단이 dark section으로 시작할 때 true.
+   * 초기(scrollY=0) 상태에서도 Nav를 solid canvas 배경으로 강제해 가독성 확보.
+   */
+  solidAlways?: boolean;
+};
+
+export function Nav({ solidAlways = false }: NavProps = {}) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -26,7 +34,7 @@ export function Nav() {
     <nav
       id="nav"
       aria-label="Primary"
-      className={cn("nav", scrolled && "scrolled")}
+      className={cn("nav", (scrolled || solidAlways) && "scrolled")}
     >
       <Link
         href="/#hero"
