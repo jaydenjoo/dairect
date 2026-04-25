@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { fontVariables } from "@/lib/fonts";
 import { Toaster } from "@/components/ui/sonner";
+import { DariWidget } from "@/components/chrome/DariWidget";
 import { SerwistProvider } from "./serwist";
 import "./globals.css";
 
@@ -59,6 +60,9 @@ export default function RootLayout({
           {children}
         </SerwistProvider>
         <Toaster position="top-right" richColors />
+        {/* Epic Demo-Dari (2026-04-25): floating chat widget. /dashboard, /portal,
+            /login, /signup, /onboarding, /invite, /offline 에서는 자동 숨김. */}
+        <DariWidget />
       </body>
     </html>
   );
