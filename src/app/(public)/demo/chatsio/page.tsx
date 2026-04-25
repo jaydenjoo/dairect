@@ -4,6 +4,7 @@ import { Nav } from "@/components/chrome/Nav";
 import { Footer } from "@/components/chrome/Footer";
 import { ScrollTour } from "./scroll-tour";
 import { CitationChart } from "./citation-chart";
+import { ScrollToStepButton } from "@/components/demo/scroll-to-step-button";
 
 export const metadata: Metadata = {
   title: "Chatsio — Demo · 3분 가이드 투어",
@@ -183,13 +184,11 @@ export default function DemoChatsioPage() {
                 <div className="flex-1 border border-[#141414] bg-canvas px-4 py-3 font-mono text-sm text-[#141414]">
                   https://my-shop.example.com
                 </div>
-                <button
-                  type="button"
-                  disabled
-                  className="bg-[#141414] px-6 py-3 text-sm font-medium text-canvas opacity-90"
-                >
-                  분석 시작 →
-                </button>
+                <ScrollToStepButton
+                  targetId="step-2"
+                  label="분석 시작 →"
+                  pendingLabel="분석 중..."
+                />
               </div>
               <p className="mt-4 font-mono text-[11px] text-[#8B8680]">
                 💡 <span className="text-[#FFB800]">평균 30초</span> 안에 상품

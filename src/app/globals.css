@@ -258,6 +258,9 @@
   }
   html {
     @apply font-sans;
+    /* Hash anchor (#step-1) 같은 fragment navigation 시 smooth scroll.
+       prefers-reduced-motion 사용자는 아래 media query 에서 auto 로 override. */
+    scroll-behavior: smooth;
   }
 
   /* Korean body text: generous line-height */

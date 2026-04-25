@@ -5,6 +5,7 @@ import { Footer } from "@/components/chrome/Footer";
 import { ScrollTour } from "./scroll-tour";
 import { ScoreRadar } from "./score-radar";
 import { SCORE_DATA } from "./score-data";
+import { ScrollToStepButton } from "@/components/demo/scroll-to-step-button";
 
 export const metadata: Metadata = {
   title: "Findably — Demo · 3분 가이드 투어",
@@ -182,13 +183,11 @@ export default function DemoFindablyPage() {
                 <div className="flex-1 border border-[#141414] bg-canvas px-4 py-3 font-mono text-sm text-[#141414]">
                   https://my-shop.example.com
                 </div>
-                <button
-                  type="button"
-                  disabled
-                  className="bg-[#141414] px-6 py-3 text-sm font-medium text-canvas opacity-90"
-                >
-                  무료 진단 →
-                </button>
+                <ScrollToStepButton
+                  targetId="step-2"
+                  label="무료 진단 →"
+                  pendingLabel="진단 중..."
+                />
               </div>
               <p className="mt-4 font-mono text-[11px] text-[#8B8680]">
                 💡 평균{" "}
