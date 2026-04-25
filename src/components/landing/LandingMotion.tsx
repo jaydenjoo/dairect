@@ -250,14 +250,23 @@ export function LandingMotion() {
     }
 
     // ── 7. Smooth anchor scroll ────────────────────────────────────
+    // 번들은 SPA 라 `href="#section"` 형식이지만, 우리 Nav/Footer 는 multi-page
+    // 라우팅을 위해 `/#section`, `/about#contact` 처럼 절대경로 + hash 를 쓴다.
+    // 같은 path 의 hash 만 smooth scroll 처리 → 다른 path 로의 navigation 보존.
     const anchorHandlers: Array<{ el: HTMLAnchorElement; fn: (e: Event) => void }> = [];
     document
-      .querySelectorAll<HTMLAnchorElement>('a[href^="#"]')
+      .querySelectorAll<HTMLAnchorElement>("a[href]")
       .forEach((a) => {
         const fn = (e: Event) => {
-          const id = a.getAttribute("href");
-          if (!id || id === "#") return;
-          const t = document.querySelector(id);
+          let url: URL;
+          try {
+            url = new URL(a.href, window.location.href);
+          } catch {
+            return;
+          }
+          if (!url.hash || url.hash === "#") return;
+          if (url.pathname !== window.location.pathname) return;
+          const t = document.querySelector(url.hash);
           if (!t) return;
           e.preventDefault();
           (t as HTMLElement).scrollIntoView({
