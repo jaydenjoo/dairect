@@ -23,4 +23,7 @@ export type Project = {
   status: string; //                 "Status"
   statusType: PortfolioStatusType; // .v.live (green) / .v.wip (dust) 분기
   meta: string; // cursor-follow thumb hover 시 표시
+  // Epic Portfolio v2: row 클릭 시 이동할 URL.
+  // demoUrl 우선 → liveUrl → 둘 다 없으면 undefined (link wrap 안 함).
+  linkUrl?: string;
 };

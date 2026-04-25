@@ -1,110 +1,117 @@
 /**
- * /projects 페이지용 공개 포트폴리오 쿼리.
+ * /projects 페이지용 공개 포트폴리오 쿼리 — Epic Portfolio v2 (2026-04-25).
  *
- * Task 6-ext-2 (2026-04-25): DB 에서 is_public=true + portfolioMeta 가 채워진
- * projects 를 끌어와 번들 디자인 Project 타입으로 변환. DB 0건이면 fallback.
+ * 변경: 기존엔 `projects.is_public + portfolio_meta(jsonb)` 를 읽었지만,
+ * v2 부터는 별도 `portfolio_items` 테이블에서 직접 조회. 고객 프로젝트(`projects`)와
+ * 라이프사이클 분리.
  *
  * 디자인 제약: /projects 시각 렌더 결과 1픽셀도 변경 없음 — 번들 classname 유지,
- * 데이터 소스만 정적 배열 → DB 쿼리로 교체.
+ * 데이터 소스만 portfolio_items 로 교체.
  */
 import "server-only";
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { projects as projectsTable } from "@/lib/db/schema";
-import { parsePortfolioMeta } from "@/lib/validation/portfolio";
+import { portfolioItems } from "@/lib/db/schema";
 import { parseEmphasis } from "./emphasis";
 import { fallbackProjects } from "./fallback-projects";
 import type { Project } from "./types";
+import type {
+  PortfolioCategory,
+  PortfolioStatusType,
+} from "@/lib/validation/portfolio-item";
 
 const MAX_VISIBLE = 10; // 번들 디자인 "Ten projects. / 10 records" 카피 유지
 
 type DbRow = {
   id: string;
-  publicAlias: string | null;
-  publicDescription: string | null;
-  portfolioMeta: unknown;
+  slug: string | null;
+  name: string;
+  nameAmber: string | null;
+  description: string | null;
+  cat: string | null;
+  year: string | null;
+  duration: string | null;
+  stack: string | null;
+  statusText: string | null;
+  statusType: string | null;
+  badge: string | null;
+  metaHint: string | null;
+  liveUrl: string | null;
+  demoUrl: string | null;
+  displayOrder: number;
 };
 
-/**
- * DB row 를 번들 Project 타입으로 변환. 필수 필드 (publicAlias, publicDescription) 가
- * 비면 null 반환 → 호출부에서 제외. "is_public=true 인데 alias 비어있음" 은
- * 데이터 불완전 상태 → silent skip.
- */
-function rowToProject(row: DbRow, num: string): Project | null {
-  if (!row.publicAlias || !row.publicDescription) return null;
-
-  const meta = parsePortfolioMeta(row.portfolioMeta);
+function rowToProject(row: DbRow, num: string): Project {
+  // demoUrl 우선 → liveUrl → 없으면 undefined (link wrap 비활성)
+  const linkUrl = row.demoUrl || row.liveUrl || undefined;
 
   return {
     num,
-    slug: row.id,
-    cat: meta.cat,
-    name: row.publicAlias,
-    nameAmber: meta.nameAmber,
-    // publicDescription 단일 필드를 desc 로 사용 (번들의 ko 서브타이틀은 Korean-in-mono
-    // 섹션이고 badge 하단에 위치. DB 로 전환하면서 번들 2-라인(en + ko) 구조를
-    // 단일 desc 로 평탄화 — UX 단순화)
-    ko: "",
-    badge: meta.badge,
-    desc: parseEmphasis(row.publicDescription),
-    year: meta.year,
-    dur: meta.dur,
-    stack: meta.stack,
-    status: meta.status,
-    statusType: meta.statusType,
-    meta: meta.meta,
+    slug: row.slug ?? row.id,
+    cat: (row.cat ?? "saas") as PortfolioCategory,
+    name: row.name,
+    nameAmber: row.nameAmber ?? "",
+    ko: "", // v2 에서는 ko 서브타이틀 미사용 — description 단일 필드로 평탄화
+    badge: row.badge ?? "",
+    desc: parseEmphasis(row.description ?? ""),
+    year: row.year ?? "",
+    dur: row.duration ?? "",
+    stack: row.stack ?? "",
+    status: row.statusText ?? "",
+    statusType: (row.statusType ?? "live") as PortfolioStatusType,
+    meta: row.metaHint ?? "",
+    linkUrl,
   };
 }
 
 /**
- * 공개 포트폴리오 프로젝트 목록.
+ * 공개 포트폴리오 항목 목록.
  *
- * 순서: portfolioMeta->order ASC → createdAt DESC tie-break.
- * DB 0건이면 fallbackProjects 반환.
- * 상한: 10개.
+ * 정렬: display_order ASC (낮은 숫자 먼저).
+ * 한도: 10개. 11개 이상 등록되어 있으면 11번째부터 미노출.
+ * 데이터 0건 → fallbackProjects 반환 (사이트 빈 화면 방지).
+ * DB 장애 → fallbackProjects 반환 (사이트 우선 살림).
  */
-export async function getPublicPortfolioProjects(): Promise<
-  readonly Project[]
-> {
+export async function getPublicPortfolioProjects(): Promise<readonly Project[]> {
   try {
     const rows = await db
       .select({
-        id: projectsTable.id,
-        publicAlias: projectsTable.publicAlias,
-        publicDescription: projectsTable.publicDescription,
-        portfolioMeta: projectsTable.portfolioMeta,
+        id: portfolioItems.id,
+        slug: portfolioItems.slug,
+        name: portfolioItems.name,
+        nameAmber: portfolioItems.nameAmber,
+        description: portfolioItems.description,
+        cat: portfolioItems.cat,
+        year: portfolioItems.year,
+        duration: portfolioItems.duration,
+        stack: portfolioItems.stack,
+        statusText: portfolioItems.statusText,
+        statusType: portfolioItems.statusType,
+        badge: portfolioItems.badge,
+        metaHint: portfolioItems.metaHint,
+        liveUrl: portfolioItems.liveUrl,
+        demoUrl: portfolioItems.demoUrl,
+        displayOrder: portfolioItems.displayOrder,
       })
-      .from(projectsTable)
+      .from(portfolioItems)
       .where(
         and(
-          eq(projectsTable.isPublic, true),
-          isNotNull(projectsTable.publicAlias)
-        )
+          eq(portfolioItems.isPublic, true),
+          isNull(portfolioItems.deletedAt),
+        ),
       )
-      .orderBy(desc(projectsTable.createdAt))
-      .limit(50);
+      .orderBy(portfolioItems.displayOrder)
+      .limit(MAX_VISIBLE);
 
-    // order 필드로 정렬 (jsonb path 정렬을 앱 측에서 — 50개 이하 데이터에서 DB orderBy 복잡도 < 앱 정렬)
-    const sorted = rows
-      .slice()
-      .sort((a, b) => {
-        const orderA = parsePortfolioMeta(a.portfolioMeta).order;
-        const orderB = parsePortfolioMeta(b.portfolioMeta).order;
-        return orderA - orderB;
-      })
-      .slice(0, MAX_VISIBLE);
+    if (rows.length === 0) return fallbackProjects;
 
-    const projects = sorted
-      .map((row, i) => {
-        const num = `N°${String(i + 1).padStart(2, "0")}`;
-        return rowToProject(row, num);
-      })
-      .filter((p): p is Project => p !== null);
-
-    if (projects.length === 0) return fallbackProjects;
-    return projects;
-  } catch {
-    // DB 장애 시 사이트가 먼저 살아있어야 하므로 fallback 반환
+    return rows.map((row, i) => {
+      const num = `N°${String(i + 1).padStart(2, "0")}`;
+      return rowToProject(row, num);
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error({ event: "getPublicPortfolioProjects_failed", message });
     return fallbackProjects;
   }
 }

@@ -109,48 +109,77 @@ export function ProjectsIndex({
         </span>
       </div>
 
-      {projects.map((p) => (
-        <article
-          key={p.slug}
-          className="p-row"
-          data-cat={p.cat}
-          data-name={p.name + p.nameAmber}
-          data-meta={p.meta}
-          data-year={p.year}
-        >
-          <div className="pr-num">
-            {p.num}
-            <span className="slash"> / </span>10
-          </div>
-          <div className="pr-title">
-            <span className="en">
-              {p.name}
-              <span className="amber">{p.nameAmber}</span>
-            </span>
-            {p.ko && <span className="ko">{p.ko}</span>}
-            <span className="cat">{p.badge}</span>
-          </div>
-          <p className="pr-desc">{p.desc}</p>
-          <div className="pr-meta">
-            <div className="row">
-              <span className="k">Year</span>
-              <span className="v">{p.year}</span>
+      {projects.map((p) => {
+        const inner = (
+          <>
+            <div className="pr-num">
+              {p.num}
+              <span className="slash"> / </span>10
             </div>
-            <div className="row">
-              <span className="k">Dur.</span>
-              <span className="v">{p.dur}</span>
+            <div className="pr-title">
+              <span className="en">
+                {p.name}
+                <span className="amber">{p.nameAmber}</span>
+              </span>
+              {p.ko && <span className="ko">{p.ko}</span>}
+              <span className="cat">{p.badge}</span>
             </div>
-            <div className="row">
-              <span className="k">Stack</span>
-              <span className="v">{p.stack}</span>
+            <p className="pr-desc">{p.desc}</p>
+            <div className="pr-meta">
+              <div className="row">
+                <span className="k">Year</span>
+                <span className="v">{p.year}</span>
+              </div>
+              <div className="row">
+                <span className="k">Dur.</span>
+                <span className="v">{p.dur}</span>
+              </div>
+              <div className="row">
+                <span className="k">Stack</span>
+                <span className="v">{p.stack}</span>
+              </div>
+              <div className="row status">
+                <span className="k">Status</span>
+                <span className={`v ${p.statusType}`}>{p.status}</span>
+              </div>
             </div>
-            <div className="row status">
-              <span className="k">Status</span>
-              <span className={`v ${p.statusType}`}>{p.status}</span>
-            </div>
-          </div>
-        </article>
-      ))}
+          </>
+        );
+
+        // Epic Portfolio v2 (2026-04-25): linkUrl(demoUrl→liveUrl) 있으면 row 전체 a 태그.
+        // CSS .p-row 는 element 무관 className 셀렉터 → 디자인 1픽셀 변화 없음.
+        // 새 탭 + noopener 로 외부 페이지 보안.
+        if (p.linkUrl) {
+          return (
+            <a
+              key={p.slug}
+              href={p.linkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-row"
+              data-cat={p.cat}
+              data-name={p.name + p.nameAmber}
+              data-meta={p.meta}
+              data-year={p.year}
+            >
+              {inner}
+            </a>
+          );
+        }
+
+        return (
+          <article
+            key={p.slug}
+            className="p-row"
+            data-cat={p.cat}
+            data-name={p.name + p.nameAmber}
+            data-meta={p.meta}
+            data-year={p.year}
+          >
+            {inner}
+          </article>
+        );
+      })}
 
       {/*
         Task 6-fx (2026-04-25): cursor-follow thumbnail DOM.

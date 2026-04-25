@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FolderKanban,
+  LayoutGrid,
   Users,
   Users2,
   UserPlus,
@@ -24,6 +25,9 @@ const NAV_ITEMS = [
   { label: "리드", path: "/leads", icon: UserPlus },
   { label: "고객", path: "/clients", icon: Users },
   { label: "프로젝트", path: "/projects", icon: FolderKanban },
+  // Epic Portfolio v2 (2026-04-25): 텐프로젝트(/projects 공개 페이지) 관리.
+  // "프로젝트"(고객 CRM) 와 별개의 마케팅 자산.
+  { label: "포트폴리오", path: "/portfolio", icon: LayoutGrid },
   { label: "견적서", path: "/estimates", icon: FileText },
   { label: "계약서", path: "/contracts", icon: FileSignature },
   { label: "정산", path: "/invoices", icon: Receipt },

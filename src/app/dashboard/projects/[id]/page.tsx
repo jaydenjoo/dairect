@@ -7,7 +7,6 @@ import { getProject as getProjectRaw } from "../actions";
 import { getMilestones } from "./milestone-actions";
 import { ProjectStatusSelect } from "../project-status-select";
 import { MilestoneList } from "./milestone-list";
-import { PublicProfileForm } from "./public-profile-form";
 import { PortalLinkCard } from "@/components/dashboard/portal-link-card";
 import { ProjectFeedbackSection } from "@/components/dashboard/project-feedback-section";
 import { getActivePortalToken } from "./portal-actions";
@@ -210,39 +209,20 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
                 </div>
               </div>
 
-              {/* 공개 프로필 */}
-              <div className="rounded-xl bg-card p-6 shadow-ambient">
-                <div className="mb-5 flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <h2 className="font-heading text-sm font-semibold text-foreground">
-                      공개 프로필
-                    </h2>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      랜딩 포트폴리오 페이지(/projects)에 노출할 내용을 설정합니다.
-                    </p>
-                  </div>
-                  {project.isPublic && project.publicAlias && (
-                    <Link
-                      href={`/projects/${id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-medium text-primary hover:underline"
-                    >
-                      공개 페이지 열기 →
-                    </Link>
-                  )}
-                </div>
-                <PublicProfileForm
-                  projectId={id}
-                  initial={{
-                    isPublic: project.isPublic ?? false,
-                    publicAlias: project.publicAlias,
-                    publicDescription: project.publicDescription,
-                    publicLiveUrl: project.publicLiveUrl,
-                    publicTags: project.publicTags,
-                    portfolioMeta: project.portfolioMeta,
-                  }}
-                />
+              {/*
+                Epic Portfolio v2 (2026-04-25): 기존 "공개 프로필 + 번들 메타" 섹션 제거.
+                /projects 노출용 마케팅 자산은 이제 별도 메뉴 "포트폴리오"
+                (/dashboard/portfolio) 에서 관리. 고객 프로젝트(이 페이지)와 분리.
+              */}
+              <div className="rounded-xl border border-dashed border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground">
+                💡 /projects 페이지 노출용 포트폴리오는{" "}
+                <Link
+                  href="/dashboard/portfolio"
+                  className="font-medium text-foreground underline-offset-2 hover:underline"
+                >
+                  포트폴리오 메뉴
+                </Link>
+                에서 별도로 관리합니다.
               </div>
 
               {/* 고객 포털 링크 */}

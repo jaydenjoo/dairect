@@ -795,3 +795,75 @@ export const rateLimitCounters = pgTable(
     index("rate_limit_counters_window_start_idx").on(table.windowStart),
   ],
 );
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Portfolio Items (텐프로젝트 — 옵션 B 분리 테이블)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// Epic Portfolio v2 (2026-04-25): /projects 공개 페이지 노출용 마케팅 자산.
+// 고객 프로젝트(`projects` 테이블)와 완전 분리 — 라이프사이클·필드·관리 화면이
+// 모두 다름. 기존 projects 의 publicAlias/portfolioMeta 등은 deprecated (당장
+// 삭제 X — 데이터 보존 + 다음 단계 정리).
+//
+// 마이그레이션: 0039_portfolio_items.sql
+// RLS: workspace_id 기반 격리 — 공개 SELECT 는 server role 우회.
+// 공개 페이지(/projects) 쿼리는 server-only Drizzle 직접 select.
+export const portfolioItems = pgTable(
+  "portfolio_items",
+  {
+    id: uuid().primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "restrict" }),
+
+    // ── 식별 ──
+    slug: text(), // URL 친화 식별자 (예: "chatsio") — 미래 /projects/[slug] 라우트용.
+    name: text().notNull(), // "Chatsio" 등 메인 이름 (영문)
+    nameAmber: text("name_amber").default(""), // amber 강조 부분 (예: "sio")
+
+    // ── 콘텐츠 ──
+    description: text().default(""), // 한 줄 설명 (`*텍스트*` amber 강조 지원)
+    cat: text({
+      enum: ["saas", "automation", "editorial", "tools"],
+    }).notNull().default("saas"),
+
+    // ── 메타 (번들 row 표시 필드) ──
+    year: text().default(""),
+    duration: text().default(""), // "2w" 등
+    stack: text().default(""), // "Next.js · Supabase · Claude"
+    statusText: text("status_text").default(""), // "Live · 12 clients"
+    statusType: text("status_type", {
+      enum: ["live", "wip"],
+    }).default("live"),
+    badge: text().default(""), // "★ Featured · SaaS"
+    metaHint: text("meta_hint").default(""), // cursor-thumb hint "AI CHAT · N°01"
+
+    // ── 외부 링크 ──
+    liveUrl: text("live_url"), // 실제 운영 URL (선택)
+    demoUrl: text("demo_url"), // ⭐ 데모 사용 페이지 URL (외부/내부 자유)
+
+    // ── 노출 제어 ──
+    isPublic: boolean("is_public").default(false).notNull(),
+    displayOrder: integer("display_order").default(0).notNull(),
+
+    // ── 라이프사이클 ──
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .default(sql`now()`)
+      .notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    // 같은 workspace 내 slug 유일성 (NULL 허용 → unique 제약 자동 면제)
+    uniqueIndex("portfolio_items_workspace_slug_unique")
+      .on(table.workspaceId, table.slug)
+      .where(sql`${table.slug} IS NOT NULL AND ${table.deletedAt} IS NULL`),
+    // 공개 노출 조회 핫패스: WHERE is_public AND deleted_at IS NULL ORDER BY display_order
+    index("portfolio_items_public_order_idx")
+      .on(table.displayOrder)
+      .where(sql`${table.isPublic} = true AND ${table.deletedAt} IS NULL`),
+  ],
+);
