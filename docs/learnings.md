@@ -1,5 +1,21 @@
 # Dairect — 교훈 기록
 
+## 2026-04-25 — Epic Portfolio v2 4가지 교훈 (CRM ↔ 마케팅 데이터 분리 + 모션 포팅)
+
+1. **번들 vanilla JS 모션을 React 로 옮길 때 IntersectionObserver disconnect 시점에 주의** — 번들 코드는 `entry.isIntersecting` 시점에 `.in` 부착 후 observer disconnect. 그러나 첫 렌더 시 already-visible 요소(스크롤 0 위치의 Hero)는 observer 가 callback 호출하기 전 사용자 액션(스크롤 등)이 발생하면 in 미부착 상태로 남음. → Hero 영역에는 failsafe 로 mount 시점에 무조건 `.in` 부착하는 별도 로직 추가.
+   - **규칙**: 스크롤 트리거 애니메이션을 React 로 포팅할 때 "마운트 시점에 이미 보이는 요소"는 별도 fallback 으로 즉시 활성화 — IntersectionObserver 에만 의존하면 race condition 발생 가능.
+
+2. **Multi-page Next.js 라우팅에서 `a[href^="#"]` 셀렉터는 부족하다** — 번들은 SPA 라 `href="#pricing"` 형식만 사용. 우리 Nav/Footer 는 multi-page 이라 `/#hero` `/about#contact` 처럼 절대경로 + hash 형식 → 기존 셀렉터에서 누락되어 smooth scroll 미작동. URL parse 후 `pathname` 비교로 같은 페이지 hash 만 처리하도록 변경.
+   - **규칙**: anchor smooth scroll handler 는 `a[href]` 전체를 순회하면서 `new URL(a.href, location.href)` 로 정규화 후 `url.pathname === location.pathname && url.hash` 조건 매칭. `[href^="#"]` 셀렉터는 SPA 가정.
+
+3. **데이터 모델은 라이프사이클이 다르면 분리해야 한다 (옵션 A vs B)** — Task 6-ext 1차에서 `projects` 테이블에 `portfolio_meta jsonb` 컬럼 + `isPublic` 토글로 같은 row 가 "고객 프로젝트(CRM)"와 "포트폴리오(마케팅 자산)" 두 의미 동시 보유하도록 설계. Jayden 피드백 "두 가지를 분리해줘" → 옵션 B (`portfolio_items` 별도 테이블) 로 재설계. 이후 관리 UX 가 단순해짐 + 라이프사이클 충돌 0.
+   - **규칙**: 한 row 가 두 도메인(예: CRM + 마케팅)을 동시에 표현하면 항상 결합 비용이 발생. 라이프사이클(공개 일자, 정렬, 강조)이 다르면 분리하는 게 정답. "필드 추가" 보다 "테이블 분리" 가 길게 보면 싸다.
+
+4. **CSS className 셀렉터로 정의된 디자인은 element 변경에 안전** — `.p-row` 는 `article.p-row` 가 아니라 `.p-row` 로만 정의 → `<article>` → `<a>` 로 element 변경해도 디자인 1픽셀 변화 없음. 이를 활용해 PT-4 에서 row 전체를 link wrap 처리 (demoUrl 우선) — 새 시각 요소 0개 추가, 번들 cursor-thumb "CLICK TO READ" 카피와 자연스럽게 합치.
+   - **규칙**: 번들 CSS 의 셀렉터 명세를 먼저 확인 (element-tagged 인지 className-only 인지). className-only 면 a/button/article 등 의미 태그 자유 변환 가능 — interactive 강화에 활용. element-tagged 면 wrapper 패턴 또는 CSS override 검토.
+
+---
+
 ## 2026-04-25 — Studio Anthem 리디자인 5가지 교훈 (Epic 1~7 종합)
 
 1. **Next.js `next/font/google`에서 `axes`와 `weight` 배열은 상호 배타적** — Fraunces의 opsz/SOFT axis를 사용하려면 `weight: ["300","400",...]` 배열을 제거하고 variable font 모드로 로드해야 함. 시도 시 에러: "Axes can only be defined for variable fonts when the weight property is nonexistent or set to `variable`". Etymology 섹션의 RECT 글자 폭 이슈(127→144px, 1000px wrap 초과) → axis 활성화 후 번들 수치(436px) 정확 매칭.

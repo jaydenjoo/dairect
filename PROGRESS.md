@@ -1,10 +1,71 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-25 (**Studio Anthem 리디자인 Epic 1~7 전체 완료** — 공개 영역 + 대시보드 디자인 시스템 전환)
-> 현재 위치: **v3.2 Single-user Mode + Studio Anthem 디자인 시스템 적용 완료** → main PR 대기
+> 최종 업데이트: 2026-04-25 (**Epic Portfolio v2 — 옵션 B 분리 테이블 + 데모 링크 + 전용 관리 메뉴**)
+> 현재 위치: **포트폴리오 v2 production 배포 완료** → 다음 세션은 deprecated projects.public* 컬럼 정리 (별도 단계)
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
 > BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
 > dogfooding 가이드: [docs/dogfooding-checklist.md](docs/dogfooding-checklist.md) 🧪
+
+## 세션 2026-04-25 (Epic Portfolio v2 — 텐프로젝트 ↔ 고객 프로젝트 분리)
+
+### 배경
+Studio Anthem 머지 후 Jayden이 `/projects` 노출 항목을 등록·관리할 방법을 요청. 1차로 6-ext-1~3
+(projects 테이블에 portfolio_meta jsonb 컬럼 + 같은 폼에 번들 메타 섹션) 으로 처리. 그러나
+Jayden이 "고객 프로젝트(CRM)와 포트폴리오(마케팅)는 다른 개념" 명확히 구분 — 옵션 B (분리 테이블)
+로 재설계. 추가로 각 항목에 데모 페이지 URL 필드 + `/projects` 카드 클릭 → 데모 이동 기능 요청.
+
+### 이번 세션 완료 내역
+**1. 모션 효과 React 포팅 (Landing/Projects/About) — 커밋 `e580448`**
+- 번들 vanilla JS (data-chars/reveal/mask/magnetic/count-root) → `LandingMotion.tsx`
+- /projects cursor-thumb + 5탭 필터 + back-to-top → `ProjectsInteractions.tsx`
+- /about timeline 드래그/휠/키보드 스크롤 → `TimelineInteractions.tsx`
+- Hero failsafe (스크롤 진입 전 화면 안 요소들 .in 즉시 부착)
+- IntersectionObserver disconnect 시점 보존 (visible 후 setTimeout으로도 in 부착 가능)
+
+**2. Smooth anchor scroll multi-page 지원 — 커밋 `d722bb1`**
+- 번들 SPA 가정 `a[href^="#"]` → 우리 multi-page Nav `/#hero` 형식 미매칭 → URL parse 후 같은
+  pathname + hash 만 smooth scroll 처리
+- /#pricing 클릭 → scrollY 776→7179 ✓ / /about#contact 1139→3596 ✓
+
+**3. Task 6-ext (1차 시도) — 커밋 `6bcb780` `61ea4ad` `8a7867b`**
+- projects 테이블에 portfolio_meta jsonb 컬럼 추가
+- /projects DB 쿼리 전환 + fallback (DB 0건이면 정적 10개)
+- /dashboard/projects/[id] 폼에 번들 메타 섹션 추가
+- 이후 Jayden 피드백으로 옵션 B 재설계 (이 시도는 보존, 사용처는 PT-5 에서 제거)
+
+**4. Epic Portfolio v2 (옵션 B) — 커밋 `2b185f8`**
+- **PT-1**: `portfolio_items` 테이블 신설 (22 컬럼) + RLS 정책 + 마이그레이션 0039 + Zod
+  (`src/lib/validation/portfolio-item.ts`) + Chatsio 1건 이관
+- **PT-2**: 사이드바 "포트폴리오" 메뉴 + `/dashboard/portfolio` 3 페이지 (목록/등록/편집) +
+  `actions.ts` (create/update/delete 서버 액션)
+- **PT-3**: `src/features/portfolio/queries.ts` 새 테이블 직접 select 로 전환
+- **PT-4**: ProjectsIndex `<article>` → linkUrl 있을 때 `<a target="_blank">` (CSS .p-row 는
+  className 셀렉터 → 디자인 1px 변경 0)
+- **PT-5**: `/dashboard/projects/[id]` "공개 프로필 + 번들 메타" 섹션 제거 + 안내 카드 (포트폴리오
+  메뉴로 이동)
+
+### 검증
+- pnpm tsc --noEmit / lint / build / db:check 전부 ✓
+- Playwright Landing: hero chars 4/4 in, mask 3/3, reveal 6/6, magnetic 4, anchor scroll ✓
+- Playwright /projects: row tag=A href=https://example.com target=_blank, cursor-thumb hover 활성 ✓
+- Playwright /about: Nav solidAlways=true, magnetic 6.42px, timeline drag 0→957, anchor 1139→3596 ✓
+- 콘솔 error/warn 0건
+- production 배포 확인: `x-vercel-cache: HIT` + 새 코드 반영 ✓
+
+### 변경 통계 (HEAD~5..HEAD)
+- 29 파일, +5,703 / -330 줄
+- 커밋 5건 push 완료
+
+### 다음 세션 할 일
+- 기존 `projects.publicAlias / publicDescription / publicTags / publicLiveUrl / portfolioMeta`
+  5 컬럼 deprecation marker 추가 + 별도 마이그레이션으로 DROP (데이터 보존 위해 안전 분리 단계)
+- portfolio_items 의 slug 가 채워지면 `/projects/[slug]` 라우트로 내부 데모 페이지 매핑 가능
+  (지금은 demoUrl 자유 입력으로 외부/내부 양쪽 지원)
+
+### 차단 요소
+- 없음
+
+---
 
 ## 세션 2026-04-24~25 (Studio Anthem 리디자인 Epic 1~7 — 전체 공개 영역 + 대시보드 교체)
 
