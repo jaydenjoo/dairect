@@ -760,6 +760,12 @@ export const workspaceSettings = pgTable("workspace_settings", {
    */
   plan: text("plan").notNull().default("free"),
 
+  // 사이트 플래그 — 공개 영역 노출 토글 (single-user 모드에서 Jayden이 dashboard 에서 ON/OFF).
+  // Epic Site-Flags (2026-04-25): "앱으로 설치(PWA)" 안내 노출 여부. 기본 false (숨김).
+  pwaInstallPromptEnabled: boolean("pwa_install_prompt_enabled")
+    .default(false)
+    .notNull(),
+
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .default(sql`now()`)
     .notNull(),

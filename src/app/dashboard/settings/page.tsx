@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { workspaces } from "@/lib/db/schema";
+import { workspaces, workspaceSettings } from "@/lib/db/schema";
 import { getUserId } from "@/lib/auth/get-user-id";
 import { getCurrentWorkspaceId } from "@/lib/auth/get-workspace-id";
 import { getCurrentWorkspaceRole } from "@/lib/auth/get-workspace-role";
 import { getSettings } from "./actions";
 import { SettingsForm } from "./settings-form";
 import { LogoUpload } from "./logo-upload";
+import { SiteFlagsCard } from "./site-flags-card";
 import type { SettingsFormData } from "@/lib/validation/settings";
 
 export const metadata: Metadata = {
@@ -53,6 +54,16 @@ export default async function SettingsPage() {
     .limit(1);
   const initialLogoUrl = ws?.logoUrl ?? null;
 
+  // Site flags — 공개 영역 노출 토글 (현재 PWA install prompt)
+  const [flags] = await db
+    .select({
+      pwaInstallPromptEnabled: workspaceSettings.pwaInstallPromptEnabled,
+    })
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.workspaceId, workspaceId))
+    .limit(1);
+  const initialPwaEnabled = flags?.pwaInstallPromptEnabled ?? false;
+
   return (
     <div className="py-10">
       <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
@@ -76,6 +87,9 @@ export default async function SettingsPage() {
         </section>
 
         <SettingsForm initialData={settings ?? defaultSettings} />
+
+        {/* Epic Site-Flags (2026-04-25): 공개 영역 노출 토글 */}
+        <SiteFlagsCard initialPwaEnabled={initialPwaEnabled} />
       </div>
     </div>
   );

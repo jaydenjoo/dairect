@@ -1,0 +1,1 @@
+ALTER TABLE "workspace_settings" ADD COLUMN "pwa_install_prompt_enabled" boolean DEFAULT false NOT NULL;

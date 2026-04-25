@@ -11,8 +11,15 @@ import { Founder } from "@/components/sections/Founder";
 import { FinalCTA } from "@/components/sections/FinalCTA";
 import { LandingMotion } from "@/components/landing/LandingMotion";
 import { PwaInstallPrompt } from "@/components/shared/pwa-install-prompt";
+import { getSiteFlags } from "@/lib/site-flags";
 
-export default function LandingPage() {
+// Site-flags (workspace_settings.pwa_install_prompt_enabled) 가 ON 일 때만
+// 공개 페이지에 PWA "앱으로 설치" 안내 노출. 기본 false (숨김).
+// /dashboard/settings 의 "사이트 노출" 섹션에서 Jayden이 직접 토글.
+export const revalidate = 60;
+
+export default async function LandingPage() {
+  const flags = await getSiteFlags();
   return (
     <>
       <Nav />
@@ -29,7 +36,7 @@ export default function LandingPage() {
         <LandingMotion />
       </main>
       <Footer />
-      <PwaInstallPrompt />
+      {flags.pwaInstallPromptEnabled && <PwaInstallPrompt />}
     </>
   );
 }
