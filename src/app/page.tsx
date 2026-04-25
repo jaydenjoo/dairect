@@ -9,6 +9,7 @@ import { Work } from "@/components/sections/Work";
 import { Pricing } from "@/components/sections/Pricing";
 import { Founder } from "@/components/sections/Founder";
 import { FinalCTA } from "@/components/sections/FinalCTA";
+import { LandingMotion } from "@/components/landing/LandingMotion";
 import { PwaInstallPrompt } from "@/components/shared/pwa-install-prompt";
 
 export default function LandingPage() {
@@ -25,6 +26,7 @@ export default function LandingPage() {
         <Pricing />
         <Founder />
         <FinalCTA />
+        <LandingMotion />
       </main>
       <Footer />
       <PwaInstallPrompt />

@@ -65,14 +65,20 @@ export function ProjectsHero({ projects }: { projects: readonly Project[] }) {
           은 AI와 2~3주간의 집중이 맡았습니다.
         </p>
 
-        <div className="p-filters" role="tablist" aria-label="Project filters">
+        <div
+          className="p-filters"
+          role="group"
+          aria-label="Project filters"
+        >
           {filters.map((f, i) => (
             <button
               key={f.key}
               className="p-filter"
-              role="tab"
               data-filter={f.key}
-              aria-selected={i === 0 ? "true" : "false"}
+              // Task 6-fx (2026-04-25): 번들 CSS 가 [aria-pressed="true"] 셀렉터로
+              // active 상태 표시. role="tab" 미사용 (panel 전환이 아닌 row 필터링) →
+              // 일반 toggle button + aria-pressed 가 a11y 시멘틱과 CSS 셀렉터 모두 만족.
+              aria-pressed={i === 0 ? "true" : "false"}
               type="button"
             >
               {f.label}{" "}
@@ -145,6 +151,33 @@ export function ProjectsIndex({
           </div>
         </article>
       ))}
+
+      {/*
+        Task 6-fx (2026-04-25): cursor-follow thumbnail DOM.
+        ProjectsInteractions client component 가 mouseenter 시 위치/내용을 채움.
+        SSR 시점엔 active class 없어 화면에 안 보임 (CSS opacity:0).
+      */}
+      <div
+        className="p-cursor-thumb"
+        id="cursor-thumb"
+        aria-hidden="true"
+      >
+        <div className="pct-head">
+          <span id="pct-id">N°00 / 2025</span>
+          <span id="pct-cat" className="amber">
+            —
+          </span>
+        </div>
+        <div className="pct-body">
+          <span className="pct-name" id="pct-name">
+            —
+          </span>
+        </div>
+        <div className="pct-foot">
+          <span>Click to read</span>
+          <span className="amber">→</span>
+        </div>
+      </div>
     </section>
   );
 }
@@ -188,6 +221,19 @@ export function ProjectsCTA() {
           </a>
         </div>
       </div>
+
+      {/*
+        Task 6-fx (2026-04-25): Back-to-top floating button.
+        ProjectsInteractions 가 scrollY > 800 일 때 .visible 토글.
+      */}
+      <button
+        type="button"
+        id="back-to-top"
+        className="back-to-top"
+        aria-label="페이지 맨 위로"
+      >
+        ↑
+      </button>
     </section>
   );
 }

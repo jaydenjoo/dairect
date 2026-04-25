@@ -32,8 +32,14 @@ export function Proof() {
             {metrics.map((m) => (
               <div key={m.label} className="metric">
                 <span className="metric-value">
-                  <span>{m.value}</span>
-                  {m.suffix}
+                  {/*
+                    Task 6-fx (2026-04-25): 번들 LandingMotion 의 CountUp 효과
+                    대상 — viewport 진입 시 0 → m.value 까지 1.4s easing.
+                    suffix 는 JS 에서 함께 부착하므로 별도 텍스트 출력 X.
+                  */}
+                  <span data-count={m.value} data-suffix={m.suffix}>
+                    0
+                  </span>
                 </span>
                 <span className="metric-label">{m.label}</span>
                 <span className="metric-desc">{m.desc}</span>

@@ -6,6 +6,7 @@ import {
   ProjectsIndex,
   ProjectsCTA,
 } from "@/components/sections/projects/ProjectsIndex";
+import { ProjectsInteractions } from "@/components/sections/projects/ProjectsInteractions";
 import { getPublicPortfolioProjects } from "@/features/portfolio/queries";
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ export default async function ProjectsPage() {
         <ProjectsHero projects={projects} />
         <ProjectsIndex projects={projects} />
         <ProjectsCTA />
+        <ProjectsInteractions />
       </main>
       <Footer />
     </>

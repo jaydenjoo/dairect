@@ -8,6 +8,8 @@ import {
   AboutProcess,
   AboutCTA,
 } from "@/components/sections/about/AboutSections";
+import { TimelineInteractions } from "@/components/sections/about/TimelineInteractions";
+import { LandingMotion } from "@/components/landing/LandingMotion";
 import { ContactSection } from "@/components/about/contact-section";
 import type { PackageId } from "@/lib/validation/inquiry";
 
@@ -41,10 +43,12 @@ export default async function AboutPage({
       <main id="main" className="relative z-[2] bg-canvas">
         <AboutHero />
         <AboutTimeline />
+        <TimelineInteractions />
         <AboutPhilosophy />
         <AboutProcess />
         <AboutCTA />
         <ContactSection initialPackage={initialPackage} />
+        <LandingMotion />
       </main>
       <Footer />
     </>
