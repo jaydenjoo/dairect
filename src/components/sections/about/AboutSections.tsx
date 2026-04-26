@@ -248,10 +248,10 @@ const milestones: readonly Milestone[] = [
         2026<span className="it">.02</span>
       </>
     ),
-    title: <>AutoVox · Sōbun Daily.</>,
+    title: <>Dari · Sōbun Daily.</>,
     desc: (
       <>
-        음성 에이전트와 일본어 뉴스 다이제스트가 같은 주에 배포됐다.{" "}
+        한 줄 임베드 챗봇과 일본어 뉴스 다이제스트가 같은 주에 배포됐다.{" "}
         <em>execution</em>이 동시에 두 방향으로 흘렀다.
       </>
     ),

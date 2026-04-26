@@ -57,26 +57,26 @@ export const fallbackProjects: readonly Project[] = [
   },
   {
     num: "N°03",
-    slug: "autovox",
-    cat: "automation",
-    name: "AutoVox",
-    nameAmber: ".",
-    ko: "음성 자동화 워크플로우",
-    badge: "★ Featured · Automation",
+    slug: "dari",
+    cat: "saas",
+    name: "Da",
+    nameAmber: "ri",
+    ko: "한 줄 코드로 임베드하는 AI 챗봇 SaaS",
+    badge: "★ Featured · Embed",
     desc: (
       <>
-        녹음 버튼 누르고 &ldquo;김대리한테 내일 회의 자료 부탁한다고 노션에
-        달아줘&rdquo;라고 말하면 — 그대로 됩니다. Whisper로 받아적고 Claude가
-        의도를 파싱, Make.com이 <em>실제 액션</em>으로 연결. 평균{" "}
-        <em>240ms</em>.
+        워드프레스든 노션이든 자기 사이트 어디든 — <em>한 줄 script</em>만
+        붙이면, 자기 비즈니스 컨텍스트로 학습된 AI 챗봇이 24시간 응답합니다.
+        지금 이 사이트 우하단에 떠 있는 그 친구가 바로 dari입니다.{" "}
+        <em>One line. Any site.</em>
       </>
     ),
     year: "2025",
     dur: "2w",
-    stack: "Whisper · Claude · Make",
-    status: "Live · 140 users",
+    stack: "Claude · Next.js · Shadow DOM",
+    status: "Live · embed-ready",
     statusType: "live",
-    meta: "VOICE → ACTION",
+    meta: "EMBED CHATBOT",
   },
   {
     num: "N°04",
