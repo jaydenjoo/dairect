@@ -1590,3 +1590,34 @@
   1. **JSX 안에서 `//` 또는 `/*`로 시작하는 텍스트가 필요하면 반드시 `{"..."}` 표현식으로 감쌀 것**. 코드 예시·CLI 명령·URL 주석을 보여주는 데모/마케팅 컴포넌트에서 자주 발생.
   2. 같은 작업 세션에서 두 번째 발생 시 즉시 grep으로 전체 검사 — `grep -rn "{>//\|>/\*" src/components` 같은 식으로 한 번에 정리.
   3. 영향 범위 → Hero·Work·Demo 같은 코드 보여주는 카드, 그리고 향후 dari/site-flags/admin 페이지에서 코드 스니펫 표시할 때 동일 패턴 재현. 컴포넌트 작성 직후 lint 자동 실행되도록 PostToolUse hook 활용.
+
+---
+
+## 2026-04-26 PM — server-only DB lib 와 client-safe types 는 처음부터 파일을 분리하라 (옵션 B SchedulingStatus 동적화)
+
+- **증상**: `SchedulingStatus.tsx` ("use client") 가 같은 파일에서 `import { DEFAULT_SLOTS, type Slot } from "@/lib/scheduling-slots"` 만 했는데, dev 빌드 시 `Module not found: Can't resolve 'net' / 'tls' / 'perf_hooks'` 에러로 페이지 자체 렌더 불가. 페이지가 빈 화면 (`bodyLength: 0`).
+- **원인**: `scheduling-slots.ts` 파일에 server-only `db` (postgres) import + types/constants/Zod schema 가 한 파일에 공존했음. client component 가 type 만 import 해도 webpack/turbopack 은 모듈 경계를 **파일 단위**로 보고 모듈 전체를 client bundle 에 포함시킴 → postgres 의 Node 전용 모듈(net/tls/perf_hooks)이 client 측에서 resolve 안 됨. `"server-only"` import 가 있어도 같은 파일 안에서는 보호 안 됨.
+- **참고 — 왜 site-flags 는 같은 패턴인데 안 터졌나**: `site-flags.ts` 도 같은 파일에 db + types 공존하지만, **client component 가 type 을 import 하지 않음** (props 로만 받음). 그래서 같은 위험 구조였지만 발현 안 됐을 뿐. 두 lib 의 차이 = client-side type 사용 여부.
+- **해결**: 파일 분리.
+  - `scheduling-slots.ts` (no `"server-only"`): types, constants(`SLOT_PACKAGES`/`SLOT_STATUSES`), `DEFAULT_SLOTS`, Zod schema 만 export. db import 제거.
+  - `scheduling-slots-server.ts` ("server-only"): `db` import + `getSchedulingSlots()` 함수만. types 는 위 client-safe 파일에서 import.
+  - import 경로 분기: page.tsx (server) 는 `scheduling-slots-server` 에서, SchedulingStatus.tsx (client) 는 `scheduling-slots` 에서.
+- **규칙**:
+  1. **server-only DB 접근 함수와 client-safe types/constants 는 처음부터 별도 파일로 분리**할 것. naming 컨벤션: `<도메인>.ts` (client-safe) + `<도메인>-server.ts` (server-only). 한 파일에 두는 단축은 client 가 type 을 import 안 할 때만 안전 — 그러나 미래에 import 추가될 위험 항상 존재.
+  2. **`"server-only"` 는 모듈 경계 단위 보호가 아니다** — 같은 파일 안에서는 import 막지 않음. "이 파일 전체가 client 에 포함되면 안 된다"는 의미일 뿐. types 가 client 에 필요하면 처음부터 다른 파일로.
+  3. **빌드 에러가 `Module not found: 'net'/'tls'/'perf_hooks'` 면 즉시 client/server 분리 의심**. Import traces 의 client component 경로를 따라가서 server-only lib 가 끌려간 진입점 찾기.
+  4. site-flags.ts 같은 기존 단일 파일도 새 client component 가 type 을 import 하기 시작하면 동일 문제 재발 → 사전에 분리하는 게 비용 낮음.
+
+## 2026-04-26 PM — `// deprecated` 코멘트는 코드를 stop writing 시키지 않는다 — 자동 검증 게이트가 없으면 active 잔존 (옵션 C-A audit)
+
+- **증상**: Epic Portfolio v2 (2026-04-25) 시점에 `projects` 테이블의 `public_alias`/`public_description`/`public_tags`/`public_screenshot_url`/`public_live_url`/`portfolio_meta`/`is_public` 7개 컬럼을 "deprecated (당장 삭제 X)" 로 표시하고 portfolio_items 테이블로 분리. 3주 후 옵션 C audit 시 17 파일에서 여전히 read/write 중. `/(public)/projects/queries.ts` 는 projects.public* 에서 read (이중 read 구조), `dashboard/projects/[id]/public-profile-form.tsx` + `updateProjectPublicFieldsAction` 는 write 까지 활성. 단순 DROP 가정한 60-90분 견적 → 실제 3시간 (5 Phase) 으로 재산정.
+- **원인**: deprecation 을 코멘트 + PROGRESS.md 노트로만 표시. **자동 검증 게이트(stop writing 강제 / DROP 알람 / read 사용처 lint rule) 없음**. 새 기능 추가 시 새 portfolio_items 만 사용하는 패턴은 자연스럽지만, 기존 코드는 누구도 손대지 않으니 "deprecated 인데 active" 상태로 무한 잔존. 더구나 `// deprecated` 코멘트가 schema.ts 의 portfolio_items 정의 옆에만 있고 projects 의 public* 컬럼 정의 옆에는 없어서 schema 만 읽으면 "이게 deprecated 라는 단서" 0.
+- **해결 (옵션 C-A 결과)**:
+  - cloud DB 직접 audit: 실 데이터 손실 위험 0건 확인 (테스트 더미 1개만)
+  - 17 파일을 카테고리 A (수정 필수 5) / B (portfolio_items 도메인 무관 9) / C (Demo mock 무관 3) 로 명시 분류
+  - Phase 1~5 단계별 plan 문서화: [docs/projects-public-deprecation-plan.md](projects-public-deprecation-plan.md)
+- **규칙**:
+  1. **deprecation 결정 시 4가지 동시 진행**: ① schema 정의 옆에 `@deprecated YYYY-MM-DD` JSDoc 태그 (TS lint 가 사용처 경고) ② cloud DB 데이터 dump (rollback 안전망) ③ DROP 마감일 + 담당 명시 (PROGRESS.md 의 "다음 세션" 항목) ④ stop writing 자동 검증 — 새 PR 에서 deprecated 컬럼 write 시 CI 실패 (가능하면).
+  2. **"당장 삭제 X" 결정은 항상 마감일과 함께** — 마감일 없는 deprecation 은 영구 잔존. 2주~1달 내 후속 Task 로 PROGRESS 에 등록 + 캘린더에 알림.
+  3. **schema-level deprecation 은 코드 grep 보다 cloud DB query 가 신뢰도 높다** — 코드에 read/write 가 있어도 실제 데이터가 0건이면 안전 DROP. audit 첫 단계는 항상 cloud 실 데이터 조회.
+  4. **이중 read/write 구조(legacy + new 양쪽 사용)는 가장 위험한 잔존 형태** — 새 데이터는 new 에만 들어가는데 read 는 양쪽에서 union 되어 사용자에게 일관성 없는 화면이 보일 수 있음. 코드 grep 시 같은 도메인이 두 테이블에서 read 되면 즉시 정리 우선순위 격상.

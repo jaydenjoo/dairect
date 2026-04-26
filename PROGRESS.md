@@ -1,7 +1,7 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-26 PM (**v1.3 잔존 정리 + 대시보드 슬롯 메뉴 + projects.public* audit**)
-> 현재 위치: **옵션 A+B 완료, 옵션 C-A (audit) 완료** → 다음 세션 옵션 C Phase 1~5 진행
+> 최종 업데이트: 2026-04-26 PM (**v1.3 잔존 정리 + 대시보드 슬롯 메뉴 + projects.public* audit + 카피 신뢰 정정**)
+> 현재 위치: **옵션 A+B+카피 정정 완료, 옵션 C-A (audit) 완료** → 다음 세션 옵션 C Phase 1~5 진행
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
 > v1.3 SOT: [docs/dairect-content-replan-v1_3.md](docs/dairect-content-replan-v1_3.md) (WHAT) · [docs/dairect-v1_3-application-guide.md](docs/dairect-v1_3-application-guide.md) (HOW)
 > BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
@@ -34,6 +34,21 @@ v1.3 적용 완료 후 후속 작업 3개를 한 세션에 진행:
 - **결론**: DROP 안전 (실 데이터 0건, 테스트 더미만 손실)
 - Plan 문서 작성: [docs/projects-public-deprecation-plan.md](docs/projects-public-deprecation-plan.md) — Phase 1~5 (총 3시간)
 
+**카피 신뢰 정정 (1 commit `ad65e5d`)**
+- Jayden 우려 제기: WhatsLearning 의 "학습 중·30% 할인" 표현이 웹 의뢰자에게 "웹도 못하는 거 아냐?" 오해 → 신뢰 떨어뜨림. WontDo 의 "다단계/도박/스팸성" 단어가 합법 영역과 혼동 + "다른 곳 소개" 문구가 가치정렬 문제 직후라 알선 오독 가능.
+- WhatsLearning 변경 (디자인 0 변경, 텍스트만):
+  - headline "도전 중인 영역" → "다음 확장 영역 — 모바일." (본업 분리 프레이밍)
+  - lede 첫 줄 "웹은 이미 검증된 본업입니다 (라이브 4 · 실험 8)" 추가
+  - meta label "첫 외부 의뢰 조건" → "모바일 첫 외부 의뢰 조건" (모바일 명시)
+  - policy "첫 의뢰 시 정책" → "모바일 첫 의뢰 한정 정책" (적용 범위 명확화)
+  - foot 첫 문장 "웹 개발 의뢰는 정상 진행됩니다" 안전 문구
+- WontDo 변경 (디자인 0 변경, 텍스트만):
+  - "다단계, 도박, 스팸성 마케팅 도구" → 3개 행위 본질 묘사로 분리 (허위·과장 후킹형 영업 자동화 / 사행성·중독 유도 서비스 / 무단 대량 발송 마케팅 도구 + 정통법 충돌 소지)
+  - "카피라이트" → "저작권" (한글화)
+  - 그룹 title 에 처리 방침 직접 결합: "가치 정렬 문제 — 어떤 형태로도 도와드리지 않습니다" / "지금은 안전하게 못 만듭니다 — 가능한 다른 곳을 소개해드립니다"
+  - foot 카피 변경: "위쪽 '가치 정렬 문제' 항목은 어떤 형태로도 알선하지 않습니다" 명시 (불법 알선 오독 차단)
+- 검증: tsc 통과 / 두 섹션 스크린샷에서 디자인 100% 보존 확인 (rust prefix · amber bar · 헤딩 톤 그대로)
+
 ### 검증
 - pnpm tsc --noEmit / lint / db:check 모두 ✓
 - 옵션 A: /about timeline "Dari · Sōbun Daily." 정확 노출, AutoVox 0건
@@ -41,12 +56,14 @@ v1.3 적용 완료 후 후속 작업 3개를 한 세션에 진행:
 - 옵션 B 빌드 에러 1회 발생 → fix (server-only db 와 client-safe types 파일 분리)
 - 대시보드 카드 시각 검증: 로그인 필요라 직접 못 봤으나 코드 구조 + tsc/lint 통과 — 다음 세션 Jayden 직접 확인 권장
 
-### 변경 통계 (5 commits + 1 docs commit)
-- fix(content) 5d8854c: 2 files (-15 +15)
-- test(e2e) 8ab319c: 1 file (+101)
+### 변경 통계 (7 commits — 전부 origin/main push 완료)
+- fix(content) 5d8854c: 2 files (-15 +15) — AutoVox→Dari 잔존
+- test(e2e) 8ab319c: 1 file (+101) — prod-verify 정식 편입
 - feat(db) 64cb3cf: 4 files (+3132 — schema/SQL/journal/snapshot)
-- feat(public) 29dbeb1: 5 files (+112 -31)
-- feat(dashboard) 4f53940: 3 files (+248)
+- feat(public) 29dbeb1: 5 files (+112 -31) — SchedulingStatus 동적화
+- feat(dashboard) 4f53940: 3 files (+248) — SchedulingSlotsCard
+- docs(audit) fb5e57a: 2 files (+249) — projects.public* cleanup plan + PROGRESS
+- fix(content) ad65e5d: 2 files (+19 -13) — WhatsLearning + WontDo 카피 정정
 
 ### 다음 세션 할 일
 - **(이번 세션 잔존) 옵션 C Phase 1~5**: [docs/projects-public-deprecation-plan.md](docs/projects-public-deprecation-plan.md) 참조 — 총 3시간
@@ -55,8 +72,7 @@ v1.3 적용 완료 후 후속 작업 3개를 한 세션에 진행:
   - Phase 3: validation cleanup (15분)
   - Phase 4: schema DROP (30분)
   - Phase 5: 통합 검증 + 4 분리 커밋 (30분)
-- **(이번 세션 잔존) 대시보드 슬롯 메뉴 시각 검증** (Jayden 로그인 후 /dashboard/settings 확인)
-- **(이번 세션 잔존) push** — 이번 세션 5 commits + docs 1 commit 아직 origin 에 push 안 됨
+- **(이번 세션 잔존) 대시보드 슬롯 메뉴 시각 검증** (Jayden 로그인 후 /dashboard/settings 에서 SchedulingSlotsCard → 저장 → / Pricing 반영 확인)
 - **(Jayden 액션) GA4 활성화** — analytics.google.com 프로퍼티 생성 → G-XXXXXXXXXX 발급 → .env.local + Vercel 환경변수
 - **(이전 세션 잔존) dari 콘솔 학습 검증 / dari 위젯 라이브 검증**
 
