@@ -1,11 +1,69 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-26 (**v1.3 콘텐츠 리포지셔닝 — Day 1+2+3 (16건) + Extra Dari + GA4 측정**)
-> 현재 위치: **v1.3 적용 완료** → 다음 세션은 (1) GA4 ID 입력·활성화 (2) 대시보드 슬롯 설정 메뉴 (3) About+fallback Dari 잔존 정리 중 우선순위 결정
+> 최종 업데이트: 2026-04-26 PM (**v1.3 잔존 정리 + 대시보드 슬롯 메뉴 + projects.public* audit**)
+> 현재 위치: **옵션 A+B 완료, 옵션 C-A (audit) 완료** → 다음 세션 옵션 C Phase 1~5 진행
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
 > v1.3 SOT: [docs/dairect-content-replan-v1_3.md](docs/dairect-content-replan-v1_3.md) (WHAT) · [docs/dairect-v1_3-application-guide.md](docs/dairect-v1_3-application-guide.md) (HOW)
 > BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
 > dogfooding 가이드: [docs/dogfooding-checklist.md](docs/dogfooding-checklist.md) 🧪
+> projects.public* DROP plan: [docs/projects-public-deprecation-plan.md](docs/projects-public-deprecation-plan.md) 🆕
+
+## 세션 2026-04-26 PM (옵션 A 잔존 정리 + 옵션 B 슬롯 메뉴 + 옵션 C-A audit)
+
+### 배경
+v1.3 적용 완료 후 후속 작업 3개를 한 세션에 진행:
+- (A) v1.3 의 잔존 정리 (AutoVox→Dari 미반영 2곳 + e2e prod-verify untracked)
+- (B) 대시보드에서 SchedulingStatus 슬롯 편집 가능하게 (Site Flags 패턴 확장)
+- (C) projects.public* 컬럼 deprecation + DROP — 사전 audit 진행 (cleanup 은 다음 세션)
+
+### 이번 세션 완료 내역
+
+**옵션 A — 잔존 정리 (2 commits)**
+1. fix(content) `5d8854c`: AboutSections.tsx 2026 FEB timeline + fallback-projects.tsx N°03 의 AutoVox → Dari 1:1 교체. portfolio_items DB row 가 우선시되어 fallback 은 안전망 역할.
+2. test(e2e) `8ab319c`: prod-verify.spec.ts 정식 편입 + 사용법 주석 추가 (production-smoke 와 역할 차이 명시).
+
+**옵션 B — 대시보드 슬롯 편집 메뉴 (3 commits)**
+1. feat(db) `64cb3cf`: workspace_settings 에 scheduling_slots jsonb 컬럼 추가 (default = 현 하드코딩 값). drizzle 경로 A + cloud apply_migration.
+2. feat(public) `29dbeb1`: SchedulingStatus 슬롯 데이터 동적화. **client/server 파일 분리 패턴** 도입 — `scheduling-slots.ts` (client-safe types) + `scheduling-slots-server.ts` (server-only db). client component 가 type import 시 postgres 가 client bundle 로 끌려가는 문제 회피.
+3. feat(dashboard) `4f53940`: /settings 에 SchedulingSlotsCard 추가. 3 row form (status select + copy textarea + 글자수 카운터) + dirty 상태 시 저장 버튼 활성. Site-flags-actions 패턴 그대로 확장.
+
+**옵션 C-A — projects.public* audit (다음 세션 진행 예정)**
+- Cloud DB audit: total 3 projects / 1 public (테스트 더미 "test" + example.com URL) / portfolio_meta 0건
+- portfolio_items 4개 (전부 active + public) — 진짜 SOT
+- 17 파일 분류: 카테고리 A (수정 필수 5파일) / B (portfolio_items 도메인 9파일, 무관) / C (Demo mock 3파일, 무관)
+- **결론**: DROP 안전 (실 데이터 0건, 테스트 더미만 손실)
+- Plan 문서 작성: [docs/projects-public-deprecation-plan.md](docs/projects-public-deprecation-plan.md) — Phase 1~5 (총 3시간)
+
+### 검증
+- pnpm tsc --noEmit / lint / db:check 모두 ✓
+- 옵션 A: /about timeline "Dari · Sōbun Daily." 정확 노출, AutoVox 0건
+- 옵션 B: /의 SchedulingStatus 박스 DB 데이터로 SSR 정상 (Sprint/Build/Scale 디자인 100% 보존, 스크린샷 확인)
+- 옵션 B 빌드 에러 1회 발생 → fix (server-only db 와 client-safe types 파일 분리)
+- 대시보드 카드 시각 검증: 로그인 필요라 직접 못 봤으나 코드 구조 + tsc/lint 통과 — 다음 세션 Jayden 직접 확인 권장
+
+### 변경 통계 (5 commits + 1 docs commit)
+- fix(content) 5d8854c: 2 files (-15 +15)
+- test(e2e) 8ab319c: 1 file (+101)
+- feat(db) 64cb3cf: 4 files (+3132 — schema/SQL/journal/snapshot)
+- feat(public) 29dbeb1: 5 files (+112 -31)
+- feat(dashboard) 4f53940: 3 files (+248)
+
+### 다음 세션 할 일
+- **(이번 세션 잔존) 옵션 C Phase 1~5**: [docs/projects-public-deprecation-plan.md](docs/projects-public-deprecation-plan.md) 참조 — 총 3시간
+  - Phase 1: /projects read 통일 (60분)
+  - Phase 2: dashboard legacy UI 제거 (45분)
+  - Phase 3: validation cleanup (15분)
+  - Phase 4: schema DROP (30분)
+  - Phase 5: 통합 검증 + 4 분리 커밋 (30분)
+- **(이번 세션 잔존) 대시보드 슬롯 메뉴 시각 검증** (Jayden 로그인 후 /dashboard/settings 확인)
+- **(이번 세션 잔존) push** — 이번 세션 5 commits + docs 1 commit 아직 origin 에 push 안 됨
+- **(Jayden 액션) GA4 활성화** — analytics.google.com 프로퍼티 생성 → G-XXXXXXXXXX 발급 → .env.local + Vercel 환경변수
+- **(이전 세션 잔존) dari 콘솔 학습 검증 / dari 위젯 라이브 검증**
+
+### 차단 요소
+- 없음
+
+---
 
 ## 세션 2026-04-26 (v1.3 콘텐츠 리포지셔닝 — Day 1+2+3 + Extra Dari + GA4)
 
