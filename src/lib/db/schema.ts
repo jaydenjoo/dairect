@@ -766,6 +766,17 @@ export const workspaceSettings = pgTable("workspace_settings", {
     .default(false)
     .notNull(),
 
+  // 공개 영역 SchedulingStatus 슬롯 — Pricing 섹션의 "REAL-TIME SCHEDULING" 박스.
+  // 3개 패키지(Sprint/Build/Scale) 고정. status(available/next-week/waiting) + copy 동적.
+  // Jayden이 dashboard/settings 에서 편집 → revalidatePath("/") 즉시 반영.
+  schedulingSlots: jsonb("scheduling_slots")
+    .default(sql`'[
+      {"pkg":"Sprint","status":"available","copy":"1자리 가능 — 24시간 안에 회신"},
+      {"pkg":"Build","status":"available","copy":"2자리 가능 — 다음 주 시작"},
+      {"pkg":"Scale","status":"waiting","copy":"2주 대기 — 화이트리스트 적합도 먼저 회신"}
+    ]'::jsonb`)
+    .notNull(),
+
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .default(sql`now()`)
     .notNull(),
