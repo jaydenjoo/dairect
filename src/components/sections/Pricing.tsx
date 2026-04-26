@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { SchedulingStatus } from "./SchedulingStatus";
+import { track } from "@/lib/analytics";
 
 type Plan = {
   num: string;
@@ -8,10 +12,29 @@ type Plan = {
   duration: string;
   desc: string;
   features: readonly string[];
+  notDoing?: string;
+  tagline?: string;
   featured?: boolean;
 };
 
 const plans: readonly Plan[] = [
+  {
+    num: "PKG N°00",
+    name: "Sprint.",
+    koName: "긴급 패키지",
+    amount: "180",
+    duration: "5~7일",
+    desc: "이번 주 데모, 다음 주 시연. 화이트리스트 안 작업이면 5~7일에 만들어드립니다.",
+    features: [
+      "랜딩 페이지 + 폼 + DB (Vercel + Supabase)",
+      "단일 페이지 데모 챗봇 (Claude API + 임베드)",
+      "정적 포트폴리오/소개 사이트",
+      "기존 사이트 1개 섹션 추가/수정",
+      "간단한 대시보드 1화면 (조회 전용)",
+    ],
+    notDoing:
+      "모바일 앱 · 결제 연동 · 회원/로그인 · 외부 API 5개+ → 다른 패키지로 안내",
+  },
   {
     num: "PKG N°01",
     name: "Discovery.",
@@ -33,12 +56,13 @@ const plans: readonly Plan[] = [
     amount: "300",
     duration: "2~3주",
     desc: "실제로 작동하는 MVP를 2~3주 안에 출시합니다. 매일 빌드 공유, 주간 리뷰로 완전히 투명하게.",
+    tagline: "+ 첫 사용자 확보까지 14일 동행",
     features: [
       "Discovery 전 단계 포함",
       "풀스택 개발 (Next.js + Supabase)",
       "반응형 디자인 시스템",
       "배포 및 도메인 연결",
-      "30일 무상 유지보수",
+      "+ 14일 슬랙 자문 (월 5회, 24h SLA)",
     ],
     featured: true,
   },
@@ -49,6 +73,7 @@ const plans: readonly Plan[] = [
     amount: "800",
     duration: "4~8주",
     desc: "런칭 후 성장에 집중하는 단계. 기능 확장, 성능 최적화, 데이터 분석 환경까지 한 번에.",
+    tagline: "+ 첫 매출 발생까지 90일 파트너십",
     features: [
       "Build 전 단계 포함",
       "결제·정산 시스템",
@@ -75,6 +100,8 @@ export function Pricing() {
             체계로 경험하세요.
           </p>
         </div>
+
+        <SchedulingStatus />
 
         <div className="pricing-grid">
           {plans.map((plan) => (
@@ -106,17 +133,29 @@ export function Pricing() {
               </div>
               <div className="price-duration">{plan.duration}</div>
               <p className="price-desc">{plan.desc}</p>
+              {plan.tagline && (
+                <p className="price-tagline">{plan.tagline}</p>
+              )}
               <ul className="price-list">
                 {plan.features.map((f) => (
                   <li key={f}>{f}</li>
                 ))}
               </ul>
+              {plan.notDoing && (
+                <p className="price-not-doing">{plan.notDoing}</p>
+              )}
               <div className="price-cta">
                 {plan.featured ? (
                   <Link
                     href="/about#contact"
                     className="btn-primary magnetic"
                     data-magnetic
+                    onClick={() =>
+                      track(
+                        "pricing_click",
+                        plan.name.replace(".", "").toLowerCase(),
+                      )
+                    }
                   >
                     Start this project{" "}
                     <span className="arrow" aria-hidden="true">
@@ -124,7 +163,16 @@ export function Pricing() {
                     </span>
                   </Link>
                 ) : (
-                  <Link href="/about#contact" className="price-ghost">
+                  <Link
+                    href="/about#contact"
+                    className="price-ghost"
+                    onClick={() =>
+                      track(
+                        "pricing_click",
+                        plan.name.replace(".", "").toLowerCase(),
+                      )
+                    }
+                  >
                     Learn more →
                   </Link>
                 )}

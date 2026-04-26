@@ -762,3 +762,15 @@
 @media (prefers-reduced-motion: reduce) {
   .a-essay-body .mip-label::before { animation: none; opacity: 0.8; }
 }
+
+/* ─────── Timeline future milestone (NEXT — dust tone) (v1.3) ─────── */
+.a-tl-mile.is-future .a-tl-year,
+.a-tl-mile.is-future .a-tl-title-m,
+.a-tl-mile.is-future .a-tl-desc {
+  color: var(--dust);
+}
+.a-tl-mile.is-future .a-tl-title-m em,
+.a-tl-mile.is-future .a-tl-desc em {
+  color: var(--ink);
+  font-style: italic;
+}

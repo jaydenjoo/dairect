@@ -31,10 +31,16 @@ const services = [
   {
     num: "04",
     en: "Ship & Handoff.",
-    ko: "완성 및 이관",
-    role: "— HANDED BACK TO YOU",
-    desc: "런칭은 시작입니다. 운영에 필요한 문서, 계정, 인수인계 자료를 한 권의 폴더로 정리해 드립니다. 이후 유지보수는 원하는 만큼만.",
-    tags: ["< HANDOFF />", "< DOCS />", "< OPS PLAYBOOK />", "< 30D SUPPORT />"],
+    ko: "완성 및 이관 + 사업화 동행",
+    role: "— HANDED BACK TO YOU, GROWN TOGETHER",
+    desc: "런칭은 시작입니다. 운영에 필요한 문서, 계정, 인수인계 자료를 한 권의 폴더로 정리해 드립니다. 이후 Build 패키지는 14일 운영 자문, Scale 패키지는 90일 파트너십이 포함되어 첫 사용자·첫 매출까지 동행합니다.",
+    tags: [
+      "< HANDOFF />",
+      "< DOCS />",
+      "< OPS PLAYBOOK />",
+      "< 14D SUPPORT (BUILD) />",
+      "< 90D PARTNERSHIP (SCALE) />",
+    ],
   },
 ] as const;
 

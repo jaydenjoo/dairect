@@ -74,6 +74,12 @@ const envSchema = z
     // 정책: docs/pii-lifecycle.md §5 — 64자+ 권장. 회전(rotation)은 기존 pseudonym과
     // 불일치 발생하므로 신중 (Phase 5.5 빌링 정책 확정 시 재검토).
     PII_PSEUDONYM_SALT: z.string().min(32, "32자 이상 권장").optional(),
+    // Day 3 P2-3 (v1.3): GA4 Measurement ID. 미설정 시 GA4 Script 미로드 (no-op).
+    // 형식: G-XXXXXXXXXX (analytics.google.com 에서 발급).
+    NEXT_PUBLIC_GA_MEASUREMENT_ID: z
+      .string()
+      .regex(/^G-[A-Z0-9]+$/, "GA4 Measurement ID 형식: G-XXXXXXXXXX")
+      .optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== "production") return;

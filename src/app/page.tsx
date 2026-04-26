@@ -1,12 +1,17 @@
 import { Nav } from "@/components/chrome/Nav";
 import { Footer } from "@/components/chrome/Footer";
 import { Hero } from "@/components/sections/hero/Hero";
+import { WhoThisIsFor } from "@/components/sections/WhoThisIsFor";
 import { Etymology } from "@/components/sections/Etymology";
 import { Manifesto } from "@/components/sections/Manifesto";
+import { WhyThisWorks } from "@/components/sections/WhyThisWorks";
 import { Proof } from "@/components/sections/Proof";
 import { Services } from "@/components/sections/Services";
 import { Work } from "@/components/sections/Work";
 import { Pricing } from "@/components/sections/Pricing";
+import { WhatsLearning } from "@/components/sections/WhatsLearning";
+import { WontDo } from "@/components/sections/WontDo";
+import { NoAIExperience } from "@/components/sections/NoAIExperience";
 import { Founder } from "@/components/sections/Founder";
 import { FinalCTA } from "@/components/sections/FinalCTA";
 import { LandingMotion } from "@/components/landing/LandingMotion";
@@ -25,12 +30,17 @@ export default async function LandingPage() {
       <Nav />
       <main id="main" className="relative z-[2] bg-canvas">
         <Hero />
+        <WhoThisIsFor />
         <Etymology />
         <Manifesto />
+        <WhyThisWorks />
         <Proof />
         <Services />
         <Work />
         <Pricing />
+        <WhatsLearning />
+        <WontDo />
+        <NoAIExperience />
         <Founder />
         <FinalCTA />
         <LandingMotion />

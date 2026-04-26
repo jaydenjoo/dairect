@@ -90,38 +90,34 @@ export function Work() {
             </div>
           </article>
 
-          <article className="work-card mid work-autovox">
+          <article className="work-card mid work-dari">
             <div className="work-img-wrap">
               <div className="work-img">
-                <div className="wa-top">
+                <div className="wd-top">
                   <span>N°03 / 2025</span>
-                  <span>VOICE</span>
+                  <span>EMBED</span>
                 </div>
-                <div className="wa-wave" aria-hidden="true">
-                  <span className="t" style={{ height: "22%" }} />
-                  <span className="t" style={{ height: "42%" }} />
-                  <span className="t a" style={{ height: "70%" }} />
-                  <span className="t" style={{ height: "34%" }} />
-                  <span className="t a" style={{ height: "86%" }} />
-                  <span className="t" style={{ height: "28%" }} />
-                  <span className="t a" style={{ height: "62%" }} />
-                  <span className="t" style={{ height: "46%" }} />
-                  <span className="t a" style={{ height: "74%" }} />
-                  <span className="t" style={{ height: "30%" }} />
-                  <span className="t" style={{ height: "52%" }} />
-                  <span className="t a" style={{ height: "90%" }} />
-                  <span className="t" style={{ height: "38%" }} />
-                  <span className="t" style={{ height: "20%" }} />
+                <div className="wd-code" aria-hidden="true">
+                  <span className="wd-line">
+                    <span className="wd-tag">&lt;script</span>
+                    <span className="wd-attr"> src=</span>
+                    <span className="wd-val">&quot;//dari.kr/v1.js&quot;</span>
+                    <span className="wd-tag">&gt;</span>
+                  </span>
+                  <span className="wd-line">
+                    <span className="wd-tag">&lt;/script&gt;</span>
+                  </span>
+                  <span className="wd-line wd-line-comment">{"// 한 줄로 끝."}</span>
                 </div>
-                <span className="wa-label">Voice → Action, in 240ms.</span>
+                <span className="wd-label">One line. Any site.</span>
               </div>
             </div>
             <div className="work-meta">
               <span className="work-id">N°03 / 2025</span>
-              <span className="work-name">AutoVox</span>
-              <span className="work-desc">음성 자동화 워크플로우</span>
+              <span className="work-name">Dari</span>
+              <span className="work-desc">한 줄 코드로 AI 챗봇 임베드</span>
               <span className="work-stack">
-                WHISPER · CLAUDE · MAKE.COM · 2주
+                CLAUDE · NEXT.JS · 1줄 임베드 · 2주
               </span>
             </div>
           </article>

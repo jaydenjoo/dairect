@@ -1,10 +1,3 @@
-const metrics = [
-  { value: "12", suffix: "건", label: "Projects", desc: "완료 프로젝트" },
-  { value: "5.2", suffix: "억원", label: "Delivered", desc: "누적 개발 규모" },
-  { value: "2.1", suffix: "주", label: "Avg. speed", desc: "평균 기간" },
-  { value: "98", suffix: "%", label: "CSAT", desc: "고객 만족도" },
-] as const;
-
 const marqueeItems = [
   "— STARTUP A",
   "— VENTURE B",
@@ -27,24 +20,56 @@ export function Proof() {
               <span className="it">Small studio.</span>
               <span className="rm">Real numbers.</span>
             </h2>
+            <p className="proof-ko">
+              라이브 제품과 실험을 분리해서 보여드립니다.
+            </p>
           </div>
-          <div className="metrics" data-count-root>
-            {metrics.map((m) => (
-              <div key={m.label} className="metric">
-                <span className="metric-value">
-                  {/*
-                    Task 6-fx (2026-04-25): 번들 LandingMotion 의 CountUp 효과
-                    대상 — viewport 진입 시 0 → m.value 까지 1.4s easing.
-                    suffix 는 JS 에서 함께 부착하므로 별도 텍스트 출력 X.
-                  */}
-                  <span data-count={m.value} data-suffix={m.suffix}>
-                    0
-                  </span>
-                </span>
-                <span className="metric-label">{m.label}</span>
-                <span className="metric-desc">{m.desc}</span>
-              </div>
-            ))}
+
+          <div className="proof-split">
+            <div className="metric proof-half-live">
+              <span className="metric-value">
+                04
+                <span className="proof-live-dot" aria-hidden="true" />
+              </span>
+              <span className="metric-label">Live products</span>
+              <span className="metric-desc">
+                실제 사용자가 매일 쓰고 있는 제품
+              </span>
+            </div>
+            <div className="metric proof-half-demos">
+              <span className="metric-value">08</span>
+              <span className="metric-label">Demos &amp; experiments</span>
+              <span className="metric-desc">
+                데모, 챗봇 임베드, 개인 실험
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="proof-foot" data-count-root>
+          <div className="metric proof-foot-item">
+            <span className="metric-value proof-foot-value">
+              <span data-count="2.1" data-suffix="주">
+                0
+              </span>
+            </span>
+            <span className="metric-desc">평균 기간</span>
+          </div>
+          <div className="metric proof-foot-item">
+            <span className="metric-value proof-foot-value">
+              <span data-count="98" data-suffix="%">
+                0
+              </span>
+            </span>
+            <span className="metric-desc">CSAT</span>
+          </div>
+          <div className="metric proof-foot-item">
+            <span className="metric-value proof-foot-value">
+              <span data-count="100" data-suffix="%">
+                0
+              </span>
+            </span>
+            <span className="metric-desc">직접 만든 것</span>
           </div>
         </div>
 

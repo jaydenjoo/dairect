@@ -149,6 +149,7 @@ type Milestone = {
   title: ReactNode;
   desc: ReactNode;
   signal?: boolean;
+  future?: boolean;
 };
 
 const milestones: readonly Milestone[] = [
@@ -336,6 +337,29 @@ const milestones: readonly Milestone[] = [
       </>
     ),
   },
+  {
+    date: (
+      <>
+        2026 · <span className="amber">학습 중</span>
+      </>
+    ),
+    year: (
+      <>
+        NEXT<span className="it">.</span>
+      </>
+    ),
+    title: (
+      <>
+        Mobile, <em>simply.</em>
+      </>
+    ),
+    desc: (
+      <>
+        첫 모바일 앱 학습 중. <em>단순 앱부터, 결제·푸시는 그 다음에.</em>
+      </>
+    ),
+    future: true,
+  },
 ];
 
 export function AboutTimeline() {
@@ -347,14 +371,15 @@ export function AboutTimeline() {
             — §02 / <em>timeline</em> · 2025→2026
           </p>
           <h2 className="a-tl-title">
-            Six months,
-            <span className="it">ten projects.</span>
+            6개월간, <span className="amber">라이브 4.</span>
+            <span className="it">실험 8. 그래서 13번째도 안전합니다.</span>
           </h2>
         </div>
         <div className="a-tl-aside">
           2025년 말, 첫 번째 <em>direction</em>을 썼다. 그로부터 반 년 사이에
-          스튜디오 이름이 생겼고, 열 개의 <code>execution</code>이 출고됐다.
-          — <em>짧은 시간이 아니라, 밀도의 문제.</em>
+          스튜디오 이름이 생겼고, <em>라이브 4 + 실험 8</em>의{" "}
+          <code>execution</code>이 출고됐다. —{" "}
+          <em>짧은 시간이 아니라, 밀도의 문제.</em>
         </div>
       </div>
 
@@ -380,7 +405,7 @@ export function AboutTimeline() {
           {milestones.map((m, i) => (
             <article
               key={i}
-              className={`a-tl-mile${m.signal ? " is-signal" : ""}`}
+              className={`a-tl-mile${m.signal ? " is-signal" : ""}${m.future ? " is-future" : ""}`}
             >
               <div className="a-tl-date">{m.date}</div>
               <div className="a-tl-year">{m.year}</div>
@@ -457,11 +482,11 @@ const essays: readonly Essay[] = [
     ko: "한 명의 스튜디오, 천 개의 손.",
     en: (
       <>
-        — how Jayden runs ten projects with one head and many machines, and
+        — how Jayden runs twelve projects with one head and many machines, and
         why the math still favors the human.
       </>
     ),
-    enKo: "한 사람이 열 개의 프로젝트를 운전한다는 것, 그 산수에 대하여.",
+    enKo: "한 사람이 열두 개의 프로젝트를 운전한다는 것, 그 산수에 대하여.",
     meta: "~ 1,800 words · titled",
     quarter: "Q4 · 2026",
   },
@@ -575,7 +600,7 @@ export function AboutCTA() {
             </span>
           </Link>
           <Link href="/projects" className="btn-ghost">
-            See the ten projects →
+            See the projects →
           </Link>
         </div>
       </div>

@@ -52,11 +52,15 @@ export function Hero() {
             </p>
 
             <p className="hero-body reveal-fade" data-reveal data-reveal-delay="320">
-              코드는 AI가 씁니다. <em>방향은 저희가 잡습니다.</em> 비개발자 창업가와
-              중소기업의 아이디어가 실제로 작동하는 제품이 될 때까지, 2~3주 안에.
+              코드는 AI가, <em>방향은 저희가.</em> 비개발자 창업가와 중소기업의
+              아이디어를, 2~3주 안에 작동하는 제품으로.
             </p>
 
-            <div className="cta-row reveal-fade" data-reveal data-reveal-delay="440">
+            <p className="hero-body reveal-fade" data-reveal data-reveal-delay="440">
+              일반 개발사가 3개월 들이는 일을, <em>저희는 3주에.</em>
+            </p>
+
+            <div className="cta-row reveal-fade" data-reveal data-reveal-delay="560">
               <Link
                 href="/about#contact"
                 className="btn-primary magnetic"
@@ -73,13 +77,13 @@ export function Hero() {
               </Link>
             </div>
 
-            <div className="trust reveal-fade" data-reveal data-reveal-delay="600">
+            <div className="trust reveal-fade" data-reveal data-reveal-delay="700">
               <div className="trust-item">
                 <span className="trust-label">
-                  N°<span className="ko"> 완료 프로젝트</span>
+                  N°<span className="ko"> 라이브 제품</span>
                 </span>
                 <span className="trust-value">
-                  12
+                  04
                   <span
                     style={{
                       fontSize: "0.5em",
@@ -169,34 +173,36 @@ export function Hero() {
                 </span>
               </div>
 
-              {/* Frame 3 — AutoVox */}
+              {/* Frame 3 — Dari */}
               <div className="frame f3 mask-reveal" data-mask data-mask-delay="200">
-                <div className="art-inner art-autovox">
+                <div className="art-inner art-dari">
                   <div className="head">
                     <span>N°03 · 2025</span>
-                    <span>AutoVox</span>
+                    <span>Dari</span>
                   </div>
-                  <div className="autovox-wave" aria-hidden="true">
-                    <span className="tick" style={{ height: "30%" }} />
-                    <span className="tick" style={{ height: "52%" }} />
-                    <span className="tick accent" style={{ height: "84%" }} />
-                    <span className="tick" style={{ height: "40%" }} />
-                    <span className="tick accent" style={{ height: "70%" }} />
-                    <span className="tick" style={{ height: "26%" }} />
-                    <span className="tick accent" style={{ height: "92%" }} />
-                    <span className="tick" style={{ height: "48%" }} />
-                    <span className="tick" style={{ height: "62%" }} />
-                    <span className="tick accent" style={{ height: "78%" }} />
-                    <span className="tick" style={{ height: "34%" }} />
-                    <span className="tick" style={{ height: "22%" }} />
+                  <div className="dari-code" aria-hidden="true">
+                    <span className="dari-line">
+                      <span className="dari-tag">&lt;script</span>
+                      <span className="dari-attr"> src=</span>
+                      <span className="dari-val">&quot;//dari.kr/v1.js&quot;</span>
+                    </span>
+                    <span className="dari-line">
+                      <span className="dari-attr">&nbsp;&nbsp;data-bot=</span>
+                      <span className="dari-val">&quot;acme&quot;</span>
+                      <span className="dari-tag">&gt;</span>
+                      <span className="dari-tag">&lt;/script&gt;</span>
+                    </span>
+                    <span className="dari-line dari-line-comment">
+                      {"// 한 줄로 끝."}
+                    </span>
                   </div>
-                  <div className="autovox-label">
-                    <em>Voice-first automation.</em>
-                    <span className="mono">VOICE → ACTION · 240 MS</span>
+                  <div className="dari-label">
+                    <em>One line. Any site.</em>
+                    <span className="mono">EMBED → CHAT · 5 MIN</span>
                   </div>
                 </div>
                 <span className="caption">
-                  <span className="amber">N°03</span> — AUTOVOX · VOICE AUTOMATION
+                  <span className="amber">N°03</span> — DARI · CHATBOT EMBED
                 </span>
               </div>
             </div>
