@@ -37,7 +37,7 @@ export function Nav({ solidAlways = false }: NavProps = {}) {
       className={cn("nav", (scrolled || solidAlways) && "scrolled")}
     >
       <Link
-        href="/#hero"
+        href="/"
         className="brand"
         aria-label="dairect — Director of AI, working Direct"
         title="D — Director, AI — Artificial Intelligence, RECT — Direct"
