@@ -1,10 +1,72 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-25 (**Epic Demo-Suite + Site-Flags — 4 데모 페이지 + dari 챗봇 + 관리자 토글**)
-> 현재 위치: **데모 페이지 4건 (dairect/chatsio/findably/dari) 라이브 + dari 챗봇 통합 + PWA 토글 완료** → 다음 세션은 dari 콘솔 학습 점검 + projects.public* 컬럼 정리
+> 최종 업데이트: 2026-04-26 (**v1.3 콘텐츠 리포지셔닝 — Day 1+2+3 (16건) + Extra Dari + GA4 측정**)
+> 현재 위치: **v1.3 적용 완료** → 다음 세션은 (1) GA4 ID 입력·활성화 (2) 대시보드 슬롯 설정 메뉴 (3) About+fallback Dari 잔존 정리 중 우선순위 결정
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
+> v1.3 SOT: [docs/dairect-content-replan-v1_3.md](docs/dairect-content-replan-v1_3.md) (WHAT) · [docs/dairect-v1_3-application-guide.md](docs/dairect-v1_3-application-guide.md) (HOW)
 > BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
 > dogfooding 가이드: [docs/dogfooding-checklist.md](docs/dogfooding-checklist.md) 🧪
+
+## 세션 2026-04-26 (v1.3 콘텐츠 리포지셔닝 — Day 1+2+3 + Extra Dari + GA4)
+
+### 배경
+Jayden이 dairect.kr 콘텐츠 리포지셔닝 v1.3 (검증 대화 4건 반영판) 기획서·적용 가이드 작성 후
+요청. "기존 디자인을 사랑한다" 기준 — 디자인 변경 최소화, 카피·구조만 정직성/사업화/측정 강화.
+
+### 이번 세션 완료 내역
+
+**Day 1 — P0 메시지 핵심 (5건 + Extra)**
+1. Hero: 카피 다듬기 + 새 비교 라인 ("일반 개발사 3개월 → 저희 3주") + 카운터 12→04 라이브 제품
+2. WhyThisWorks 신규 (Manifesto↔Proof 사이): SI/시니어/중급 3-tier 비교표 (1/10·1/4 / 1/5·1/3 / 1/3·1/3 amber)
+3. Pricing: Sprint 카드 추가 (PKG N°00 / 180만원~) + 4-card grid + .price-not-doing 안내문
+4. SchedulingStatus 신규: REAL-TIME SCHEDULING 박스 (paper bg + amber 점멸 도트 + 슬롯 3행)
+5. Proof: Live 04 (amber dot) / Demos 08 (dust) 분리 + 하단 2.1주·98%·100%
+6. **Extra**: AutoVox → Dari 1:1 교체 (Hero film-strip Frame 3 + Work 카드 + Proof 부제). 1줄 코드 박스 시각
+
+**Day 2 — P1 정직성 시그널 (7건)**
+1. WhoThisIsFor 신규 (Hero↔Etymology): 비대칭 3-card 페르소나 (AI 진입 장벽 paper+amber bar / 검증 / 긴급)
+2. WhatsLearning 신규 (Pricing 직후): 모바일 앱 + IAP 학습 공개 (📱💳 + 정책 박스 paper+amber bar)
+3. WontDo 신규 (WhatsLearning 직후): 받지 않는 의뢰 8개 (rust 4px bar + ✗ rust prefix + 2-col)
+4. NoAIExperience 신규 (WontDo 직후): 안심 카피 (canvas + amber 4px bar — 다크 섹션 추가 0)
+5. Services 04 카피: "완성 및 이관 + 사업화 동행" + 14D SUPPORT (BUILD) / 90D PARTNERSHIP (SCALE) 태그
+6. Pricing Build/Scale: amber tagline 1줄 (14일 동행 / 90일 파트너십) + Build features "14일 슬랙 자문 (월 5회, 24h SLA)" 교체
+7. Footer: 법적 책임 안내 5개 항목 박스 (mono dust + mailto)
+
+**Day 3 — P2 About + 측정 (3건)**
+1. About 타임라인 헤드라인: "6개월간, 라이브 4. 실험 8. 그래서 13번째도 안전합니다." + 한글 본문 일관 + 잔존 "ten projects" 2곳 정정 (essay twelve / CTA 숫자 제거)
+2. About NEXT 마일스톤 추가: "2026 · 학습 중 / NEXT. / Mobile, simply." dust 톤 + em ink (미래/진행중)
+3. **GA4 측정 인프라 + 이벤트 4개** (옵션 B 미니멀):
+   - 신규: src/lib/analytics.ts (track 헬퍼 graceful degrade) / src/components/chrome/Analytics.tsx (GA_ID 있을 때만 Script)
+   - env.ts: NEXT_PUBLIC_GA_MEASUREMENT_ID 옵셔널
+   - 이벤트: persona_card_click / pricing_click / schedule_click / wont_do_view (IntersectionObserver)
+
+**추가 카피 수정**: WhoThisIsFor "노션 문서" → "문서로" (도구 중립화, Notion vs Obsidian 비교 검증 후 결정)
+
+### 검증
+- pnpm tsc --noEmit / lint / build / db:check 모두 ✓
+- Playwright 시각 검증: 9개 영역 모두 Studio Anthem 디자인 100% 보존
+  (Hero / WhyThisWorks / RealtimeScheduling / Pricing 4-card / Proof / Work Dari / WhoThisIsFor / WhatsLearning / WontDo / NoAIExperience / Services 04 / Pricing tagline / Footer / About Timeline / NEXT mile)
+- 콘솔 에러 0 (dari widget CORS는 우리 작업 무관 — 다음 세션 dari 위젯 라이브 검증 잔존)
+- GA4 graceful degrade 확인: gtag undefined / Script 미로드 (GA_ID 미설정 안전)
+
+### 변경 통계 (3 commits)
+- chore(gitignore): v13-*.png 패턴 (3 lines)
+- docs: CLAUDE.md AI 응답 검증 규칙 + v1.3 기획서/가이드 (3 files, +1,287)
+- feat: v1.3 코드 (20 files, +1,671 / -87 — 신규 7 컴포넌트 + 1 lib + 12 수정)
+
+### 다음 세션 할 일
+- **(Jayden 액션) GA4 활성화**: analytics.google.com 프로퍼티 생성 → G-XXXXXXXXXX 발급 → `.env.local` + Vercel 환경변수 추가
+- **(별도 Task) 대시보드 슬롯 설정 메뉴**: SchedulingStatus 슬롯 데이터 동적화 (workspace_settings.slots jsonb + Site Flags 패턴 확장) — 약 2시간
+- **(별도 Task) About + fallback-projects.tsx의 AutoVox 잔존 정리** — 약 30분
+- **(별도 Task) e2e/smoke/prod-verify.spec.ts 정식 편입** (untracked 잔존)
+- **(이전 세션 잔존) dari 콘솔 학습 검증** (Jayden 측 task — 비차단)
+- **(이전 세션 잔존) projects.public\* 컬럼 deprecation + DROP** (Parallel Change 후속, 60~90분)
+- **(이전 세션 잔존) dari 위젯 라이브 검증** — Production 우하단 floating bubble 작동 + CORS 이슈 점검
+
+### 차단 요소
+- 없음 (GA4 ID는 Jayden 액션 — 비차단, 코드 안전 graceful degrade)
+
+---
 
 ## 세션 2026-04-25 (Demo-Suite + Dari 챗봇 통합 + Site-Flags 토글)
 

@@ -1570,3 +1570,23 @@
   3. 스모크 이메일 주소 오타 방지 — 반드시 **Jayden이 실제 받는 이메일** 명시 후 복사/붙여넣기. 손타이핑 금지(테스트 중단 2번째 원인).
   4. 프로젝트 완료 시 고객에게 실제 전달되는 메일은 고객 주소(다른 도메인)로 가므로 프로덕션에서는 이 함정이 없음 — 개발 스모크 시에만 주의.
   5. n8n Gmail 노드 `appendAttribution: false` 설정 유지 — Gmail Send 하단에 "Sent with n8n" 서명이 붙지 않도록(고객 발송 메일에 n8n 로고 노출 방지).
+
+## 2026-04-26 — Studio Anthem hairline 토큰: 배경 컨텍스트별 분리 사용
+
+- **증상**: v1.3 작업 중 `SchedulingStatus` 박스(paper 배경 `#FAF7F0`)에 `border: 1px solid var(--hairline-ink)` 적용 → Playwright 스크린샷에서 보더가 거의 안 보임. 스타일은 들어갔으나 시각적으로 박스가 떠 있는 것처럼 보임.
+- **원인**: Studio Anthem 토큰 정의를 보면 `--hairline-ink: rgba(245,241,232,0.12)` (canvas-on-ink용 = **다크 배경 위 라이트 라인**), `--hairline-canvas: rgba(20,20,20,0.12)` (ink-on-canvas용 = **라이트 배경 위 다크 라인**). 토큰 이름이 "잉크색 hairline"이 아니라 "ink 배경에 쓰는 hairline"이라는 *컨텍스트 표현*인데, 직관과 반대라 헷갈림.
+- **해결**: paper(라이트) 배경 위 박스 → `var(--hairline-canvas)`로 교체. 즉시 1px 다크 라인 가시화.
+- **규칙**:
+  1. **Hairline 토큰은 "선 색"이 아니라 "어떤 배경에서 쓰는 hairline인가"를 의미한다.** `--hairline-canvas` = canvas/paper 위, `--hairline-ink` = ink(다크) 위. 직관(Inkblot=어두운 선)과 정반대이므로 작업 시 의식적으로 확인.
+  2. 새 컴포넌트 보더 정할 때 **배경색부터 확인** → 라이트(`--canvas`/`--paper`)면 `--hairline-canvas`, 다크(`--ink`)면 `--hairline-ink`.
+  3. 시각 검증은 반드시 Playwright/preview로 실제 렌더링 확인 — TypeScript는 토큰 의미를 모르므로 lint·tsc 통과해도 보더가 안 보일 수 있음.
+
+## 2026-04-26 — JSX 텍스트가 `//`로 시작하면 ESLint `react/jsx-no-comment-textnodes` 위반
+
+- **증상**: Hero.tsx Frame 3 Dari 코드 박스에 `<span>// 한 줄로 끝.</span>` 형태 JSX 작성 후 `pnpm lint` 실패. Work.tsx에서도 동일 패턴으로 재발.
+- **원인**: ESLint `react/jsx-no-comment-textnodes` 규칙 — JSX 텍스트 노드가 `//` 또는 `/*`로 시작하면 "코드 주석을 쓴 줄 알았는데 실제로는 화면에 그대로 렌더링된다"고 경고. 사용자가 JS 주석을 잘못 넣었을 가능성이 높다는 휴리스틱.
+- **해결**: 문자열 리터럴로 감싸 JSX 표현식으로 변환 → `{"// 한 줄로 끝."}`. 의미는 동일하나 ESLint는 "의도적인 텍스트"로 인식.
+- **규칙**:
+  1. **JSX 안에서 `//` 또는 `/*`로 시작하는 텍스트가 필요하면 반드시 `{"..."}` 표현식으로 감쌀 것**. 코드 예시·CLI 명령·URL 주석을 보여주는 데모/마케팅 컴포넌트에서 자주 발생.
+  2. 같은 작업 세션에서 두 번째 발생 시 즉시 grep으로 전체 검사 — `grep -rn "{>//\|>/\*" src/components` 같은 식으로 한 번에 정리.
+  3. 영향 범위 → Hero·Work·Demo 같은 코드 보여주는 카드, 그리고 향후 dari/site-flags/admin 페이지에서 코드 스니펫 표시할 때 동일 패턴 재현. 컴포넌트 작성 직후 lint 자동 실행되도록 PostToolUse hook 활용.
