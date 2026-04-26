@@ -1,6 +1,6 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-26 PM (**v1.3 잔존 정리 + 대시보드 슬롯 메뉴 + projects.public* audit + 카피 신뢰 정정**)
+> 최종 업데이트: 2026-04-26 PM · KST 재배포 (**v1.3 잔존 정리 + 대시보드 슬롯 메뉴 + projects.public* audit + 카피 신뢰 정정**)
 > 현재 위치: **옵션 A+B+카피 정정 완료, 옵션 C-A (audit) 완료** → 다음 세션 옵션 C Phase 1~5 진행
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
 > v1.3 SOT: [docs/dairect-content-replan-v1_3.md](docs/dairect-content-replan-v1_3.md) (WHAT) · [docs/dairect-v1_3-application-guide.md](docs/dairect-v1_3-application-guide.md) (HOW)
