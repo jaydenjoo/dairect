@@ -10,6 +10,8 @@ import { getSettings } from "./actions";
 import { SettingsForm } from "./settings-form";
 import { LogoUpload } from "./logo-upload";
 import { SiteFlagsCard } from "./site-flags-card";
+import { SchedulingSlotsCard } from "./scheduling-slots-card";
+import { getSchedulingSlots } from "@/lib/scheduling-slots-server";
 import type { SettingsFormData } from "@/lib/validation/settings";
 
 export const metadata: Metadata = {
@@ -64,6 +66,9 @@ export default async function SettingsPage() {
     .limit(1);
   const initialPwaEnabled = flags?.pwaInstallPromptEnabled ?? false;
 
+  // Scheduling slots — Pricing "REAL-TIME SCHEDULING" 박스 데이터 (Epic Scheduling-Slots 2026-04-26)
+  const initialSchedulingSlots = await getSchedulingSlots();
+
   return (
     <div className="py-10">
       <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
@@ -90,6 +95,9 @@ export default async function SettingsPage() {
 
         {/* Epic Site-Flags (2026-04-25): 공개 영역 노출 토글 */}
         <SiteFlagsCard initialPwaEnabled={initialPwaEnabled} />
+
+        {/* Epic Scheduling-Slots (2026-04-26): 공개 영역 Pricing 슬롯 편집 */}
+        <SchedulingSlotsCard initialSlots={initialSchedulingSlots} />
       </div>
     </div>
   );
