@@ -62,3 +62,6 @@ public/swe-worker-*.js.map
 
 # Playwright MCP artifacts (local-only)
 .playwright-mcp/
+
+# v1.3 Playwright verification screenshots (root, local-only)
+v13-*.png
