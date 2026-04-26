@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { SchedulingStatus } from "./SchedulingStatus";
 import { track } from "@/lib/analytics";
+import type { Slot } from "@/lib/scheduling-slots";
 
 type Plan = {
   num: string;
@@ -84,7 +85,7 @@ const plans: readonly Plan[] = [
   },
 ] as const;
 
-export function Pricing() {
+export function Pricing({ schedulingSlots }: { schedulingSlots?: readonly Slot[] }) {
   return (
     <section id="pricing" data-screen-label="06 Pricing">
       <div className="container">
@@ -101,7 +102,7 @@ export function Pricing() {
           </p>
         </div>
 
-        <SchedulingStatus />
+        <SchedulingStatus slots={schedulingSlots} />
 
         <div className="pricing-grid">
           {plans.map((plan) => (

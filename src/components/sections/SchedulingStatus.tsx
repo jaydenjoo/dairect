@@ -1,34 +1,13 @@
 "use client";
 
 import { track } from "@/lib/analytics";
+import { DEFAULT_SLOTS, type Slot } from "@/lib/scheduling-slots";
 
-type SlotStatus = "available" | "next-week" | "waiting";
-
-type Slot = {
-  pkg: string;
-  status: SlotStatus;
-  copy: string;
-};
-
-const slots: readonly Slot[] = [
-  {
-    pkg: "Sprint",
-    status: "available",
-    copy: "1자리 가능 — 24시간 안에 회신",
-  },
-  {
-    pkg: "Build",
-    status: "available",
-    copy: "2자리 가능 — 다음 주 시작",
-  },
-  {
-    pkg: "Scale",
-    status: "waiting",
-    copy: "2주 대기 — 화이트리스트 적합도 먼저 회신",
-  },
-];
-
-export function SchedulingStatus() {
+export function SchedulingStatus({
+  slots = DEFAULT_SLOTS,
+}: {
+  slots?: readonly Slot[];
+}) {
   return (
     <div className="scheduling-status reveal-fade" data-reveal>
       <div className="ss-head">

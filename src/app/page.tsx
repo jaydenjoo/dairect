@@ -17,6 +17,7 @@ import { FinalCTA } from "@/components/sections/FinalCTA";
 import { LandingMotion } from "@/components/landing/LandingMotion";
 import { PwaInstallPrompt } from "@/components/shared/pwa-install-prompt";
 import { getSiteFlags } from "@/lib/site-flags";
+import { getSchedulingSlots } from "@/lib/scheduling-slots-server";
 
 // Site-flags (workspace_settings.pwa_install_prompt_enabled) 가 ON 일 때만
 // 공개 페이지에 PWA "앱으로 설치" 안내 노출. 기본 false (숨김).
@@ -24,7 +25,10 @@ import { getSiteFlags } from "@/lib/site-flags";
 export const revalidate = 60;
 
 export default async function LandingPage() {
-  const flags = await getSiteFlags();
+  const [flags, schedulingSlots] = await Promise.all([
+    getSiteFlags(),
+    getSchedulingSlots(),
+  ]);
   return (
     <>
       <Nav />
@@ -37,7 +41,7 @@ export default async function LandingPage() {
         <Proof />
         <Services />
         <Work />
-        <Pricing />
+        <Pricing schedulingSlots={schedulingSlots} />
         <WhatsLearning />
         <WontDo />
         <NoAIExperience />
