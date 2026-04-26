@@ -1,7 +1,7 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-26 PM · KST 재배포 (**v1.3 잔존 정리 + 대시보드 슬롯 메뉴 + projects.public* audit + 카피 신뢰 정정**)
-> 현재 위치: **옵션 A+B+카피 정정 완료, 옵션 C-A (audit) 완료** → 다음 세션 옵션 C Phase 1~5 진행
+> 최종 업데이트: 2026-04-26 저녁 (**Vercel 배포 차단 해제 + Nav URL 정리 — production 정상화**)
+> 현재 위치: **production 정상 배포 재개** → 다음 세션 옵션 C Phase 1~5 진행 + 슬롯 메뉴 시각 검증
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
 > v1.3 SOT: [docs/dairect-content-replan-v1_3.md](docs/dairect-content-replan-v1_3.md) (WHAT) · [docs/dairect-v1_3-application-guide.md](docs/dairect-v1_3-application-guide.md) (HOW)
 > BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
@@ -34,6 +34,23 @@ v1.3 적용 완료 후 후속 작업 3개를 한 세션에 진행:
 - **결론**: DROP 안전 (실 데이터 0건, 테스트 더미만 손실)
 - Plan 문서 작성: [docs/projects-public-deprecation-plan.md](docs/projects-public-deprecation-plan.md) — Phase 1~5 (총 3시간)
 
+**Vercel 배포 차단 진단 + 해결 (코드 변경 0, 운영 작업)**
+- 증상: Jayden 신고 — "배포가 잘못되서 다시 푸시해야 됨". Production 사이트가 4시간 전 commit (`20ff3d4`) 에서 멈춤. 그 이후 push 한 7+ commits 모두 미반영.
+- 진단 과정:
+  1. CLI 인증 계정 이슈 의심 → 실제로는 동일 계정 (jaydenjoo / jaydens-projects-f5e92399). `vercel projects ls --scope` 명시하니 정상 출력. default scope가 비어 보이는 CLI 50.32.3 동작 이슈.
+  2. 비용 한도 의심 → 캡처 재확인 후 정상 ($21.39 / $30, 71% 사용). 잘못된 진단 정정.
+  3. **결정적 단서**: `vercel inspect <url>` 결과 Builds [0ms] / Canceled — 6번 모두 빌드 자체 실행 안 됨.
+  4. Jayden 진술: Settings → "Ignored Build Step" 드롭다운에서 "Don't build anything" 선택 (자동 배포 비활성화 의도).
+  5. 공식 docs 검증 (Vercel project-settings 페이지, 2026-04 기준): "Don't build anything: A new build will never be issued. The deployment state is set to CANCELED." → 정확히 일치.
+- 메뉴 경로 정정: 옛날 "Settings → Git → Ignored Build Step" → 최신 (2026) "Settings → **Build and Deployment** → Ignored Build Step".
+- 해결: Jayden 이 직접 dashboard 에서 "Don't build anything" → "Automatic" 변경 + Save. 즉시 자동 배포 부활 (Building → Ready 1분 빌드).
+
+**Nav 로고 URL 정리 (1 commit `37f845e`)**
+- Jayden 질문: "dairect.kr/#hero 의 #hero 가 왜 붙는지?"
+- 원인: Nav 좌상단 로고 `<Link href="/#hero">` 하드코딩. 어디서든 로고 클릭 시 Hero 섹션으로 명시적 스크롤.
+- 결정: `href="/"` 로 변경 (URL 깔끔 + 일반 패턴). Footer 의 `/#work` `/#services` `/#pricing` `/#journal` 은 섹션 anchor 로 의도된 동작이라 그대로 유지.
+- 검증: /about 페이지에서 brand href = "/" 정확 적용.
+
 **카피 신뢰 정정 (1 commit `ad65e5d`)**
 - Jayden 우려 제기: WhatsLearning 의 "학습 중·30% 할인" 표현이 웹 의뢰자에게 "웹도 못하는 거 아냐?" 오해 → 신뢰 떨어뜨림. WontDo 의 "다단계/도박/스팸성" 단어가 합법 영역과 혼동 + "다른 곳 소개" 문구가 가치정렬 문제 직후라 알선 오독 가능.
 - WhatsLearning 변경 (디자인 0 변경, 텍스트만):
@@ -56,7 +73,7 @@ v1.3 적용 완료 후 후속 작업 3개를 한 세션에 진행:
 - 옵션 B 빌드 에러 1회 발생 → fix (server-only db 와 client-safe types 파일 분리)
 - 대시보드 카드 시각 검증: 로그인 필요라 직접 못 봤으나 코드 구조 + tsc/lint 통과 — 다음 세션 Jayden 직접 확인 권장
 
-### 변경 통계 (7 commits — 전부 origin/main push 완료)
+### 변경 통계 (12 commits — 전부 origin/main push 완료)
 - fix(content) 5d8854c: 2 files (-15 +15) — AutoVox→Dari 잔존
 - test(e2e) 8ab319c: 1 file (+101) — prod-verify 정식 편입
 - feat(db) 64cb3cf: 4 files (+3132 — schema/SQL/journal/snapshot)
@@ -64,6 +81,10 @@ v1.3 적용 완료 후 후속 작업 3개를 한 세션에 진행:
 - feat(dashboard) 4f53940: 3 files (+248) — SchedulingSlotsCard
 - docs(audit) fb5e57a: 2 files (+249) — projects.public* cleanup plan + PROGRESS
 - fix(content) ad65e5d: 2 files (+19 -13) — WhatsLearning + WontDo 카피 정정
+- chore ab5e773: 2 files (+56 -9) — save session progress (1차)
+- (Jayden 빈 deploy 3건: 3cbb433 / 1d8e325 / 8dc67b4 — Vercel 차단으로 모두 Cancel)
+- chore 9c0eb51: 1 file (+1 -1) — PROGRESS 헤더 KST 마커 (재배포 트리거 시도)
+- fix(nav) 37f845e: 1 file (+1 -1) — Nav 로고 href /#hero → / (URL 정리)
 
 ### 다음 세션 할 일
 - **(이번 세션 잔존) 옵션 C Phase 1~5**: [docs/projects-public-deprecation-plan.md](docs/projects-public-deprecation-plan.md) 참조 — 총 3시간
@@ -72,12 +93,14 @@ v1.3 적용 완료 후 후속 작업 3개를 한 세션에 진행:
   - Phase 3: validation cleanup (15분)
   - Phase 4: schema DROP (30분)
   - Phase 5: 통합 검증 + 4 분리 커밋 (30분)
-- **(이번 세션 잔존) 대시보드 슬롯 메뉴 시각 검증** (Jayden 로그인 후 /dashboard/settings 에서 SchedulingSlotsCard → 저장 → / Pricing 반영 확인)
+- **(이번 세션 잔존) 대시보드 슬롯 메뉴 시각 검증** (Jayden 로그인 후 /dashboard/settings 에서 SchedulingSlotsCard → 저장 → / Pricing 반영 확인) — Vercel 정상화돼서 바로 가능
+- **(Jayden 확인) production dairect.kr 새로고침으로 모든 변경 반영 확인** (Hero/Work Dari, WhatsLearning, WontDo, About timeline, 우하단 dari 위젯, 로고 클릭 시 #hero 사라짐)
 - **(Jayden 액션) GA4 활성화** — analytics.google.com 프로퍼티 생성 → G-XXXXXXXXXX 발급 → .env.local + Vercel 환경변수
 - **(이전 세션 잔존) dari 콘솔 학습 검증 / dari 위젯 라이브 검증**
+- **(운영) Vercel "자동 배포 비활성화" 다시 원할 경우의 안전한 방법**: "Don't build anything" 대신 (1) Production Branch 변경 또는 (2) Custom 명령어로 조건부 skip — 다음 세션에 정리 가능
 
 ### 차단 요소
-- 없음
+- 없음 (Vercel 차단 해제 + 자동 배포 정상)
 
 ---
 

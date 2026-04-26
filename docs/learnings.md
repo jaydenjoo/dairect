@@ -1621,3 +1621,22 @@
   2. **"당장 삭제 X" 결정은 항상 마감일과 함께** — 마감일 없는 deprecation 은 영구 잔존. 2주~1달 내 후속 Task 로 PROGRESS 에 등록 + 캘린더에 알림.
   3. **schema-level deprecation 은 코드 grep 보다 cloud DB query 가 신뢰도 높다** — 코드에 read/write 가 있어도 실제 데이터가 0건이면 안전 DROP. audit 첫 단계는 항상 cloud 실 데이터 조회.
   4. **이중 read/write 구조(legacy + new 양쪽 사용)는 가장 위험한 잔존 형태** — 새 데이터는 new 에만 들어가는데 read 는 양쪽에서 union 되어 사용자에게 일관성 없는 화면이 보일 수 있음. 코드 grep 시 같은 도메인이 두 테이블에서 read 되면 즉시 정리 우선순위 격상.
+
+---
+
+## 2026-04-26 저녁 — Vercel "Don't build anything" 차단 진단 패턴: Builds [0ms] + Canceled (배포 안 되는 모든 시도가 같은 시그널)
+
+- **증상**: production 사이트가 4시간 전 commit 에서 멈춤. push 한 7+ commits 모두 미반영. Jayden 이 빈 deploy commit 3번 추가했지만 여전히 미반영. CLI 로 보면 최근 6개 deployment 가 **전부 Canceled**, 각 deployment inspect 결과 `Builds [0ms]`. logs 도 빈 상태.
+- **진단 우회 (잘못된 가설 2개)**:
+  1. **계정 다름 가설** — `vercel projects ls` 가 0개로 나오자 "CLI 인증 계정과 프로젝트 소유 계정이 다름" 으로 추측. 실제로는 동일 계정/팀 (jaydenjoo / jaydens-projects-f5e92399). `vercel projects ls --scope <team-slug>` 로 명시하니 4개 프로젝트 정상 출력. **CLI 50.32.3 의 default scope 처리가 personal/team 구분 시 0건으로 fall-through 하는 동작 이슈**.
+  2. **비용 한도 가설** — 첫 캡처에서 "Spend Management: Pauses projects" 문구 + Build Minutes $40.45 보고 "한도 초과로 자동 일시정지" 추측. Jayden 캡처 재요청 후 정상 확인 ($21.39 / $30, 71%). "Pause" 는 액션 버튼이지 활성 상태 표시가 아니었음.
+- **진짜 원인 발견**: `vercel inspect <canceled-url>` 의 Builds 섹션이 `[0ms]` — **빌드가 단 1ms 도 실행 안 됨** = 빌드 명령어 자체가 호출 안 됨. 이게 핵심 시그널.
+- **확정**: Jayden 진술 + Vercel 공식 docs (project-settings, 2026-04 기준) 교차 검증. **"Ignored Build Step" 드롭다운에서 "Don't build anything" 선택 시 = "A new build will never be issued. The deployment state is set to CANCELED."** 정확히 일치.
+- **해결**: Settings → **Build and Deployment** → Ignored Build Step → "Automatic" 으로 변경 + Save. 즉시 자동 배포 부활.
+- **메뉴 위치 변경 (옛 vs 2026)**: 옛 정보 "Settings → **Git** → Ignored Build Step" → 2026 최신 "Settings → **Build and Deployment** → Ignored Build Step". Vercel UI 개편 시 메뉴 그룹 재배치됨.
+- **규칙**:
+  1. **"배포 안 되는" 증상 진단 시 첫 단계는 `vercel inspect <url>` 의 Builds 섹션 확인** — `[0ms]` 면 빌드 자체 실행 안 됨 (Ignored Build Step 차단 / Spend Pause / Verified Commits 미충족 등). 빌드 시간이 있는데 실패면 build error (logs 확인).
+  2. **vercel CLI 의 0개 결과는 "프로젝트 없음" 이 아닐 수 있다** — `--scope <team-slug>` 명시해서 재시도 필수. default scope 가 personal 로 fall-through 할 가능성. team 프로젝트는 명시 없이 안 보임.
+  3. **캡처에서 "Pause" 같은 단어를 보면 액션 버튼인지 활성 상태 표시인지 즉시 단정 금지** — 캡처 재확인 + 시각적 표시(체크박스/토글/뱃지) 명확히 보고 판단. 추측 진단은 잘못된 방향으로 시간 낭비.
+  4. **Vercel UI 메뉴 위치는 빠르게 stale 된다** — 메모리/학습 데이터의 메뉴 경로는 늘 의심. 공식 docs WebFetch 로 현재 시점 검증 후 안내 (특히 2026 기준 "Build and Deployment" 그룹으로 통합됨).
+  5. **"자동 배포 비활성화" 의도라면 "Don't build anything" 외 더 안전한 방법**: (a) Production Branch 자체 변경 (b) Custom 명령어로 조건부 skip (c) Deploy Hooks 만 사용하고 push 트리거는 따로 관리. "Don't build anything" 은 manual deploy 도 막아서 의도와 정반대 결과.
