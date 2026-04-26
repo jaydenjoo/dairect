@@ -1,5 +1,18 @@
 # Dairect — 교훈 기록
 
+## 2026-04-26 — GA4 production 활성화 3가지 교훈 (Vercel 환경변수 라이프사이클 + UI 추측 금지)
+
+1. **Vercel 환경변수는 빌드 시점 스냅샷 — 빌드 후 변경해도 옛 빌드는 그대로** — `NEXT_PUBLIC_*` 변수는 Next.js 빌드 시 코드에 인라인됨 (런타임 read 아님). GA4 활성화 작업에서 빈 커밋 push (`ecb8b07`) 로 빌드 트리거 했을 때, **빌드 시점에 환경변수가 아직 Development 단독**이었음 → 빌드 결과물에 GA4 ID = undefined → 스크립트 미박힘. Production 환경에 변수 추가했어도 **그 변수가 들어간 새 빌드를 트리거**해야 적용됨.
+   - **규칙**: `NEXT_PUBLIC_*` 변수 변경 시 (a) Vercel 모든 대상 환경(Production/Preview/Development)에 변수 정확 등록 (b) 그 후 새 커밋 push로 새 빌드 트리거. 환경변수 변경 → push 순서 엄수. 서버-only 변수(런타임 read)와 동작이 다르다는 점 인지.
+
+2. **Vercel "Redeploy of X" 옵션은 옛 빌드 결과 재활용 — 환경변수 변경 미반영** — Jayden이 Vercel 대시보드에서 환경변수 추가 후 Redeploy 버튼 눌렀으나 (`5YzaYupPQ` "Redeploy of HQHvwZyNp"), 이는 **이전 빌드 결과물을 그대로 다시 활성화**하는 동작. 새로 빌드하지 않으므로 환경변수 변경 사항 반영 안 됨. 또한 새 Redeploy가 자동으로 Current로 promote 되지도 않음. 그래서 Current는 여전히 옛 ecb8b07 빌드 → GA4 미박힘 지속.
+   - **규칙**: Vercel 환경변수 변경 후 적용 = **새 커밋 push** (또는 Redeploy 시 "Use existing Build Cache" 체크 해제 + 강제 재빌드 옵션). "Redeploy of X" 라벨이 붙은 배포는 캐시 재활용이라는 신호. 적용 검증은 production HTML curl + 박힌 흔적 grep으로 확인.
+
+3. **외부 서비스 UI 안내는 캡처 또는 공식 docs 최신 확인 후 — 기존 지식 추측 금지** — Vercel Edit 화면 Environments 섹션을 "All Environments 토글" 또는 "체크박스 3개"로 추측 안내 → 실제 2026-04 Vercel UI는 **드롭다운 셀렉터** 형태로 변경됨 → 잘못된 안내로 Jayden이 두 번 헛수고 (환경변수 수정 시도 → Development 단독 유지 → 빌드 2회 GA4 미박힘). Jayden 명시 지적: "항상 외부 서비스를 알려줄때는 최신버전의 정보를 오늘자로 확인하여 알려줘". CLAUDE.md "UI 캡처 우선" 규칙이 있는데도 위반.
+   - **규칙**: 외부 서비스(Vercel, GA4, Google Cloud, Supabase, Stripe 등) UI/메뉴/정책 안내 전 반드시 (a) 캡처 요청 또는 (b) 공식 docs WebFetch + 날짜 명시. 추측 불가피 시 "🟡 추정 — 캡처 보내주시면 정확히 안내" 명시. 단계별 메뉴 위치 단정 금지. 메모리 `feedback_external_service_latest.md` 동시 저장.
+
+---
+
 ## 2026-04-25 — Demo-Suite + Dari 통합 3가지 교훈 (외부 위젯 + 빌드 호환 + 메타 마케팅)
 
 1. **Next.js `<Script>` 컴포넌트는 `document.currentScript` 접근하는 외부 위젯과 호환 안 될 수 있다** — dari widget.js 가 `document.currentScript.dataset.botId` 로 옵션 읽음. Next.js Script 컴포넌트는 내부적으로 head에 다르게 주입하면서 currentScript 컨텍스트가 깨져 botId 가 undefined → Shadow DOM 생성 안 됨. 해결: useEffect 안에서 `document.createElement("script")` 로 직접 body 에 추가 → currentScript 정상 동작.

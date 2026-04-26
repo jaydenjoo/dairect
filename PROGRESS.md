@@ -1,12 +1,67 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-26 저녁 (**Vercel 배포 차단 해제 + Nav URL 정리 — production 정상화**)
-> 현재 위치: **production 정상 배포 재개** → 다음 세션 옵션 C Phase 1~5 진행 + 슬롯 메뉴 시각 검증
+> 최종 업데이트: 2026-04-26 늦은 저녁 (**GA4 production 활성화 완료 — Vercel 환경변수 미스매치 진단·해결**)
+> 현재 위치: **GA4 라이브 추적 시작 + 정리 작업 계획 수립** → 다음 세션 옵션 C Phase 1~5 진행 + 정리 실행 + dogfooding 시작
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
 > v1.3 SOT: [docs/dairect-content-replan-v1_3.md](docs/dairect-content-replan-v1_3.md) (WHAT) · [docs/dairect-v1_3-application-guide.md](docs/dairect-v1_3-application-guide.md) (HOW)
 > BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
 > dogfooding 가이드: [docs/dogfooding-checklist.md](docs/dogfooding-checklist.md) 🧪
 > projects.public* DROP plan: [docs/projects-public-deprecation-plan.md](docs/projects-public-deprecation-plan.md) 🆕
+
+## 세션 2026-04-26 늦은 저녁 (GA4 production 활성화 + 정리 계획 수립 + UI 추측 금지 규칙 메모리)
+
+### 배경
+Jayden 요청 2건:
+- (1) "dairect 프로젝트 파일 정리 계획 세워줘" — 서비스에 필요 없는 파일/문서 정리 후보 식별
+- (2) GA4 활성화 (`PROGRESS.md` "다음 세션 할 일" 중 하나) — 환경변수 추가 + 재배포 + 검증
+
+### 이번 세션 완료 내역
+
+**(1) 정리 계획 수립 (코드 변경 0, 계획 문서만)**
+- 카테고리별 정리 후보 분류:
+  - 🟢 즉시 삭제 OK: 루트 임시 스크린샷 21개 (`task-3-*.png`, `v13-*.png`), 빌드 캐시(`tsconfig.tsbuildinfo`, `.DS_Store`, `.playwright-mcp/`)
+  - 🟡 archive 보존: `docs/design-references/redesign-2026/` (Indigo, ⛔ 폐기 디자인)
+  - 🟡 Jayden 판단 필요: `PRD.md` (v3.1, 138KB) → v3.2가 1차 SOT로 확정
+  - 🔴 유지 권장: `PRD-phase5.md`/`PRD-phase5-erd.md` (2차 자산), `n8n/`, `components/portal/`, `components/demo/`, `security/honeypot`
+  - 🟠 별도 Task: `PROGRESS.md` (259KB) / `learnings.md` (260KB) 분기별 archive
+- **이전 분류 정정**: v1.3 SOT 5개 문서(`dairect-content-replan-v1_3.md`, `dairect-v1_3-application-guide.md`, `2차-unlock-checklist.md`, `dogfooding-checklist.md`, `projects-public-deprecation-plan.md`)는 **보존 필수** — PROGRESS.md 헤더에 SOT/진행 자료로 명시됨. 첫 분류는 헤더 미확인 상태에서 추정한 것 → 정정.
+- **Jayden 검증 질문 답변**: "1차 구현 사실상 끝남. 잔존은 옵션 C(코드 정리 3시간) + Jayden 직접 액션 4건(GA4/production 검증/dogfooding/슬롯 검증). 2차(다른 프리랜서 서비스 제공)는 미래 확장."
+
+**(2) GA4 production 활성화 (1 commit `ecb8b07`)**
+- GA4 코드 분석: [`src/lib/analytics.ts`](src/lib/analytics.ts) `track(event, label)` 헬퍼 + [`Analytics.tsx`](src/components/chrome/Analytics.tsx) Script 로드 + [`env.ts:79-82`](src/lib/env.ts:79) `NEXT_PUBLIC_GA_MEASUREMENT_ID` 검증 (정규식 `^G-[A-Z0-9]+$`).
+- 추적 이벤트 5개 확인: `wont_do_view` ([WontDo.tsx:42](src/components/sections/WontDo.tsx:42)), `schedule_click` ([SchedulingStatus.tsx:25](src/components/sections/SchedulingStatus.tsx:25)), `persona_card_click` ([WhoThisIsFor.tsx:88](src/components/sections/WhoThisIsFor.tsx:88)), Pricing 클릭 × 2 ([Pricing.tsx:155, 171](src/components/sections/Pricing.tsx:155)).
+- GA4 콘솔: Findably 계정에 **Dairect 속성** 추가 → Measurement ID **`G-MHGRJ00NCQ`** 발급.
+- **첫 번째 헛스윙**: Jayden이 Vercel 환경변수를 **Development 환경에만** 추가 → ecb8b07 빈 커밋 push로 빌드 트리거 → 빌드는 Ready (54s) but Production 환경변수 부재로 GA4 미박힘 (`9fHPfrdAu` Current).
+- **두 번째 헛스윙**: Jayden이 Vercel 대시보드에서 "Redeploy" 버튼 클릭 (`5YzaYupPQ`, "Redeploy of HQHvwZyNp") → 이는 **옛 빌드 결과 재활용**이라 환경변수 변경 미반영. 여전히 GA4 미박힘.
+- **세 번째 시도 — 성공**: Jayden이 Vercel Edit 화면에서 환경변수 환경 범위를 **Production/Preview/Development 모두**로 변경 + 직접 Redeploy → 새 빌드에 GA4 ID 정확히 인라인. curl 검증으로 `googletagmanager.com/gtag/js?id=G-MHGRJ00NCQ` + `gtag('config', 'G-MHGRJ00NCQ')` 2개 모두 production HTML 박힘 확인 ✓.
+
+**(3) UI 추측 금지 규칙 메모리 저장 (사용자 피드백 반영)**
+- Jayden 명시 지적: "항상 외부 서비스를 알려줄때는 최신버전의 정보를 오늘자로 확인하여 알려줘"
+- 트리거 사건: Vercel Edit 화면 안내를 기존 지식으로 추측("All Environments 토글" 또는 "체크박스 3개") → 실제 2026 Vercel UI는 **드롭다운 셀렉터** 형태 → Jayden 두 번 헛수고
+- `~/.claude/projects/-Users-jayden-project-dairect/memory/feedback_external_service_latest.md` 신규 저장 + MEMORY.md 인덱스 추가
+- 규칙 요지: 외부 서비스 UI/메뉴 안내 전 (a) 캡처 요청 (b) 공식 docs WebFetch (c) 둘 다 — 추측 안내 시 "🟡 추정" 명시
+
+### 검증
+- ✅ production HTML curl: `gtag/js?id=G-MHGRJ00NCQ` + `gtag('config', 'G-MHGRJ00NCQ')` 2건 모두 박힘 (age=3초 신선)
+- ✅ git push: ecb8b07 → origin/main 정상 반영
+- ⏳ Jayden 직접 검증 대기: GA 콘솔 실시간 보고서에서 본인 방문 + 5개 커스텀 이벤트 작동 확인
+
+### 변경 통계 (1 commit + 1 메모리 파일)
+- chore ecb8b07: 0 files (빈 커밋, 재빌드 트리거 전용)
+- 메모리: `feedback_external_service_latest.md` 신규 + MEMORY.md 인덱스 1줄 추가
+
+### 다음 세션 할 일
+- **(Jayden 직접) GA4 실시간 보고서 검증**: 시크릿 모드로 dairect.kr 접속 → analytics.google.com → Dairect 속성 → 보고서 → 실시간 → 30초 안에 사용자 표시 + 커스텀 이벤트 5개 작동 확인
+- **(이번 세션 잔존) 옵션 C Phase 1~5**: `projects.public*` 컬럼 DROP cleanup (3시간) — `docs/projects-public-deprecation-plan.md` 참조
+- **(이번 세션 잔존) 정리 실행**: 본 세션에서 수립한 계획 중 🟢 카테고리(루트 스크린샷 21개 + 빌드 캐시) 즉시 정리 + 🟡 카테고리(redesign-2026 Indigo archive) 진행
+- **(이번 세션 잔존) 대시보드 슬롯 메뉴 시각 검증**: `/dashboard/settings` SchedulingSlotsCard → 저장 → / Pricing 반영
+- **(이전 세션 잔존) Jayden dogfooding 1~2주 시작**: `docs/dogfooding-checklist.md` 따라 실사용
+- **(추천) Google Search Console 연동**: GA4 속성 → 관리 → 속성 설정 → Search Console 링크 (5분, SEO 의사결정 자료)
+
+### 차단 요소
+- 없음 (GA4 production 활성화 + 환경변수 미스매치 해결 완료)
+
+---
 
 ## 세션 2026-04-26 PM (옵션 A 잔존 정리 + 옵션 B 슬롯 메뉴 + 옵션 C-A audit)
 
