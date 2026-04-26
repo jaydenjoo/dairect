@@ -1,5 +1,18 @@
 # Dairect — 교훈 기록
 
+## 2026-04-25 — Demo-Suite + Dari 통합 3가지 교훈 (외부 위젯 + 빌드 호환 + 메타 마케팅)
+
+1. **Next.js `<Script>` 컴포넌트는 `document.currentScript` 접근하는 외부 위젯과 호환 안 될 수 있다** — dari widget.js 가 `document.currentScript.dataset.botId` 로 옵션 읽음. Next.js Script 컴포넌트는 내부적으로 head에 다르게 주입하면서 currentScript 컨텍스트가 깨져 botId 가 undefined → Shadow DOM 생성 안 됨. 해결: useEffect 안에서 `document.createElement("script")` 로 직접 body 에 추가 → currentScript 정상 동작.
+   - **규칙**: 서드파티 widget script 가 `document.currentScript` 또는 `<script data-*>` 패턴을 쓰면 Next.js `<Script>` 대신 useEffect 직접 DOM 주입 사용. 또는 widget 측에서 `window.dariConfig` 같은 글로벌 변수 받는 API 가 있는지 먼저 확인.
+
+2. **`"use client"` 컴포넌트에서 export 한 plain array 는 server component 에서 reduce/filter 시 minify 후 손실** — Findably 의 score-radar.tsx ("use client") 에서 `export const SCORE_DATA = [...]` 한 후 server component (page.tsx) 에서 import + `SCORE_DATA.reduce(...)` 시 빌드 시점 minification 후 array 메서드가 사라짐 ("reduce is not a function"). dev 에서는 작동, build 에서만 실패.
+   - **규칙**: 데이터 array 는 항상 plain TS 모듈 (`*.ts`, no `"use client"`) 에 두고 거기서 export. client/server 양쪽이 import 가능 + minify 안전. UI 컴포넌트와 데이터 분리는 일반 원칙이지만 Next.js minification 환경에서 더 강제됨.
+
+3. **메타 마케팅 = 가공 데모보다 라이브 증명이 강력** — Chatsio/Findably 데모는 가공된 JSON-LD 코드 + RadarChart 시뮬레이션. 그러나 dari 데모는 사이트 우하단에 *실제로 작동하는* 챗봇 자체가 증명. 데모 페이지 Step 4 에서 "지금 우하단을 보세요 ↘" 메시지 + amber pulse dot 으로 라이브 증명을 강조하면, 가공된 시각 자료보다 신뢰도가 압도적으로 높음. 동일 자산을 두 방향(실용 위젯 + 마케팅 카드)으로 동시 활용.
+   - **규칙**: 포트폴리오 항목이 자체 작동 가능한 위젯/임베드 형태라면 데모 페이지에서 "지금 보세요" 라이브 증명을 최우선 활용. dogfooding + product placement = 가장 강한 마케팅 메시지. 라이브 작동 안 하면 가공 데모로 fallback.
+
+---
+
 ## 2026-04-25 — Epic Portfolio v2 4가지 교훈 (CRM ↔ 마케팅 데이터 분리 + 모션 포팅)
 
 1. **번들 vanilla JS 모션을 React 로 옮길 때 IntersectionObserver disconnect 시점에 주의** — 번들 코드는 `entry.isIntersecting` 시점에 `.in` 부착 후 observer disconnect. 그러나 첫 렌더 시 already-visible 요소(스크롤 0 위치의 Hero)는 observer 가 callback 호출하기 전 사용자 액션(스크롤 등)이 발생하면 in 미부착 상태로 남음. → Hero 영역에는 failsafe 로 mount 시점에 무조건 `.in` 부착하는 별도 로직 추가.

@@ -1,10 +1,81 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-25 (**Epic Portfolio v2 — 옵션 B 분리 테이블 + 데모 링크 + 전용 관리 메뉴**)
-> 현재 위치: **포트폴리오 v2 production 배포 완료** → 다음 세션은 deprecated projects.public* 컬럼 정리 (별도 단계)
+> 최종 업데이트: 2026-04-25 (**Epic Demo-Suite + Site-Flags — 4 데모 페이지 + dari 챗봇 + 관리자 토글**)
+> 현재 위치: **데모 페이지 4건 (dairect/chatsio/findably/dari) 라이브 + dari 챗봇 통합 + PWA 토글 완료** → 다음 세션은 dari 콘솔 학습 점검 + projects.public* 컬럼 정리
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
 > BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
 > dogfooding 가이드: [docs/dogfooding-checklist.md](docs/dogfooding-checklist.md) 🧪
+
+## 세션 2026-04-25 (Demo-Suite + Dari 챗봇 통합 + Site-Flags 토글)
+
+### 배경
+Portfolio v2 머지 후 4 가지 추가 작업:
+1. /projects 카드 클릭 시 가공된 데모 페이지 — Chatsio/Findably 시나리오 시뮬레이션
+2. dairect 자체 데모 페이지 (/demo/dairect) + 90초 가이드 투어 (4-step)
+3. dari (1줄 임베드 챗봇 SaaS) 를 dairect 사이트에 두 방향 통합
+   (실용: 모든 공개 페이지 우하단 floating chat / 마케팅: /projects 카드 + /demo/dari)
+4. PWA "앱으로 설치" 안내 기본 숨김 + 관리자 토글 (Jayden 명시 요청)
+
+### 이번 세션 완료 내역
+
+**1. /demo/dairect (Epic Demo-Dairect) — 커밋 `8761752`**
+- `(public)/demo/(app)` 라우트 그룹 분리 (sidebar 있는 자식들 격리)
+- /demo/dairect: Studio Anthem hero "Manage everything. / In one canvas." + 4 시나리오
+- TourOverlay (`?tour=1&step=N`) + DemoTopBar (도돌이 링크)
+- leads 24건 mock data (lead-data.ts)
+- portfolio_items.dari* row 추가 (Direct., demoUrl=/demo/dairect)
+
+**2. /demo/chatsio + /demo/findably (3분 가이드 투어) — 커밋 `296949e` `e62de41`**
+- 단일 페이지 + sticky step bar + smooth scroll 패턴 (4-step)
+- Chatsio: Connect→Analyze→Apply→Track + Citation BarChart
+- Findably: Input→Scan→Score→Action + RadarChart 4 dim + Quick Win 3 + 90일 로드맵
+- 모든 metric 에 "예시" 라벨 명시
+- 가공된 JSON-LD 코드 박스 + Loader JS 1줄 인라인
+
+**3. Step 1 버튼 작동 수정 — 커밋 `f210295`**
+- Jayden 제보: 분석/진단 버튼 무반응 (disabled 처리)
+- ScrollToStepButton (client) — 600ms spinner + smooth scroll
+- globals.css 에 `html { scroll-behavior: smooth }` 추가
+
+**4. dari 챗봇 + /demo/dari (Epic Demo-Dari) — 커밋 `9d8029f`**
+- DariWidget.tsx: useEffect 직접 DOM 주입 (Next.js Script + currentScript 호환성 회피)
+- 숨김 path: /dashboard /portal /login /signup /onboarding /invite /offline
+- /demo/dari: 4-step (Setup/Train/Embed/Use) + Step 4 라이브 증명 ("지금 우하단을 보세요 ↘")
+- portfolio_items.dari UPDATE: name='Da'+amber'ri.', "★ Powering this site" 배지
+- dari 운영 콘솔용 완전 봇 설정 문서 작성 (시스템 프롬프트 + FAQ 30건 + URL 크롤링 7개)
+
+**5. Site-Flags (PWA 토글) — 커밋 `220b20a`**
+- 마이그레이션 0040: workspace_settings.pwa_install_prompt_enabled boolean DEFAULT false
+- src/lib/site-flags.ts (server-only): getSiteFlags() — single workspace limit(1)
+- src/app/page.tsx: server component 전환, 플래그 ON 일 때만 PwaInstallPrompt 마운트
+- /dashboard/settings 에 SiteFlagsCard (Eye/EyeOff 토글 + 낙관적 업데이트 + toast)
+- setPwaInstallPromptEnabledAction 서버 액션 (auth + workspace 격리 + revalidatePath)
+
+### 검증
+- pnpm tsc --noEmit / lint / build / db:check 모두 ✓
+- Playwright /demo/dairect: hero + tour bar + 4 scenarios ✓
+- Playwright /demo/chatsio: 클릭 → 0→2651px scroll, "분석 중..." pending ✓
+- Playwright /demo/findably: 클릭 → 0→2569.5px scroll, "진단 중..." pending ✓
+- Playwright /demo/dari: H1 "One line.Any site." + 4 step + 6 추천 질문 ✓
+- 콘솔 error/warn 0건
+
+### 변경 통계 (HEAD~6..HEAD)
+- 40 파일, +6,173 / -18 줄
+- 커밋 6건 push 완료 (8761752 → 296949e → e62de41 → f210295 → 9d8029f → 220b20a)
+
+### 다음 세션 할 일
+- **dari 콘솔 학습 검증**: Jayden 이 dari 봇 publish + 시스템 프롬프트 + URL 크롤링 + FAQ 입력 후
+  실제 5개 질문 테스트로 답변 품질 확인. `bot_not_available` 운영 이슈 해결.
+- **projects.public\* 컬럼 deprecation**: portfolio_items 로 분리 후 projects.publicAlias /
+  publicDescription / publicTags / publicLiveUrl / portfolioMeta 5 컬럼은 deprecation marker
+  추가 + 별도 마이그레이션으로 DROP (Parallel Change 후속).
+- **dari 위젯 라이브 검증**: Production 에서 우하단 floating bubble 실제 작동 확인.
+  안 보이면 dari 봇 publish 상태 점검.
+
+### 차단 요소
+- 없음 (dari 콘솔 작업은 Jayden 측 task — 비차단)
+
+---
 
 ## 세션 2026-04-25 (Epic Portfolio v2 — 텐프로젝트 ↔ 고객 프로젝트 분리)
 
