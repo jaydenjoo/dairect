@@ -1,5 +1,18 @@
 # Dairect — 교훈 기록
 
+## 2026-04-27 — Findably 외부 진단 대응 3가지 교훈 (검증 우선 + 메타 인프라 패턴)
+
+1. **외부 진단 도구 결과는 절반 오진단 가능 — 코드/실응답 교차 검증 후에야 수정 결정** — Findably AI 마케팅 리포트 32항목 중 "사이트 0KB 로딩 실패", "SSL 누락", "H1/Title/Description 부재" 등 14항목이 모두 오진단. 실제로는 dairect.kr 가 HTTP 200 + 104KB + HSTS + H1 1개 + Title/Description 정상. 원인 추정: Findably 봇이 (a) JS 렌더 SPA 를 정적 fetch 로 읽어 빈 응답 받음, (b) Vercel CDN 의 봇 차단 또는 첫 응답 cache miss. 무비판 수용했으면 멀쩡한 H1 추가/SSL "수정"/로딩 "복구" 작업으로 1~2시간 낭비 + 코드베이스 오염.
+   - **규칙**: 외부 진단 리포트(Findably, Lighthouse 외부 실행, 외주 SEO 감사 등) 받으면 항목별로 (a) `curl -sI` 로 실제 응답 확인 (b) DOM grep 으로 태그 존재 확인 (c) 진단 도구의 리뷰 시점 + User-Agent + JS 실행 여부 확인. "심각"/"치명적" 라벨에 휘둘리지 말고 매트릭스(리포트 vs 실제) 작성 후 진짜 누락만 처리. 오진단 항목은 명시적으로 "기각" 표시.
+
+2. **Next.js metadata `alternates.canonical` 은 layout 금지 — 페이지별 명시 필수** — layout.tsx 에 canonical 박으면 모든 자식 페이지가 같은 URL 을 canonical 로 가지게 됨 (중복 콘텐츠 신호 정반대). 올바른 패턴: layout 에는 `metadataBase` 만 두고, 각 page.tsx 에서 `export const metadata = { alternates: { canonical: "/path" } }` 명시. 페이지 metadata 를 지정 안 한 페이지는 자체 URL 이 추정되지만, 명시가 SEO 모범 사례 + 검색엔진의 중복 판정 안정.
+   - **규칙**: SEO 메타 분리 원칙 — site-wide 정보(metadataBase, OG site_name, twitter card type) 는 layout, 페이지-specific(title, description, canonical) 은 각 page.tsx. canonical 누락 페이지는 색인 시 "추정 canonical" 로 처리되며 검색엔진이 다른 URL 변형을 우선시할 위험.
+
+3. **시연용 sub-app (mock dashboard) 은 robots Disallow 가 표준 — sitemap 제외만으론 부족** — `/demo` 자체는 시연 진입점이라 인덱싱 OK, 그러나 `/demo/(app)/clients`, `/leads`, `/estimates` 등 mock 데이터로 구성된 가짜 dashboard 는 검색 노출 시 (a) 의미 없는 mock 데이터로 사용자 혼란 (b) 사이트 권위 분산 (c) 진짜 dashboard 와 URL 충돌 오해. sitemap 제외만 하면 외부 링크/internal link 발견 시 색인 가능 — robots Disallow 로 차단 명시 필요.
+   - **규칙**: 라우트 가시성 4 단계 결정: (a) 핵심 공개 → sitemap 포함 + canonical 명시 (b) 공개지만 SEO 가치 낮음 (privacy/terms) → sitemap 포함 priority 0.3 (c) 시연/임시 → robots 무명시 (인덱싱 자유) (d) mock 데이터/내부 → robots Disallow. router group `(app)` 같은 segment 는 URL 에 안 보이므로 실제 노출 경로(/demo/clients) 기준으로 분류.
+
+---
+
 ## 2026-04-26 — GA4 production 활성화 3가지 교훈 (Vercel 환경변수 라이프사이클 + UI 추측 금지)
 
 1. **Vercel 환경변수는 빌드 시점 스냅샷 — 빌드 후 변경해도 옛 빌드는 그대로** — `NEXT_PUBLIC_*` 변수는 Next.js 빌드 시 코드에 인라인됨 (런타임 read 아님). GA4 활성화 작업에서 빈 커밋 push (`ecb8b07`) 로 빌드 트리거 했을 때, **빌드 시점에 환경변수가 아직 Development 단독**이었음 → 빌드 결과물에 GA4 ID = undefined → 스크립트 미박힘. Production 환경에 변수 추가했어도 **그 변수가 들어간 새 빌드를 트리거**해야 적용됨.

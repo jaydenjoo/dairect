@@ -1,12 +1,74 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-26 늦은 저녁 (**GA4 production 활성화 완료 — Vercel 환경변수 미스매치 진단·해결**)
-> 현재 위치: **GA4 라이브 추적 시작 + 정리 작업 계획 수립** → 다음 세션 옵션 C Phase 1~5 진행 + 정리 실행 + dogfooding 시작
+> 최종 업데이트: 2026-04-27 새벽 (**Findably 진단 대응 — GEO/SEO 메타 인프라 6종 production 라이브**)
+> 현재 위치: **production 메타 인프라 완료 (robots/sitemap/llms.txt/Schema/OG/canonical)** → 다음 세션 옵션 C Phase 1~5 + 정리 실행 + dogfooding + Findably 재진단
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
 > v1.3 SOT: [docs/dairect-content-replan-v1_3.md](docs/dairect-content-replan-v1_3.md) (WHAT) · [docs/dairect-v1_3-application-guide.md](docs/dairect-v1_3-application-guide.md) (HOW)
 > BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
 > dogfooding 가이드: [docs/dogfooding-checklist.md](docs/dogfooding-checklist.md) 🧪
 > projects.public* DROP plan: [docs/projects-public-deprecation-plan.md](docs/projects-public-deprecation-plan.md) 🆕
+
+## 세션 2026-04-27 새벽 (Findably 외부 진단 검증·대응 — GEO/SEO 메타 인프라 6종)
+
+### 배경
+Jayden 요청: Findably AI 마케팅 분석 리포트 PDF (18페이지, dairect.kr 2026-04-27 진단) 검증 + 코드 수정 계획 수립. 리포트가 종합 60점 (보통), "심각 16개·주의 15개" 라며 "사이트 0KB 로딩 실패", "SSL 누락", "H1/Title/Description 부재" 등 32항목 개선 요구.
+
+### 이번 세션 완료 내역
+
+**(1) 진단 vs 실제 매트릭스 검증 (코드 변경 0)**
+- `curl -sI https://dairect.kr/` 로 실제 응답 확인: HTTP 200 + 104KB + HSTS max-age=63072000 (2년) + ETag/x-vercel-cache STALE
+- DOM grep: `<title>`, `<meta name="description">`, `<h1>` 모두 정상 출력 — 리포트의 "부재" 진단은 모두 오진단
+- robots/sitemap/llms.txt 만 진짜 404
+- **결론: 32항목 중 14항목 오진단, 진짜 누락 6건만 처리.** Findably 봇이 JS 렌더 SPA 를 정적 fetch 로 읽어 0KB 로 측정한 것으로 추정.
+
+**(2) Phase A — 정적 SEO/GEO 파일 3종 (1 commit `9c6dbc3`)**
+- `src/app/robots.ts`: `User-Agent: *` + AI 봇 6종(GPTBot/ChatGPT-User/ClaudeBot/PerplexityBot/Google-Extended/CCBot) + 네이버 Yeti 명시 Allow. 비공개 경로 16건 Disallow (/dashboard, /portal, /invite, /api, /auth, /onboarding, /login, /signup, /demo/(app)/* mock 라우트 7건).
+- `src/app/sitemap.ts`: 5 공개 라우트 — `/` priority 1.0 / `/about` `/projects` 0.8 / `/privacy` `/terms` 0.3. `/pricing` (308 redirect → /#pricing) 과 `/demo` (시연 sub-app, Jayden 판단 영역) 의도적 제외.
+- `public/llms.txt`: AI 크롤러용 사이트 요약 — 핵심 페이지 5개 + 패키지 4종(Sprint 180만원/Build/Scale/Enterprise) + 안 받는 의뢰 3종 + 차별점 + 라이선스 명시.
+
+**(3) Phase B — Schema/OG/canonical 3종 (같은 commit)**
+- `src/components/chrome/SchemaJsonLd.tsx`: Organization + WebSite + Service JSON-LD root 3개. Service.hasOfferCatalog 에 4 패키지 Offer 명시 (Sprint 가격 1,800,000 KRW priceSpecification 박힘). production 검증 결과 type 인스턴스 14개 정확 박힘 (Organization×3 / WebSite×1 / Service×1 / OfferCatalog×1 / Offer×4 / ContactPoint×1 / PostalAddress×1 / Country×1 / PriceSpecification×1).
+- `src/app/opengraph-image.tsx`: 1200×630 동적 OG (Edge runtime, ImageResponse). Studio Anthem 톤 — canvas#F5F1E8 배경 + 좌측 24px amber#FFB800 bar + ink#141414 큰 타이포 + dust#5C5648 보조. production curl 200 + image/png + age:0 확인.
+- `src/app/layout.tsx`: openGraph (type/locale/url/siteName/title/description) + twitter (summary_large_image card) 메타 추가, SchemaJsonLd 컴포넌트를 body 상단 주입.
+- 5 page.tsx 에 alternates.canonical 추가: `/`, `/about`, `/projects`, `/privacy`, `/terms`.
+
+**(4) production 검증 (push 후 7항목 curl)**
+- `/robots.txt` 200 ✓ — 7 봇 + 16 Disallow 정확 노출
+- `/sitemap.xml` 200 ✓ — 5 URL XML 정확 (lastmod/changefreq/priority)
+- `/llms.txt` 200 ✓ — 한글 풀 텍스트 정상
+- `/opengraph-image` 200 image/png age:0 ✓
+- JSON-LD 14 type 인스턴스 ✓ — `@type` grep 으로 모두 확인
+- OG/Twitter meta 11종 ✓ — image:width 1200 / height 630 자동 박힘
+- canonical `https://dairect.kr` ✓
+
+### 검증
+- pnpm tsc --noEmit ✓
+- pnpm lint ✓ (0 errors, 1 unrelated warning in dashboard/estimates)
+- pnpm build ✓ — `/robots.txt` + `/sitemap.xml` 정적 (○) 생성, `/opengraph-image` 함수 (ƒ) 등록 확인
+- production 빌드 1분 (Vercel `9fbryhoql` Ready) → 7항목 curl 즉시 검증 통과
+
+### 변경 통계 (1 commit `9c6dbc3` — origin/main push 완료)
+- feat(seo) 9c6dbc3: 11 files (+356 -1)
+  - 신규 5: robots.ts / sitemap.ts / llms.txt / SchemaJsonLd.tsx / opengraph-image.tsx
+  - 수정 6: layout.tsx + page.tsx(루트) + 4 (public)/*/page.tsx (canonical 추가)
+
+### 다음 세션 할 일
+- **(Jayden 직접) Findably 재진단 트리거** — 1~2주 후 사이트에서 다시 진단 요청 → 점수 변화 측정 (현재 60점 → 메타 인프라 추가 후 GEO 영역 +10~15점 예상)
+- **(Jayden 직접) 카톡 채널에 https://dairect.kr 붙여서 OG 미리보기 확인** — Studio Anthem 톤 카드 정상 노출 검증
+- **(Jayden 직접) Google Search Console 등록** — sitemap.xml 제출 (https://search.google.com/search-console) → 색인 시작
+- **(이전 세션 잔존) GA4 실시간 보고서 검증** — 시크릿 모드로 dairect.kr 접속, 5 커스텀 이벤트 작동 확인
+- **(이전 세션 잔존) 옵션 C Phase 1~5** — `projects.public*` 컬럼 DROP cleanup (3시간) — `docs/projects-public-deprecation-plan.md`
+- **(이전 세션 잔존) 정리 실행** — 루트 스크린샷 21개 삭제 + redesign-2026 Indigo archive
+- **(이전 세션 잔존) 대시보드 슬롯 메뉴 시각 검증** — `/dashboard/settings` SchedulingSlotsCard
+- **(이전 세션 잔존) Jayden dogfooding 1~2주 시작** — `docs/dogfooding-checklist.md`
+- **(추가 보강 옵션) Footer 사업자등록번호 추가 → Schema Organization.taxID 강화** — Jayden 사업자정보 제공 필요
+- **(추가 보강 옵션) PageSpeed Insights 로 LCP 실측** — Findably 의 "LCP 29초" 진위 확인. 진짜 느리면 별도 Task (이미지/폰트 최적화).
+- **(메타) Findably 측에 오진단 14항목 피드백** — 향후 봇 개선 도움 (선택)
+
+### 차단 요소
+- 없음 (메타 인프라 6종 production 라이브 + 모든 검증 통과)
+
+---
 
 ## 세션 2026-04-26 늦은 저녁 (GA4 production 활성화 + 정리 계획 수립 + UI 추측 금지 규칙 메모리)
 
