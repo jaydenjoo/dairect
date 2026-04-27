@@ -1,5 +1,18 @@
 # Dairect — 교훈 기록
 
+## 2026-04-27 (저녁) — 랜딩 v9 슬림화 + 페이지 분리 — 3가지 교훈 (JSX 공백 trim / 컴포넌트 보존 슬림화 / public 폴더 노출 위험)
+
+1. **JSX `<strong>label</strong> &mdash; content` 패턴은 React 텍스트 정규화로 라벨 직후 공백이 trim될 수 있음 — 명시적 `{" — "}` 사용으로 안전 보장** — QuickAnswer 카피 작성 시 `<strong>누가</strong> &mdash; 직장인` 코드가 실제로는 "누가— 직장인"처럼 strong과 em-dash 사이 띄어쓰기 사라짐. 흥미롭게 "얼마 · 기간"처럼 라벨 안에 공백 있는 경우는 정상. 라벨이 한글로 끝나고 공백 없으면 React가 strong 닫는 태그 후 텍스트 노드 시작 부분 공백을 trim.
+   - **규칙**: JSX에서 인라인 라벨(`<strong>...</strong>`) 뒤에 구분자(em-dash, dot, slash)를 텍스트로 쓸 때 `<strong>label</strong>{" — "}content` 패턴 사용. `&mdash;` entity나 직접 char "—" 단독 문자열도 텍스트 노드로 분리하면 안전. 다행히 DOM 검증으로 발견 — production 배포 전 `preview_eval`로 `innerText.split('\n')` 확인 권장. 모바일 폰트 크기(작은 글자)에서는 "누가—" 붙음이 더 큰 시인성 문제.
+
+2. **랜딩 슬림화는 컴포넌트 파일 삭제 X — page.tsx import 제거만. 컴포넌트는 다른 페이지에서 재활용** — v9 슬림화 시 16 섹션 → 6 섹션으로 줄이며 9 컴포넌트 (Etymology / Manifesto / WhyThisWorks / Proof / Services / WhatsLearning / WontDo / NoAIExperience / Founder)를 page.tsx import만 제거. 같은 세션 Phase B에서 /process 페이지 만들 때 WhyThisWorks + NoAIExperience를 그대로 재사용 — 파일 보존 덕분에 zero-cost 재활용 가능. 만약 즉시 삭제했으면 git history 복구 + 의존성 재검토 시간 낭비.
+   - **규칙**: 페이지에서 컴포넌트 사용을 중단할 때 (a) page.tsx import + JSX 사용 제거 (b) 컴포넌트 파일 자체는 보존 — `.tsx` 파일은 컴파일 0 cost, 코드 가시성 비용만 (c) 6개월~1년 후에도 어디서도 import 안 되면 그때 삭제 결정. 미사용 컴포넌트는 IDE "find usages" 0건이지만 git history에 남아 있어 "이전에 어떤 카피/디자인이었나" 참조 가치. 슬림화/리팩토링은 "page.tsx 안 보임" 단계와 "파일 삭제" 단계를 분리해야 안전.
+
+3. **public/ 폴더는 Next.js 정적 서빙 → 작업용 mockup/시안/임시 HTML 외부 노출 위험** — v1~v9 시안 9개를 public/preview-mockup/ 안에 두니 dairect.kr/preview-mockup/landing-rewrite-v9.html로 누구나 접근 가능 (URL 추측만으로). 검색 봇도 인덱싱 가능. docs/preview-mockup/으로 이동만으로 외부 차단 + git history 보존.
+   - **규칙**: `public/`은 사용자에게 보여줄 정적 파일만 (favicons, robots.txt, sitemap.xml, PWA 아이콘, OG 이미지 등). 작업용 mockup/시안/임시 HTML은 `docs/`에 두거나 `.gitignore` 처리. 이미 commit 했어도 `git mv public/foo docs/foo` + commit 하면 외부 노출 차단 + git history 보존. 보안 등급 🟡 이상 프로젝트는 더 엄격: `public/preview-*`, `public/staging-*` 패턴은 `.gitignore`에 추가 권장. PR 만들 때 "public/ 안에 임시 파일 없는지" 체크 항목 추가.
+
+---
+
 ## 2026-04-27 (오후) — Findably 재진단 82점 대응 Phase 1+1.5+2 — 3가지 교훈 (CSP/카피·SEO 균형/deploy polling)
 
 1. **CSP는 외부 widget + inline script 많은 사이트일수록 Report-Only 모드부터 시작 — 처음부터 enforced는 사이트 깨짐 위험** — Phase 1.5에서 CSP 도입할 때, dairect는 (a) Next.js RSC inline payload (b) GA gtag.js inline (c) dari widget 외부 스크립트 (`dari-theta.vercel.app`) (d) Vercel Live (preview comments) (e) Supabase Realtime WebSocket — 5개 외부/inline 의존성 동시 보유. enforced로 바로 가면 단 하나라도 directives 누락 시 화이트 스크린/기능 마비. Report-Only로 시작하면 위반은 콘솔/리포트에만 기록되고 실제 차단 X — 운영 무중단으로 1~2주 directives 정확성 검증 가능.

@@ -1,12 +1,86 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-27 오후 (**Findably 재진단 82점 대응 — Phase 1+1.5+2 production: 보안 헤더 5종 + Schema knowsAbout + Quick Answer 박스**)
-> 현재 위치: **production 보안 헤더 5종 + CSP Report-Only + Schema knowsAbout 7개 + Description 75자 + Quick Answer 박스 모두 라이브** → 다음 세션 Mozilla Observatory 재측정 / Findably 재진단 / Phase 3 (E-E-A-T·이미지·LCP) / Phase 1.5 enforced 전환 / 옵션 C Phase 1~5
+> 최종 업데이트: 2026-04-27 저녁 (**랜딩 v9 슬림화 + /pricing /process 신규 + SEO 보강 — 4 페이지 IA 완성**)
+> 현재 위치: **랜딩 16 → 6 섹션 (-80% 텍스트), /pricing 신규 (정책 박스 2 + FAQ 6), /process 신규 (6단계 타임라인), Nav 4 메뉴 (Portfolio/Pricing/Process/About), 모두 production push 완료** → 다음 세션 미사용 7 컴포넌트 정리 / OG 이미지 페이지별 분기 / Hero H1 카피 재검토 / /about 합병 검토 / Vercel 배포 결과 직접 확인
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
 > v1.3 SOT: [docs/dairect-content-replan-v1_3.md](docs/dairect-content-replan-v1_3.md) (WHAT) · [docs/dairect-v1_3-application-guide.md](docs/dairect-v1_3-application-guide.md) (HOW)
 > BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
 > dogfooding 가이드: [docs/dogfooding-checklist.md](docs/dogfooding-checklist.md) 🧪
 > projects.public* DROP plan: [docs/projects-public-deprecation-plan.md](docs/projects-public-deprecation-plan.md) 🆕
+
+## 세션 2026-04-27 저녁 (랜딩 v9 슬림화 + /pricing /process 신규 + SEO 보강)
+
+### 배경
+오전~오후 세션 Findably 진단 대응 완료 → Phase 1+1.5+2 production. 그러나 Jayden이 "비전문가들이 사이트가 무슨 서비스인지 잘 이해 못 한다"는 피드백 받음. **3 페르소나(50~60대 비IT 사장님 + 30~40대 비IT 직장인 사이드 아이디어 + 비IT 창업자)**에 맞춘 카피·구조·페이지 분리 전면 재기획 필요.
+
+### 이번 세션 완료 내역
+
+**(Phase A) 랜딩 v9 슬림화 — 16섹션 → 6섹션 (-80% 텍스트, ~2300단어 → ~270단어)**
+- v9 시안 9차례 (`docs/preview-mockup/landing-rewrite-v1~v9.html`) 작업 후 v9 콘텐츠 + 라이브 디자인 양식 유지로 합의
+- 6 섹션 카피 v9 적용:
+  - **Hero** — 왼쪽 카피만 (직장인+사장님 페르소나, "상담 신청하기" CTA), film-strip 비주얼 보존
+  - **QuickAnswer** — Q&A 형식 4행 (누가/무엇/얼마·기간 + 90/180/300 + 1/3 비용)
+  - **WhoThisIsFor** — 직장인/사장님/비IT창업자 3 페르소나 카드
+  - **Pricing** — 4 패키지 v9 (Discovery 90 / Sprint 180 / Build 300 / Scale 800), VAT 별도, "상담 신청하기" CTA
+  - **SchedulingStatus + Work→Portfolio** — 한국어 라벨 병기 (Sprint·검증/Build·MVP/Scale·확장) + 사용자 노출 텍스트만 portfolio로
+  - **FinalCTA** — "빠른 시간 내 답변", "상담 신청하기"
+- page.tsx에서 9 섹션 import 제거 (Etymology / Manifesto / WhyThisWorks / Proof / Services / WhatsLearning / WontDo / NoAIExperience / Founder)
+  - **컴포넌트 파일은 보존** → Phase B에서 재활용 (실제로 WhyThisWorks + NoAIExperience를 /process에서 재사용)
+
+**(Phase B) 페이지 분리 — /pricing /process 신규**
+- **/pricing**: 리다이렉트(/#pricing)에서 진짜 페이지로 전환
+  - PricingPolicies 신규 (결제 분리 + 외부 실비 정책 박스 2개, 데스크탑 가로 2단 / 모바일 세로 stack)
+  - PricingFAQ 신규 (결제·분할·VAT·환불·추가비용·도메인 6 질문, dl/dt/dd 시맨틱)
+  - 기존 Pricing + FinalCTA 활용
+- **/process**: 신규 페이지
+  - ProcessSteps 신규 (6단계 타임라인: 상담 신청→회신→계약→상세 설문지→작업→인도)
+  - WhyThisWorks (활용) + NoAIExperience (일관성 수정 적용) + FinalCTA
+- **Nav 정리** (5 → 4 메뉴): Services·Journal 깨진 앵커 제거 + Process 추가, Pricing href: /#pricing → /pricing
+- **NoAIExperience 일관성**: "1시간 인터뷰" → "기본은 상세 설문지 조사 (특별한 경우 1시간 상담)" — Pricing Discovery + WhoThisIsFor와 통일
+
+**(Phase C) 산출물 정리 + 풀 검증**
+- public/preview-mockup → docs/preview-mockup (외부 노출 차단, mockup 9개 + 진단 문서)
+- /projects title "Work" → "Portfolio" 일관성 수정
+- 5 페이지 풀 검증 (URL/title/sections/Nav/Footer 모두 정상)
+
+**(Phase D) SEO + 반응형 점검**
+- D-1-1 sitemap.ts ← /pricing (weekly 0.9) + /process (monthly 0.7) 추가, outdated 주석 제거
+- D-1-2 PricingFAQ에 FAQPage schema (JSON-LD) 추가 — AI 검색 인용 +40% (Princeton 연구)
+- D-1-3 SchemaJsonLd Service OfferCatalog v9 매핑 업데이트 (Discovery 90 / Sprint 180 / Build 300 / Scale 800, 모두 priceSpecification + VAT 별도)
+- D-2 모바일 반응형 정밀 점검 (5 페이지 × 320/375/768) — **이슈 0건** (가로 스크롤 0, 오버플로우 0)
+
+### 커밋 (이번 세션 6개, 모두 origin/main push 완료)
+- `c9123f0` feat(landing): v9 슬림화 — 16섹션 → 6섹션
+- `07096fd` feat(pricing): /pricing 신규 페이지
+- `dc1c536` feat(process): /process 신규 페이지 + Nav 정리 + 일관성 수정
+- `3a0c19a` chore: v9 시안·기획 문서 docs/로 통합
+- `ac57512` fix(projects): title "Work" → "Portfolio"
+- `cc24c70` feat(seo): D-1 SEO 보강 — sitemap + FAQPage + Service schema
+
+### 신규 컴포넌트 (3개)
+- `PricingPolicies` — 결제 분리 + 외부 실비 정책 박스
+- `PricingFAQ` — 6 질문 dl/dt/dd + FAQPage schema
+- `ProcessSteps` — 6단계 타임라인 (amber 번호 + 제목 + 메타 칩 + 설명)
+
+### 4 페이지 IA 완성
+```
+dairect.kr
+├── /              (랜딩 6 섹션, 슬림)
+├── /pricing       (4 패키지 + 정책 + FAQ)
+├── /process       (WhyThisWorks + NoAI + 6단계)
+├── /about         (기존 유지, AboutSections 풍부)
+└── /projects      (기존 유지, Portfolio 10건)
+```
+
+### 다음 세션 후보
+- 미사용 7 컴포넌트 정리 (Etymology / Manifesto / Proof / Services / WhatsLearning / WontDo / Founder) — 즉시 삭제 vs 별도 페이지 활용
+- OG 이미지 페이지별 분기 (D-1-4)
+- Hero H1 카피 재검토 ("머릿속 아이디어를 진짜로 만들어드립니다" vs v9 카피)
+- /about Founder 콘텐츠 합병 검토 (이미 AboutHero/Timeline 있음)
+- Vercel 배포 결과 dairect.kr 직접 확인 (체험 90만 / 검증 180만 등 가격 노출 정합성)
+- SchedulingStatus copy 텍스트 dashboard에서 Jayden 직접 점검 (Sprint=긴급 가정 작성된 경우 "검증" 의미로 갱신)
+
+---
 
 ## 세션 2026-04-27 오후 (Findably 신규 리포트 82점 검증·대응 — Phase 1+1.5+2 production)
 
