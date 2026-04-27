@@ -37,9 +37,28 @@ const faqs: readonly FAQ[] = [
   },
 ];
 
+// FAQPage schema (Schema.org / JSON-LD).
+// AI 검색 엔진(ChatGPT, Claude, Perplexity)이 답변 인용 시 +40% 효과 (Princeton 연구).
+const faqPageSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((faq) => ({
+    "@type": "Question",
+    name: faq.q,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.a,
+    },
+  })),
+};
+
 export function PricingFAQ() {
   return (
     <section className="pricing-faq" data-screen-label="P-04 FAQ">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageSchema) }}
+      />
       <div className="container">
         <p className="kicker amber reveal-fade" data-reveal>
           — FAQ

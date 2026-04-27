@@ -70,8 +70,21 @@ const service = {
     itemListElement: [
       {
         "@type": "Offer",
-        name: "PKG N°00 — Sprint",
-        description: "1주, 단일 기능 MVP",
+        name: "PKG N°00 — Discovery (체험)",
+        description: "3~5일, 아이디어 작동 가능 여부 진단",
+        price: "900000",
+        priceCurrency: "KRW",
+        priceSpecification: {
+          "@type": "PriceSpecification",
+          price: "900000",
+          priceCurrency: "KRW",
+          valueAddedTaxIncluded: false,
+        },
+      },
+      {
+        "@type": "Offer",
+        name: "PKG N°01 — Sprint (검증)",
+        description: "5~10일, 핵심 가설 작동 검증",
         price: "1800000",
         priceCurrency: "KRW",
         priceSpecification: {
@@ -83,18 +96,30 @@ const service = {
       },
       {
         "@type": "Offer",
-        name: "PKG N°01 — Build",
-        description: "3주, 라이브 제품 + 14일 슬랙 자문 (월 5회, 24h SLA)",
+        name: "PKG N°02 — Build (MVP)",
+        description:
+          "2~3주, 사용자에게 보여줄 첫 버전 + 14일 슬랙 자문 (월 5회, 24h SLA)",
+        price: "3000000",
+        priceCurrency: "KRW",
+        priceSpecification: {
+          "@type": "PriceSpecification",
+          price: "3000000",
+          priceCurrency: "KRW",
+          valueAddedTaxIncluded: false,
+        },
       },
       {
         "@type": "Offer",
-        name: "PKG N°02 — Scale",
-        description: "90일 파트너십, 사업화 동행",
-      },
-      {
-        "@type": "Offer",
-        name: "PKG N°03 — Enterprise",
-        description: "맞춤 SI 수준 작업",
+        name: "PKG N°03 — Scale (확장)",
+        description: "4~8주, MVP 이후 본격 운영 인프라 + 90일 파트너십",
+        price: "8000000",
+        priceCurrency: "KRW",
+        priceSpecification: {
+          "@type": "PriceSpecification",
+          price: "8000000",
+          priceCurrency: "KRW",
+          valueAddedTaxIncluded: false,
+        },
       },
     ],
   },
