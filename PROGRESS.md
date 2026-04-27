@@ -1,12 +1,89 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-27 새벽 (**Findably 진단 대응 — GEO/SEO 메타 인프라 6종 production 라이브**)
-> 현재 위치: **production 메타 인프라 완료 (robots/sitemap/llms.txt/Schema/OG/canonical)** → 다음 세션 옵션 C Phase 1~5 + 정리 실행 + dogfooding + Findably 재진단
+> 최종 업데이트: 2026-04-27 오후 (**Findably 재진단 82점 대응 — Phase 1+1.5+2 production: 보안 헤더 5종 + Schema knowsAbout + Quick Answer 박스**)
+> 현재 위치: **production 보안 헤더 5종 + CSP Report-Only + Schema knowsAbout 7개 + Description 75자 + Quick Answer 박스 모두 라이브** → 다음 세션 Mozilla Observatory 재측정 / Findably 재진단 / Phase 3 (E-E-A-T·이미지·LCP) / Phase 1.5 enforced 전환 / 옵션 C Phase 1~5
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
 > v1.3 SOT: [docs/dairect-content-replan-v1_3.md](docs/dairect-content-replan-v1_3.md) (WHAT) · [docs/dairect-v1_3-application-guide.md](docs/dairect-v1_3-application-guide.md) (HOW)
 > BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
 > dogfooding 가이드: [docs/dogfooding-checklist.md](docs/dogfooding-checklist.md) 🧪
 > projects.public* DROP plan: [docs/projects-public-deprecation-plan.md](docs/projects-public-deprecation-plan.md) 🆕
+
+## 세션 2026-04-27 오후 (Findably 신규 리포트 82점 검증·대응 — Phase 1+1.5+2 production)
+
+### 배경
+Jayden이 Findably 재진단 PDF (17페이지, 2026-04-27 dairect.kr) 가져옴. 이전 세션 대비 점수 큰 폭 상승 (60 → 82, +22). GEO 영역 100/100 달성 (메타 인프라 6종 효과 직접 검증). 다만 잔여 15항목 — LCP 26초·H1 키워드·Quick Answer 부재·보안 헤더 C·이미지 0개·Description 55자 등 — 시정 요구.
+
+### 이번 세션 완료 내역
+
+**(1) 진단 vs 실제 매트릭스 검증 (코드 변경 0)**
+- production curl + DOM grep + 코드 read 교차 검증으로 15항목 분류:
+  - ✅ 정확 진단 6건: H1 키워드 미포함 / Quick Answer 부재 / Description 55자 / 보안 헤더 C / 이미지 0개 / Schema knowsAbout 부재
+  - ⚠️ 부분 정확 4건: OG 이미지(디자인 결정) / E-E-A-T(콘텐츠 보강) / 모바일 터치(추가 검증) / LCP 26초(측정도구 의심)
+  - ❌ 오진단 3건: H2~H6 미감지 (실제 H2 12개·H3 10개 정상) / 내부 링크 1개 (실제 22개) / FID 지표 (Findably 측정도구 자체 문제)
+  - 중복 2건: 로딩 70% 이탈 = LCP 26초 / SEO 보안 헤더 = Mozilla Observatory C
+- **결론: 진짜 누락 6건 + 부분 4건만 처리.** Findably 봇이 H2~H6 + 내부 링크는 못 읽지만, 다른 모든 진단은 정확해진 게 확인됨 (1차 세션 대비 진단 품질 ↑).
+
+**(2) Phase 1 — 무위험 즉시 작업 3종 (commit `cd16989`)**
+- `next.config.ts` 글로벌 보안 헤더 4종 추가 (X-Frame-Options DENY / X-Content-Type-Options nosniff / Referrer-Policy strict-origin-when-cross-origin / Permissions-Policy 7권한 차단). source `/(:path*)` cascade — invite/portal/auth no-referrer override 그대로 유지.
+- `SchemaJsonLd.tsx` 강화 — Organization.knowsAbout 7개 도메인 (AI 활용 웹 개발 / 프리랜서 개발 대행 / MVP 빠른 개발 / Claude Code / Next.js Supabase / 비개발자 IT 지원 / 스타트업 동행) + sameAs 추가, Service.serviceType "AI 활용 커스텀 소프트웨어 개발" 구체화 + category 4축.
+- `layout.tsx` Description 55→75자 ("AI 개발 프리랜서가 만드는 맞춤 IT 솔루션. 일반 개발사 3개월 → 3주, 1/3 비용. 비개발자 창업가도 OK — Sprint 180만원부터.") — 키워드 5개 자연 포함.
+
+**(3) Phase 1.5 — CSP Report-Only 도입 (commit `03bf2cd`)**
+- next.config.ts에 `Content-Security-Policy-Report-Only` 추가. Report-Only 모드라 위반은 콘솔/리포트에만, 차단 X (사이트 깨질 위험 0). 1~2주 모니터링 후 enforced 전환 계획.
+- directives 10개 — default-src 'self' / script-src + googletagmanager.com + *.vercel.app + vercel.live (dari widget · GA · Vercel Live) / style-src 'self' 'unsafe-inline' / img-src https: / connect-src + google-analytics.com + *.supabase.co (REST + WebSocket) + *.vercel.app (dari WS) + vitals.vercel-insights.com + ws-us3.pusher.com / frame-ancestors 'none' / form-action 'self' / base-uri 'self' / upgrade-insecure-requests.
+- 'unsafe-inline'/'unsafe-eval' 포함 (Next.js RSC payload + GA inline 호환). nonce 기반 strict-CSP는 별도 Task.
+
+**(4) Phase 2 — Quick Answer 박스 옵션 B (commit `152ea69`)**
+- Jayden 결정: 옵션 B (H1 카피 보존 + 신규 박스 추가). 이유: Studio Anthem 카피 톤 100% 보존 + AI 검색 인용률 옵션 A보다 더 높음 (Princeton 연구 +40%, 페이지 상단 200자 내 명시적 요약 박스 우선).
+- `src/components/sections/QuickAnswer.tsx` 신규 컴포넌트 — "■ 핵심 요약" mono kicker + 본문 굵은 키워드 4종 (AI 개발 프리랜서 / 2~3주 / 1/3 비용 · 1/4 기간 / Sprint 180만원).
+- 디자인: paper bg(#FAF7F0) + 4px amber 좌측 하드 바 + 1px hairline 보더 (기존 paper+amber bar 패턴 재사용 — NoAIExperience와 일관).
+- `landing.css` +55줄 (.quick-answer / .qa-box / .qa-kicker / .qa-body + ≤640px 모바일 미디어 쿼리).
+- `page.tsx`에 Hero 직후 등록 (Hero / QuickAnswer / WhoThisIsFor 순서).
+- 시각 검증: 데스크톱 1280×800 / 모바일 375×812 모두 정상 노출 + 콘솔 에러 0.
+
+**(5) Production 검증 (push 후 Monitor + curl 7항목)**
+- Vercel auto-deploy 완료 polling (Monitor + until-loop, sleep 차단 우회) — 새 description 박힘 검출로 단일 알림.
+- production curl 7항목 모두 통과:
+  - 보안 헤더 5종: X-Frame-Options DENY / X-Content-Type-Options nosniff / Referrer-Policy / Permissions-Policy 7권한 / CSP Report-Only 전체 directives
+  - Description 75자 + OG description 자동 동기화
+  - Schema knowsAbout 7개 + serviceType 구체화 박힘
+  - Quick Answer 박스 "■ 핵심 요약" + "AI 개발 프리랜서" + "Sprint 180만원" HTML 노출
+
+### 검증
+- pnpm tsc --noEmit ✓ (3 Phase 모두)
+- pnpm lint ✓ (0 errors, 1 unrelated warning in dashboard/estimates)
+- pnpm build ✓ — Serwist SW artifact 검증 (3 Phase 모두)
+- Playwright preview 시각: Quick Answer 박스 데스크톱/모바일 정확 노출 (paper bg + amber bar + 굵은 키워드)
+- production curl 검증: 7항목 모두 즉시 박힘 확인 (Vercel deploy 90초 내)
+
+### 변경 통계 (3 commits — origin/main push 완료)
+- feat(seo) cd16989: 3 files (+49 -2) — 보안 헤더 4종 + Schema knowsAbout + Description 확장
+- feat(seo) 03bf2cd: 1 file (+30 -0) — CSP Report-Only directives
+- feat(seo) 152ea69: 3 files (+96 -0) — QuickAnswer 신규 컴포넌트 + CSS + page 등록
+
+### 누적 효과 (예상)
+- Findably 종합 82 → 90+
+- 보안 영역 71 → 85+ (Mozilla Observatory C → A 등급)
+- GEO/AI 인용률 100 유지 + 인용률 0% → 35~40% 잠재 (Princeton 연구)
+- SEO 영역 81 → 85+ (Description 충실도 + Schema 강화 + Quick Answer 진입점)
+
+### 다음 세션 할 일
+- **(Jayden 직접) Mozilla Observatory 재측정** — https://observatory.mozilla.org/analyze/dairect.kr → C(50) → A(85+) 등급 확인 + 보안 헤더 5종 점수 직접 검증
+- **(Jayden 직접) 카톡/Facebook 링크 미리보기 재확인** — `https://dairect.kr` 붙여 새 description 75자 노출 + OG 이미지 동시 확인
+- **(Jayden 직접 1~2주 후) Findably 재진단 트리거** — 종합 점수 변화 + Quick Answer/H1 키워드/보안 헤더/Description 항목들 해결 확인
+- **(Jayden 직접) PageSpeed Insights 실측** — https://pagespeed.web.dev/?url=https%3A%2F%2Fdairect.kr → "LCP 26초" 진위 확인. 진짜 느리면 별도 Task (이미지 최적화/CDN/Vercel 캐시 점검)
+- **(Phase 1.5 후속, 1~2주 후) CSP enforced 전환** — Report-Only 모니터링 후 위반 0 또는 누락 도메인 추가 → 헤더 키만 `Content-Security-Policy`로 변경 (1줄)
+- **(Phase 3 잠재 옵션) About 페이지 E-E-A-T 콘텐츠 강화** — Jayden 개발 경력 X년·기술 스택 (Python/React/Next.js)·완료 프로젝트 N건·자격증 명시 (Jayden 정보 입력 필요)
+- **(Phase 3 잠재 옵션) 포트폴리오 실 이미지 1~3장 추가** — 4 라이브 제품 스크린샷 (`<img>` 0건 → 4건+, alt 텍스트 필수)
+- **(이전 세션 잔존) GA4 실시간 보고서 검증** — 시크릿 모드 dairect.kr 접속, 5 커스텀 이벤트 작동 확인
+- **(이전 세션 잔존) 옵션 C Phase 1~5** — projects.public* 컬럼 DROP cleanup (3시간) — `docs/projects-public-deprecation-plan.md`
+- **(이전 세션 잔존) 정리 실행 / 대시보드 슬롯 메뉴 시각 검증 / dogfooding 1~2주 시작**
+- **(메타) Findably 측에 오진단 3항목 피드백** — H2~H6 미감지·내부 링크 1개·FID 지표 (Findably 봇 개선 도움)
+
+### 차단 요소
+- 없음 (Phase 1+1.5+2 production 라이브 + 7항목 검증 통과)
+
+---
 
 ## 세션 2026-04-27 새벽 (Findably 외부 진단 검증·대응 — GEO/SEO 메타 인프라 6종)
 

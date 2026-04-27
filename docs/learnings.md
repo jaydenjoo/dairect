@@ -1,5 +1,18 @@
 # Dairect — 교훈 기록
 
+## 2026-04-27 (오후) — Findably 재진단 82점 대응 Phase 1+1.5+2 — 3가지 교훈 (CSP/카피·SEO 균형/deploy polling)
+
+1. **CSP는 외부 widget + inline script 많은 사이트일수록 Report-Only 모드부터 시작 — 처음부터 enforced는 사이트 깨짐 위험** — Phase 1.5에서 CSP 도입할 때, dairect는 (a) Next.js RSC inline payload (b) GA gtag.js inline (c) dari widget 외부 스크립트 (`dari-theta.vercel.app`) (d) Vercel Live (preview comments) (e) Supabase Realtime WebSocket — 5개 외부/inline 의존성 동시 보유. enforced로 바로 가면 단 하나라도 directives 누락 시 화이트 스크린/기능 마비. Report-Only로 시작하면 위반은 콘솔/리포트에만 기록되고 실제 차단 X — 운영 무중단으로 1~2주 directives 정확성 검증 가능.
+   - **규칙**: CSP 도입 표준 절차 = (1) Report-Only 모드 라이브 + 1~2주 모니터링 (콘솔 위반 grep) (2) 누락 도메인 추가 (3) 위반 0 확인 후 헤더 키만 `Content-Security-Policy`로 1줄 변경. 'unsafe-inline'/'unsafe-eval'은 Next.js + GA 호환에 필수 — 추후 nonce 기반 strict-CSP는 별도 Task로 분리. report-uri/report-to 인프라(Sentry/Datadog 연동)는 콘솔 모니터링이 부족해질 때 추가. 외부 widget을 Report-Only 없이 enforced로 곧장 가는 건 사실상 "production 다운타임 도박".
+
+2. **카피 정서성 vs SEO 키워드 균형 — H1 변경(옵션 A)보다 Hero 직후 Quick Answer 박스(옵션 B)가 AI 검색 인용률 더 높음** — Findably가 H1에 'IT 개발/AI/프리랜서' 키워드 0건이라며 H1 자체 변경 권장. 그러나 Studio Anthem 카피 "머릿속 아이디어를 진짜로 만들어드립니다"는 브랜드 정서적 후크 (정직성 + 시적 톤)라 변경 시 브랜드 보이스 약화. Princeton 연구: AI 검색(ChatGPT/Claude/Perplexity)은 H1보다 페이지 상단 200자 내 명시적 박스형 요약 섹션을 인용 +40% 우선. 즉 옵션 B가 옵션 A보다 SEO/GEO 효과 동등 이상이면서 카피 100% 보존 — 디자인/SEO 갈등의 표준 해결.
+   - **규칙**: 정서적 카피를 H1로 쓰는 사이트(Studio 톤 / 시적 헤드라인 / 브랜드 보이스 강조)는 SEO 키워드 충돌 시 H1 자체 변경(옵션 A) 대신 (a) Hero 직후 paper bg + amber bar + mono kicker 박스 신설 (b) `<strong>` 굵게 핵심 키워드 4개 (c) 1~2 문장 200자 내 — 패턴이 강력. AI 검색 우선 인용 + Findably/Lighthouse Quick Answer 항목 해결 + 카피 정서성 보존 3마리 토끼. H1은 그대로, kicker나 etym-tag로 영문 SEO 라벨만 살짝 추가하는 옵션 C는 모바일 줄바꿈 리스크라 옵션 B가 가장 안전.
+
+3. **Vercel auto-deploy 완료 polling은 Monitor + until-loop 패턴 — Bash `sleep 60`은 시스템 가이드로 차단됨** — push 후 Vercel deploy 대기 시 `sleep 60 && curl ...` 시도하니 시스템 hook이 차단 ("Long leading sleep commands are blocked. Use Monitor with until-loop"). 또 `ScheduleWakeup`은 /loop 동적 모드용이라 부적합. 정답: `Monitor` 도구 + `until <조건>; do sleep 10; done` 폴링 + `echo "READY"` 종료. 단일 알림으로 deploy 완료 시점에 정확히 검증 트리거. Production HTML에 새 commit 흔적 (Description 변경된 카피 등) grep으로 deploy 반영 검출 가능.
+   - **규칙**: Claude Code 환경에서 외부 deploy/build 완료 polling = Monitor + until-loop. cache busting `?cb=$(date +%s)`로 fresh fetch + `grep -q "새 카피"`로 새 빌드 검출. timeout 5분 (Vercel 평균 deploy 1~2분, 여유). 폴링 간격 10초 (60초는 너무 느림, 5초는 너무 자주). `run_in_background: true` Bash + until-loop도 동일 효과지만 Monitor가 timeout/스트림 지원 더 명시적. ScheduleWakeup은 사용자 대화 재개용이라 deploy polling 같은 단일 알림에 부적합 — 도구 선택 실수 주의.
+
+---
+
 ## 2026-04-27 — Findably 외부 진단 대응 3가지 교훈 (검증 우선 + 메타 인프라 패턴)
 
 1. **외부 진단 도구 결과는 절반 오진단 가능 — 코드/실응답 교차 검증 후에야 수정 결정** — Findably AI 마케팅 리포트 32항목 중 "사이트 0KB 로딩 실패", "SSL 누락", "H1/Title/Description 부재" 등 14항목이 모두 오진단. 실제로는 dairect.kr 가 HTTP 200 + 104KB + HSTS + H1 1개 + Title/Description 정상. 원인 추정: Findably 봇이 (a) JS 렌더 SPA 를 정적 fetch 로 읽어 빈 응답 받음, (b) Vercel CDN 의 봇 차단 또는 첫 응답 cache miss. 무비판 수용했으면 멀쩡한 H1 추가/SSL "수정"/로딩 "복구" 작업으로 1~2시간 낭비 + 코드베이스 오염.
