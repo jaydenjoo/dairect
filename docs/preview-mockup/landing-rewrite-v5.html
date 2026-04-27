@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dairect 시안 v5 — 7일 타임라인 톤 (2026-04-27)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    :root{
+      --canvas:#F5F1E8;--paper:#FAF7F0;--ink:#141414;--dust:#5C5648;
+      --amber:#FFB800;--hairline:rgba(20,20,20,0.12);
+      --font-display:'Fraunces','Pretendard',serif;
+      --font-sans:'Geist','Pretendard',-apple-system,sans-serif;
+      --font-mono:'Geist Mono','Courier New',monospace;
+      --font-ko:'Pretendard',-apple-system,sans-serif;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{background:var(--canvas);color:var(--ink);font-family:var(--font-sans);font-size:16px;line-height:1.6}
+    .mockup-banner{background:var(--ink);color:var(--paper);padding:12px 24px;font-family:var(--font-mono);font-size:12px;letter-spacing:.05em;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--amber)}
+    .mockup-banner .label{color:var(--amber)}
+    .mockup-banner .meta{color:rgba(250,247,240,0.6)}
+    nav.nav{max-width:1280px;margin:0 auto;padding:24px 32px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--hairline)}
+    .brand{font-family:var(--font-display);font-weight:700;font-size:24px;color:var(--ink);text-decoration:none}
+    .brand .dot{color:var(--amber)}
+    .menu{display:flex;gap:32px}
+    .menu a{color:var(--ink);text-decoration:none;font-size:14px;font-weight:500}
+    .menu a:hover{color:var(--amber)}
+    .cta-mini{background:var(--ink);color:var(--paper);padding:10px 20px;font-size:14px;font-weight:500;text-decoration:none;border:1px solid var(--ink)}
+
+    section.hero{max-width:1280px;margin:0 auto;padding:80px 32px 64px}
+    .hero-kicker{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;color:var(--dust);text-transform:uppercase;margin-bottom:24px}
+    .hero-kicker em{font-style:italic;color:var(--ink)}
+    .hero-h1{font-family:var(--font-display);font-size:64px;font-weight:700;line-height:1.05;letter-spacing:-.03em;color:var(--ink);margin-bottom:24px;max-width:880px}
+    .hero-h1 strong{font-style:italic;font-weight:700}
+    .hero-sub{font-family:var(--font-display);font-size:18px;font-style:italic;line-height:1.5;color:var(--dust);margin-bottom:48px;max-width:640px}
+    .hero-sub em{color:var(--ink);font-style:italic}
+
+    /* v5 핵심 — 7일 타임라인 가로 시각화 */
+    .timeline{position:relative;background:var(--paper);border:1px solid var(--hairline);padding:40px 32px;margin-bottom:32px}
+    .timeline-track{display:grid;grid-template-columns:repeat(7,1fr);gap:0;position:relative}
+    .timeline-track::before{content:'';position:absolute;top:18px;left:5%;right:5%;height:2px;background:var(--amber)}
+    .timeline-day{position:relative;text-align:center;z-index:1}
+    .timeline-dot{width:36px;height:36px;border-radius:50%;background:var(--paper);border:2px solid var(--amber);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--ink)}
+    .timeline-day.active .timeline-dot{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+    .timeline-day.milestone .timeline-dot{background:var(--amber);color:var(--ink);border-color:var(--amber);box-shadow:0 0 0 6px rgba(255,184,0,.2)}
+    .timeline-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.05em;color:var(--dust);text-transform:uppercase;margin-bottom:4px}
+    .timeline-event{font-family:var(--font-ko);font-size:13px;color:var(--ink);font-weight:500;line-height:1.3}
+    .timeline-event strong{font-weight:700;color:var(--amber)}
+
+    .hero-cta{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+    .btn-primary{background:var(--ink);color:var(--paper);padding:16px 28px;font-size:15px;font-weight:500;text-decoration:none;border:1px solid var(--ink);display:inline-flex;align-items:center;gap:8px}
+    .btn-primary:hover{box-shadow:4px 4px 0 var(--amber);transform:translate(-2px,-2px)}
+    .btn-ghost{background:transparent;color:var(--ink);padding:16px 28px;font-size:15px;font-weight:500;text-decoration:none;border:1px solid var(--ink);display:inline-flex;align-items:center;gap:8px}
+    .btn-ghost:hover{background:var(--ink);color:var(--paper)}
+
+    section.quick-answer{background:var(--paper);padding:48px 0;border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)}
+    .qa-box{max-width:880px;margin:0 auto;padding:0 32px;border-left:4px solid var(--amber);padding-left:28px}
+    .qa-kicker{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;color:var(--dust);text-transform:uppercase;margin-bottom:12px}
+    .qa-body{font-family:var(--font-ko);font-size:18px;line-height:1.65;color:var(--ink)}
+    .qa-body strong{font-weight:700;background:linear-gradient(180deg,transparent 60%,rgba(255,184,0,.35) 60%);padding:0 2px}
+
+    /* RealScenario — 카드별 mini 타임라인 */
+    section.real-scenario{max-width:1280px;margin:0 auto;padding:96px 32px}
+    .scenario-header{margin-bottom:56px;max-width:760px}
+    .scenario-kicker{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;color:var(--dust);text-transform:uppercase;margin-bottom:16px}
+    .scenario-h2{font-family:var(--font-display);font-size:44px;font-weight:700;letter-spacing:-.03em;color:var(--ink);line-height:1.1;margin-bottom:16px}
+    .scenario-h2 em{font-style:italic}
+    .scenario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+    .scenario-card{background:var(--paper);border:1px solid var(--hairline);padding:32px 28px;transition:all .2s}
+    .scenario-card:hover{box-shadow:4px 4px 0 var(--ink);transform:translate(-2px,-2px)}
+    .scenario-num{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;color:var(--amber);font-weight:600;margin-bottom:16px}
+    .scenario-num.client{color:var(--dust)}
+    .scenario-name{font-family:var(--font-display);font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--ink);margin-bottom:4px}
+    .scenario-meta{font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;color:var(--dust);margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid var(--hairline)}
+    .scenario-quote{font-family:var(--font-display);font-style:italic;font-size:15px;line-height:1.5;color:var(--ink);margin-bottom:24px;position:relative;padding-left:16px}
+    .scenario-quote::before{content:'"';position:absolute;left:-4px;top:-8px;font-size:28px;font-weight:700;color:var(--amber);font-family:var(--font-display)}
+
+    .mini-timeline{display:flex;flex-direction:column;gap:8px}
+    .mini-tl-row{display:flex;gap:12px;align-items:flex-start;padding:8px 0;font-family:var(--font-ko);font-size:13px;line-height:1.4}
+    .mini-tl-day{font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--amber);min-width:60px;padding:3px 8px;background:var(--canvas);border-left:2px solid var(--amber);text-transform:uppercase}
+    .mini-tl-text{flex:1;color:var(--ink)}
+    .mini-tl-text strong{font-weight:700}
+
+    .scenario-cta-block{grid-column:1/-1;margin-top:40px;padding:40px;background:var(--ink);color:var(--paper);display:flex;justify-content:space-between;align-items:center;gap:32px}
+    .scenario-cta-text{font-family:var(--font-display);font-size:22px;font-weight:600;line-height:1.4;letter-spacing:-.02em}
+    .scenario-cta-text em{font-style:italic;color:var(--amber)}
+    .scenario-cta-sub{font-family:var(--font-ko);font-size:14px;color:rgba(250,247,240,.7);margin-top:4px}
+    .btn-cta-amber{background:var(--amber);color:var(--ink);padding:18px 32px;font-size:15px;font-weight:600;text-decoration:none;border:1px solid var(--amber);white-space:nowrap}
+    .btn-cta-amber:hover{background:var(--paper);box-shadow:4px 4px 0 var(--amber);transform:translate(-2px,-2px)}
+
+    @media (max-width:980px){
+      section.hero{padding:56px 24px}
+      .hero-h1{font-size:44px}
+      .timeline-track{grid-template-columns:repeat(4,1fr);gap:20px}
+      .timeline-track::before{display:none}
+      .scenario-grid{grid-template-columns:1fr}
+      .scenario-h2{font-size:32px}
+      .scenario-cta-block{flex-direction:column;text-align:center}
+    }
+    @media (max-width:640px){
+      .hero-h1{font-size:32px}.hero-sub{font-size:16px}.menu{display:none}
+      .mockup-banner{flex-direction:column;gap:4px;align-items:flex-start}
+      .timeline-track{grid-template-columns:repeat(2,1fr)}
+      .scenario-h2{font-size:26px}
+      section.real-scenario{padding:64px 24px}
+      .timeline{padding:24px 16px}
+    }
+    footer.footer{max-width:1280px;margin:0 auto;padding:64px 32px 48px;border-top:1px solid var(--hairline);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:24px}
+    .footer-brand{font-family:var(--font-display);font-size:18px;font-weight:700}
+    .footer-meta{font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;color:var(--dust)}
+  </style>
+</head>
+<body>
+
+  <div class="mockup-banner">
+    <span><span class="label">■ MOCKUP · v5</span> &nbsp;7일 타임라인 톤 — 시간 호소 시각화 ("Day 1 → 7" 가로 타임라인)</span>
+    <span class="meta">2026-04-27 · production 영향 0 · 검토용</span>
+  </div>
+
+  <nav class="nav">
+    <a href="#" class="brand">dairect<span class="dot">.</span></a>
+    <div class="menu"><a href="#">Portfolio</a><a href="#">Services</a><a href="#">Pricing</a><a href="#">About</a><a href="#">Journal</a></div>
+    <a href="#" class="cta-mini">1시간 무료 인터뷰 →</a>
+  </nav>
+
+  <!-- Hero — v5: 7일 가로 타임라인 -->
+  <section class="hero">
+    <div class="hero-kicker">— <em>Day 1 인터뷰</em>부터 <em>Day 7 작동하는 데모</em>까지</div>
+    <h1 class="hero-h1">머릿속 아이디어를<br/>진짜로 <strong>만들어드립니다.</strong></h1>
+    <p class="hero-sub">Human <em>directs.</em> Machine <em>executes.</em><br/>And the page looks <em>like both.</em></p>
+
+    <!-- 7일 타임라인 -->
+    <div class="timeline">
+      <div class="timeline-track">
+        <div class="timeline-day milestone">
+          <div class="timeline-dot">D1</div>
+          <div class="timeline-label">Day 1 · 월</div>
+          <div class="timeline-event"><strong>1시간 인터뷰</strong></div>
+        </div>
+        <div class="timeline-day">
+          <div class="timeline-dot">D2</div>
+          <div class="timeline-label">Day 2 · 화</div>
+          <div class="timeline-event">설계·기술 스택 확정</div>
+        </div>
+        <div class="timeline-day active">
+          <div class="timeline-dot">D3</div>
+          <div class="timeline-label">Day 3 · 수</div>
+          <div class="timeline-event">AI 빌드 1차</div>
+        </div>
+        <div class="timeline-day active">
+          <div class="timeline-dot">D4</div>
+          <div class="timeline-label">Day 4 · 목</div>
+          <div class="timeline-event">중간 데모 송부</div>
+        </div>
+        <div class="timeline-day active">
+          <div class="timeline-dot">D5</div>
+          <div class="timeline-label">Day 5 · 금</div>
+          <div class="timeline-event">피드백 반영</div>
+        </div>
+        <div class="timeline-day">
+          <div class="timeline-dot">D6</div>
+          <div class="timeline-label">Day 6 · 토</div>
+          <div class="timeline-event">최종 다듬기</div>
+        </div>
+        <div class="timeline-day milestone">
+          <div class="timeline-dot">D7</div>
+          <div class="timeline-label">Day 7 · 일</div>
+          <div class="timeline-event"><strong>작동 데모 완성</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-cta">
+      <a href="#" class="btn-primary">월요일에 시작 가능 <span>→</span></a>
+      <a href="#" class="btn-ghost">실제 만든 제품 보기</a>
+    </div>
+  </section>
+
+  <!-- QuickAnswer -->
+  <section class="quick-answer">
+    <div class="qa-box">
+      <div class="qa-kicker">■ 핵심 요약</div>
+      <p class="qa-body">
+        <strong>월요일</strong>에 1시간 인터뷰. <strong>일요일</strong>에 작동하는 데모. <strong>180만원</strong>으로.
+        직장인이 회사 다니면서, 사장님이 영업하면서 — <strong>일주일이면</strong> 머릿속 아이디어가 진짜로 작동합니다.
+      </p>
+    </div>
+  </section>
+
+  <!-- RealScenario — 카드별 mini 타임라인 -->
+  <section class="real-scenario">
+    <div class="scenario-header">
+      <div class="scenario-kicker">— 실제 7일 여정</div>
+      <h2 class="scenario-h2"><em>한 주가 끝날 때쯤</em><br/>이미 작동하는 데모가 있습니다.</h2>
+    </div>
+    <div class="scenario-grid">
+
+      <article class="scenario-card">
+        <div class="scenario-num">01 — 직장인 · 사이드 아이디어</div>
+        <h3 class="scenario-name">이주임님</h3>
+        <div class="scenario-meta">마케터 · 30세 · 직장 5년차</div>
+        <p class="scenario-quote">"AI 자동응답 챗봇" 아이디어. 평일은 회사 일, 주말에 잠깐 보고...</p>
+        <div class="mini-timeline">
+          <div class="mini-tl-row"><span class="mini-tl-day">D1 월</span><span class="mini-tl-text">퇴근 후 21시 화상 인터뷰 (1h)</span></div>
+          <div class="mini-tl-row"><span class="mini-tl-day">D3 수</span><span class="mini-tl-text">초안 데모 링크 카톡</span></div>
+          <div class="mini-tl-row"><span class="mini-tl-day">D5 금</span><span class="mini-tl-text">피드백 반영 v2</span></div>
+          <div class="mini-tl-row"><span class="mini-tl-day">D7 일</span><span class="mini-tl-text"><strong>최종 데모 + 사용 가이드</strong></span></div>
+        </div>
+      </article>
+
+      <article class="scenario-card">
+        <div class="scenario-num">02 — 직장인 · 예비 창업자</div>
+        <h3 class="scenario-name">박과장님</h3>
+        <div class="scenario-meta">회사원 · 35세 · 퇴사 고민 중</div>
+        <p class="scenario-quote">SaaS 가설 검증. 회사 다니며 1주만에 결과 보고 싶음...</p>
+        <div class="mini-timeline">
+          <div class="mini-tl-row"><span class="mini-tl-day">D1 월</span><span class="mini-tl-text">점심시간 30분 인터뷰</span></div>
+          <div class="mini-tl-row"><span class="mini-tl-day">D2 화</span><span class="mini-tl-text">랜딩 + 결제 데모 시작</span></div>
+          <div class="mini-tl-row"><span class="mini-tl-day">D5 금</span><span class="mini-tl-text">데모 링크 + 광고 시작</span></div>
+          <div class="mini-tl-row"><span class="mini-tl-day">D7 일</span><span class="mini-tl-text"><strong>1주만에 사전 신청 41건</strong></span></div>
+        </div>
+      </article>
+
+      <article class="scenario-card">
+        <div class="scenario-num client">03 — 소규모 사업자</div>
+        <h3 class="scenario-name">김사장님</h3>
+        <div class="scenario-meta">동네 빵집 · 45세 · 사업 12년차</div>
+        <p class="scenario-quote">매일 새벽 빵 굽고 영업하느라 IT 사람 만날 시간 없음...</p>
+        <div class="mini-timeline">
+          <div class="mini-tl-row"><span class="mini-tl-day">D1 월</span><span class="mini-tl-text">매장 방문 인터뷰 (15시 이후)</span></div>
+          <div class="mini-tl-row"><span class="mini-tl-day">D4 목</span><span class="mini-tl-text">카톡 봇 시범 링크</span></div>
+          <div class="mini-tl-row"><span class="mini-tl-day">D6 토</span><span class="mini-tl-text">단골 5명 시범 사용</span></div>
+          <div class="mini-tl-row"><span class="mini-tl-day">D7 일</span><span class="mini-tl-text"><strong>주문 누락 0건 데모 완료</strong></span></div>
+        </div>
+      </article>
+
+      <div class="scenario-cta-block">
+        <div>
+          <div class="scenario-cta-text"><em>다음 주 일요일</em>이면 답이 나옵니다.</div>
+          <div class="scenario-cta-sub">월요일에 1시간 인터뷰 → 일요일에 작동 데모. 회사 다니면서, 영업하면서 가능합니다.</div>
+        </div>
+        <a href="#" class="btn-cta-amber">월요일 인터뷰 신청 →</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-brand">dairect<span style="color:var(--amber)">.</span></div>
+    <div class="footer-meta">— Director of AI · est. 2024 / Seoul · MOCKUP v5 · 2026-04-27</div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dairect 시안 v7 — 학술 기반 하이브리드 (2026-04-27)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    :root{
+      --canvas:#F5F1E8;--paper:#FAF7F0;--ink:#141414;--dust:#5C5648;
+      --amber:#FFB800;--hairline:rgba(20,20,20,0.12);
+      --font-display:'Fraunces','Pretendard',serif;
+      --font-sans:'Geist','Pretendard',-apple-system,sans-serif;
+      --font-mono:'Geist Mono','Courier New',monospace;
+      --font-ko:'Pretendard',-apple-system,sans-serif;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{background:var(--canvas);color:var(--ink);font-family:var(--font-sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+
+    .mockup-banner{background:var(--ink);color:var(--paper);padding:12px 24px;font-family:var(--font-mono);font-size:12px;letter-spacing:.05em;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--amber)}
+    .mockup-banner .label{color:var(--amber)}
+    .mockup-banner .meta{color:rgba(250,247,240,0.6)}
+
+    nav.nav{max-width:1280px;margin:0 auto;padding:24px 32px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--hairline)}
+    .brand{font-family:var(--font-display);font-weight:700;font-size:24px;letter-spacing:-.02em;color:var(--ink);text-decoration:none}
+    .brand .dot{color:var(--amber)}
+    .menu{display:flex;gap:32px}
+    .menu a{color:var(--ink);text-decoration:none;font-size:14px;font-weight:500}
+    .menu a:hover{color:var(--amber)}
+    .cta-mini{background:var(--ink);color:var(--paper);padding:10px 20px;font-size:14px;font-weight:500;text-decoration:none;border:1px solid var(--ink)}
+
+    /* === Hero — v7 핵심: 좌측 portrait + 우측 (인사 + mini 비교 + 본문 + CTA) === */
+    section.hero{max-width:1180px;margin:0 auto;padding:72px 32px 56px;display:grid;grid-template-columns:auto 1fr;gap:48px;align-items:start}
+
+    .founder-portrait{width:220px;background:var(--paper);border:1px solid var(--hairline);position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:28px 20px}
+    .founder-portrait::before{content:'';position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--amber)}
+    .founder-mono{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--dust);text-transform:uppercase;margin-bottom:12px;align-self:flex-start;padding-left:8px}
+    .founder-init{font-family:var(--font-display);font-size:120px;font-weight:700;line-height:1;color:var(--ink);letter-spacing:-.05em;margin:8px 0}
+    .founder-name{font-family:var(--font-display);font-size:18px;font-weight:600;margin-top:8px;color:var(--ink)}
+    .founder-role{font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;color:var(--dust);margin-top:4px;text-transform:uppercase}
+    .founder-credentials{font-family:var(--font-mono);font-size:10px;color:var(--dust);margin-top:16px;padding-top:12px;border-top:1px solid var(--hairline);width:100%;text-align:center;letter-spacing:.05em}
+    .founder-credentials strong{color:var(--ink);font-family:var(--font-display);font-size:14px;font-weight:700;display:block;margin-bottom:2px}
+
+    .hero-content{min-width:0}
+
+    .hero-kicker{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;color:var(--dust);text-transform:uppercase;margin-bottom:16px}
+    .hero-kicker em{font-style:italic;color:var(--ink)}
+
+    .hero-h1{font-family:var(--font-display);font-size:50px;font-weight:700;line-height:1.08;letter-spacing:-.03em;color:var(--ink);margin-bottom:20px}
+    .hero-h1 strong{font-style:italic;font-weight:700}
+
+    /* StoryBrand 압축 본문 — 2~3문장만 */
+    .hero-pitch{font-family:var(--font-ko);font-size:17px;line-height:1.65;color:var(--ink);margin-bottom:28px;max-width:600px}
+    .hero-pitch strong{font-weight:700;background:linear-gradient(180deg,transparent 60%,rgba(255,184,0,.4) 60%);padding:0 2px}
+
+    /* v4 mini 비교표 — Hero에 1회만 (반복 회피) */
+    .mini-compare{background:var(--paper);border:1px solid var(--hairline);overflow:hidden;margin-bottom:28px;max-width:600px}
+    .mc-header{background:var(--ink);color:var(--paper);padding:10px 16px;font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;display:grid;grid-template-columns:120px 1fr 1fr;gap:8px}
+    .mc-header span:nth-child(2){color:rgba(250,247,240,.5)}
+    .mc-header span:nth-child(3){color:var(--amber);font-weight:700}
+    .mc-row{display:grid;grid-template-columns:120px 1fr 1fr;gap:8px;padding:12px 16px;border-bottom:1px solid var(--hairline);font-family:var(--font-ko);font-size:14px;align-items:baseline}
+    .mc-row:last-child{border-bottom:none}
+    .mc-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.05em;color:var(--dust);text-transform:uppercase}
+    .mc-others{color:var(--dust);text-decoration:line-through;font-size:13px}
+    .mc-us{color:var(--ink);font-weight:700;font-family:var(--font-display);font-size:16px}
+    .mc-us strong{background:linear-gradient(180deg,transparent 55%,rgba(255,184,0,.4) 55%);padding:0 2px}
+
+    .hero-cta{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .btn-primary{background:var(--ink);color:var(--paper);padding:15px 26px;font-size:14px;font-weight:500;text-decoration:none;border:1px solid var(--ink);display:inline-flex;align-items:center;gap:8px;transition:all .15s}
+    .btn-primary:hover{box-shadow:4px 4px 0 var(--amber);transform:translate(-2px,-2px)}
+    .btn-ghost{background:transparent;color:var(--ink);padding:15px 26px;font-size:14px;font-weight:500;text-decoration:none;border:1px solid var(--ink);display:inline-flex;align-items:center;gap:8px;transition:all .15s}
+    .btn-ghost:hover{background:var(--ink);color:var(--paper)}
+
+    /* === QuickAnswer — v6 톤 유지 === */
+    section.quick-answer{background:var(--paper);padding:48px 0;border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)}
+    .qa-box{max-width:880px;margin:0 auto;padding:0 32px;border-left:4px solid var(--amber);padding-left:28px}
+    .qa-kicker{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;color:var(--dust);text-transform:uppercase;margin-bottom:12px}
+    .qa-body{font-family:var(--font-ko);font-size:18px;line-height:1.65;color:var(--ink)}
+    .qa-body strong{font-weight:700;background:linear-gradient(180deg,transparent 60%,rgba(255,184,0,.35) 60%);padding:0 2px}
+
+    /* === RealScenario — v2 페르소나 + 카드별 mini compare === */
+    section.real-scenario{max-width:1280px;margin:0 auto;padding:96px 32px}
+    .scenario-header{margin-bottom:56px;max-width:760px}
+    .scenario-kicker{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;color:var(--dust);text-transform:uppercase;margin-bottom:16px}
+    .scenario-h2{font-family:var(--font-display);font-size:44px;font-weight:700;letter-spacing:-.03em;color:var(--ink);line-height:1.1;margin-bottom:16px}
+    .scenario-h2 em{font-style:italic}
+    .scenario-intro{font-family:var(--font-ko);font-size:16px;color:var(--dust);line-height:1.6}
+    .scenario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+    .scenario-card{background:var(--paper);border:1px solid var(--hairline);padding:32px 28px;transition:all .2s;display:flex;flex-direction:column}
+    .scenario-card:hover{box-shadow:4px 4px 0 var(--ink);transform:translate(-2px,-2px)}
+    .scenario-num{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;color:var(--amber);font-weight:600;margin-bottom:16px}
+    .scenario-num.client{color:var(--dust)}
+    .scenario-name{font-family:var(--font-display);font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--ink);margin-bottom:4px}
+    .scenario-meta{font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;color:var(--dust);margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid var(--hairline)}
+    .scenario-quote{font-family:var(--font-display);font-style:italic;font-size:15px;line-height:1.5;color:var(--ink);margin-bottom:20px;position:relative;padding-left:16px;flex:1}
+    .scenario-quote::before{content:'"';position:absolute;left:-4px;top:-8px;font-size:28px;font-weight:700;color:var(--amber);font-family:var(--font-display)}
+
+    .card-compare{background:var(--canvas);padding:14px 16px;border-left:2px solid var(--amber)}
+    .cc-row{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;font-family:var(--font-ko);font-size:13px}
+    .cc-row + .cc-row{border-top:1px dashed var(--hairline)}
+    .cc-label{color:var(--dust);font-family:var(--font-mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase}
+    .cc-others{color:var(--dust);text-decoration:line-through;font-size:13px}
+    .cc-us{color:var(--ink);font-weight:700;font-family:var(--font-display);font-size:15px}
+    .cc-save{color:var(--ink);font-weight:700;font-family:var(--font-display);font-size:14px;background:var(--amber);padding:1px 8px}
+
+    /* === FAQ — v6 5개 (Hick's Law sweet spot) === */
+    section.faq{max-width:880px;margin:0 auto;padding:64px 32px 96px}
+    .faq-header{margin-bottom:40px}
+    .faq-kicker{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;color:var(--dust);text-transform:uppercase;margin-bottom:16px}
+    .faq-h2{font-family:var(--font-display);font-size:36px;font-weight:700;letter-spacing:-.03em;color:var(--ink);line-height:1.15}
+    .faq-list{display:flex;flex-direction:column}
+    .faq-item{border-bottom:1px solid var(--hairline);padding:24px 0}
+    .faq-item:first-child{border-top:1px solid var(--hairline)}
+    .faq-q{font-family:var(--font-display);font-size:20px;font-weight:600;letter-spacing:-.02em;color:var(--ink);margin-bottom:12px;display:flex;align-items:flex-start;gap:12px}
+    .faq-q::before{content:'Q.';font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--amber);min-width:24px;padding-top:6px;letter-spacing:.05em}
+    .faq-a{font-family:var(--font-ko);font-size:15px;line-height:1.65;color:var(--dust);padding-left:36px}
+    .faq-a strong{color:var(--ink);font-weight:600}
+
+    /* Final CTA */
+    .final-cta{max-width:1280px;margin:0 auto 96px;padding:0 32px}
+    .final-cta-block{padding:48px;background:var(--ink);color:var(--paper);display:flex;justify-content:space-between;align-items:center;gap:32px}
+    .final-cta-text{font-family:var(--font-display);font-size:24px;font-weight:600;line-height:1.4;letter-spacing:-.02em}
+    .final-cta-text em{font-style:italic;color:var(--amber)}
+    .final-cta-sub{font-family:var(--font-ko);font-size:14px;color:rgba(250,247,240,.7);margin-top:6px}
+    .btn-cta-amber{background:var(--amber);color:var(--ink);padding:18px 32px;font-size:15px;font-weight:600;text-decoration:none;border:1px solid var(--amber);white-space:nowrap;transition:all .15s}
+    .btn-cta-amber:hover{background:var(--paper);box-shadow:4px 4px 0 var(--amber);transform:translate(-2px,-2px)}
+
+    @media (max-width:980px){
+      section.hero{grid-template-columns:1fr;gap:32px;padding:56px 24px}
+      .founder-portrait{margin:0 auto;width:200px}
+      .founder-init{font-size:96px}
+      .hero-h1{font-size:38px}
+      .scenario-grid{grid-template-columns:1fr}
+      .scenario-h2{font-size:32px}
+      .final-cta-block{flex-direction:column;text-align:center}
+    }
+    @media (max-width:640px){
+      .hero-h1{font-size:32px}.menu{display:none}
+      .mockup-banner{flex-direction:column;gap:4px;align-items:flex-start}
+      .scenario-h2{font-size:26px}
+      .faq-h2{font-size:28px}
+      .faq-q{font-size:17px}
+      .faq-a{padding-left:0;margin-top:8px}
+      section.real-scenario,section.faq{padding-left:24px;padding-right:24px}
+      .mc-header,.mc-row{grid-template-columns:80px 1fr 1fr;font-size:12px}
+      .mc-us{font-size:14px}
+      .final-cta{padding:0 24px}
+      .final-cta-block{padding:32px 24px}
+    }
+
+    footer.footer{max-width:1280px;margin:0 auto;padding:64px 32px 48px;border-top:1px solid var(--hairline);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:24px}
+    .footer-brand{font-family:var(--font-display);font-size:18px;font-weight:700}
+    .footer-meta{font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;color:var(--dust)}
+  </style>
+</head>
+<body>
+
+  <div class="mockup-banner">
+    <span><span class="label">■ MOCKUP · v7</span> &nbsp;학술 기반 하이브리드 — StoryBrand(v6) + 견적 비교(v4) + 직장인 페르소나(v2) + FAQ(v6)</span>
+    <span class="meta">2026-04-27 · 7 axis 모두 4점+ 목표 · production 영향 0</span>
+  </div>
+
+  <nav class="nav">
+    <a href="#" class="brand">dairect<span class="dot">.</span></a>
+    <div class="menu"><a href="#">Portfolio</a><a href="#">Services</a><a href="#">Pricing</a><a href="#">About</a><a href="#">Journal</a></div>
+    <a href="#" class="cta-mini">제이든에게 1시간 →</a>
+  </nav>
+
+  <!-- Hero — 좌측 portrait(솔로 강점) + 우측 (인사+H1+pitch+미니비교+CTA) -->
+  <section class="hero">
+
+    <!-- 창업자 portrait — StoryBrand: 가이드(Jayden) 시각적 명확화 -->
+    <div class="founder-portrait">
+      <div class="founder-mono">— FOUNDER · 1인</div>
+      <div class="founder-init">J</div>
+      <div class="founder-name">Jayden</div>
+      <div class="founder-role">PM · Director</div>
+      <div class="founder-credentials">
+        <strong>04건</strong>라이브 운영 / 98% CSAT
+      </div>
+    </div>
+
+    <div class="hero-content">
+      <div class="hero-kicker">— 안녕하세요, <em>1인 프리랜서</em> Jayden입니다</div>
+
+      <!-- H1 보존 ("저희가" → "제가" 미세 변경, 1인 친밀감) -->
+      <h1 class="hero-h1">머릿속 아이디어를<br/>제가 <strong>만들어드립니다.</strong></h1>
+
+      <!-- StoryBrand 압축 pitch (3 문장) — Problem-Agitate-Solution -->
+      <p class="hero-pitch">
+        <strong>회사 다니며 떠오른 아이디어</strong>가 있는데 <strong>1,000만원 견적</strong> 받고 망설이셨나요?
+        저는 <strong>5~7일 / 180만원</strong>으로 작동하는 시제품을 만들어 드립니다.
+        <strong>안 되는 아이디어면 거기서 멈추셔도 됩니다.</strong>
+      </p>
+
+      <!-- v4 mini 비교표 (Hero에 1회만, 앵커링 + 손실 회피 시각화) -->
+      <div class="mini-compare">
+        <div class="mc-header">
+          <span>항목</span>
+          <span>일반 개발사</span>
+          <span>dairect</span>
+        </div>
+        <div class="mc-row">
+          <span class="mc-label">시제품</span>
+          <span class="mc-others">800~1,500만원</span>
+          <span class="mc-us"><strong>180만원~</strong></span>
+        </div>
+        <div class="mc-row">
+          <span class="mc-label">기간</span>
+          <span class="mc-others">3개월</span>
+          <span class="mc-us"><strong>5~7일</strong></span>
+        </div>
+        <div class="mc-row">
+          <span class="mc-label">계약</span>
+          <span class="mc-others">선금 50%</span>
+          <span class="mc-us"><strong>인터뷰 무료</strong></span>
+        </div>
+      </div>
+
+      <div class="hero-cta">
+        <a href="#" class="btn-primary">제이든에게 1시간 인터뷰 <span>→</span></a>
+        <a href="#" class="btn-ghost">실제 만든 제품 보기</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- QuickAnswer — v6 톤 유지 -->
+  <section class="quick-answer">
+    <div class="qa-box">
+      <div class="qa-kicker">■ 핵심 요약</div>
+      <p class="qa-body">
+        <strong>1인 프리랜서</strong>가 <strong>5~7일 / 180만원</strong>으로 머릿속 아이디어를 작동하는 시제품으로 만들어 드립니다.
+        의사결정도 빠르고, 인터뷰도 직접. <strong>회사 거치지 않고</strong> 대표님과 1:1로.
+      </p>
+    </div>
+  </section>
+
+  <!-- RealScenario — v2 페르소나(직장인 2 + 사업자 1) + 카드별 mini compare -->
+  <section class="real-scenario">
+    <div class="scenario-header">
+      <div class="scenario-kicker">— 그동안 같이 일한 분들</div>
+      <h2 class="scenario-h2">제이든과 <em>1:1로</em><br/>아이디어를 검증하셨습니다.</h2>
+      <p class="scenario-intro">아래 분들 모두 <strong>1,000만원대 견적</strong>을 받고 망설이다 저에게 오셨어요. 5~7일 검증 후 결과 보고 본격 개발 여부를 결정하셨습니다.</p>
+    </div>
+
+    <div class="scenario-grid">
+
+      <!-- 시나리오 1: 직장인 (마케터) -->
+      <article class="scenario-card">
+        <div class="scenario-num">01 — 직장인 · 사이드 아이디어</div>
+        <h3 class="scenario-name">이주임님</h3>
+        <div class="scenario-meta">마케터 · 30세 · 직장 5년차</div>
+        <p class="scenario-quote">"AI 자동응답 챗봇" 외주 견적 1,200만원. 1년 적금을 깨야 하는데 진짜 쓸지 모르겠어요...</p>
+        <div class="card-compare">
+          <div class="cc-row"><span class="cc-label">기존 견적</span><span class="cc-others">1,200만원 / 3개월</span></div>
+          <div class="cc-row"><span class="cc-label">dairect</span><span class="cc-us">180만원 / 5일</span></div>
+          <div class="cc-row"><span class="cc-label">절약</span><span class="cc-save">−85% · 6배 빠름</span></div>
+        </div>
+      </article>
+
+      <!-- 시나리오 2: 직장인 (예비 창업자) -->
+      <article class="scenario-card">
+        <div class="scenario-num">02 — 직장인 · 예비 창업자</div>
+        <h3 class="scenario-name">박과장님</h3>
+        <div class="scenario-meta">회사원 · 35세 · 퇴사 고민 중</div>
+        <p class="scenario-quote">SaaS 가설 3개를 검증하려는데 외주마다 500만원씩, 가설당 너무 비싸요. 회사 다니면서 빠르게 시도해보고 싶은데...</p>
+        <div class="card-compare">
+          <div class="cc-row"><span class="cc-label">기존 견적</span><span class="cc-others">500만원 / 가설</span></div>
+          <div class="cc-row"><span class="cc-label">dairect</span><span class="cc-us">180만원 / 가설</span></div>
+          <div class="cc-row"><span class="cc-label">3개 가설</span><span class="cc-save">540만원 (1,500만원 절약)</span></div>
+        </div>
+      </article>
+
+      <!-- 시나리오 3: 소규모 사업자 -->
+      <article class="scenario-card">
+        <div class="scenario-num client">03 — 소규모 사업자</div>
+        <h3 class="scenario-name">김사장님</h3>
+        <div class="scenario-meta">동네 빵집 · 45세 · 사업 12년차</div>
+        <p class="scenario-quote">단골 100명 카톡 주문 자동화. 외주 견적 800만원 받고 1년째 보류 중. 한 사람이랑 끝까지 일하고 싶어요...</p>
+        <div class="card-compare">
+          <div class="cc-row"><span class="cc-label">기존 견적</span><span class="cc-others">800만원 / 2개월</span></div>
+          <div class="cc-row"><span class="cc-label">dairect</span><span class="cc-us">280만원 / 2주</span></div>
+          <div class="cc-row"><span class="cc-label">절약</span><span class="cc-save">−65% · 4배 빠름</span></div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- FAQ — v6 5개 (Hick's Law sweet spot 5±2) -->
+  <section class="faq">
+    <div class="faq-header">
+      <div class="faq-kicker">— 시작 전에 자주 듣는 질문</div>
+      <h2 class="faq-h2">대표님이 궁금하실 5가지.</h2>
+    </div>
+
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q">AI 한 번도 써본 적 없어도 돼요?</div>
+        <div class="faq-a">네, 괜찮습니다. ChatGPT 안 써보셨어도, Claude 모르셔도 됩니다. <strong>한국어로, 일상 언어로만 대화합니다.</strong> AI 부분은 제가 알아서 합니다. 대표님은 <strong>"누구를 위한 건지, 무엇을 해결하고 싶은지"</strong>만 명확하시면 됩니다.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">회사 다니는데 평일 인터뷰 가능한가요?</div>
+        <div class="faq-a">네, 가능합니다. <strong>평일 저녁 (19~22시), 주말, 점심시간 30분</strong> 모두 가능. 카톡으로 진행도 OK입니다. 제 일정에 맞추는 게 아니라 대표님 일정에 맞춥니다.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">180만원에 다 끝나는 건가요?</div>
+        <div class="faq-a">네, <strong>긴급 패키지(검증용 데모)는 180만원</strong>입니다. 그 외 추가 비용은 없습니다. 본격 개발(MVP)을 원하시면 그때 별도로 280만원~ 패키지를 결정하시면 됩니다. <strong>검증 단계에서 멈추셔도 그게 끝</strong>이에요.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">데모가 마음에 안 들면요?</div>
+        <div class="faq-a">계약 전 <strong>1시간 무료 인터뷰</strong>에서 견적·범위·기술 스택을 합의합니다. 작업 중간에 두 차례 데모를 보내드리고, 그때 방향이 안 맞으면 조정합니다. <strong>완성 후 갑자기 청구</strong>하는 일은 없습니다.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">제이든 혼자 다 하시면 코드 품질은?</div>
+        <div class="faq-a">네, 혼자 합니다. 코드 작성은 <strong>Claude·Cursor 같은 AI 도구</strong>를 활용해서 시간을 1/4로 줄입니다. 다만 <strong>방향과 검수는 제가 직접</strong>. 그래서 가격이 1/3, 시간이 1/4 가능합니다. <strong>라이브 4건</strong> 모두 같은 방식으로 만들었어요.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <div class="final-cta">
+    <div class="final-cta-block">
+      <div>
+        <div class="final-cta-text">머릿속 그 아이디어, <em>제이든에게 1시간만</em> 말씀해보세요.</div>
+        <div class="final-cta-sub">화상이든 카톡이든 매장 방문이든. 견적·일정·기술 스택, 그 자리에서 답변드립니다. 인터뷰는 무료입니다.</div>
+      </div>
+      <a href="#" class="btn-cta-amber">제이든에게 1시간 →</a>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-brand">dairect<span style="color:var(--amber)">.</span></div>
+    <div class="footer-meta">— Director of AI · est. 2024 / Seoul · MOCKUP v7 · 학술 기반 하이브리드 · 2026-04-27</div>
+  </footer>
+
+</body>
+</html>

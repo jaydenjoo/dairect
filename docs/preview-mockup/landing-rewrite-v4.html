@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dairect 시안 v4 — 견적 비교 톤 (2026-04-27)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    :root {
+      --canvas:#F5F1E8; --paper:#FAF7F0; --ink:#141414; --dust:#5C5648;
+      --amber:#FFB800; --hairline:rgba(20,20,20,0.12);
+      --red:#C8364B;
+      --font-display:'Fraunces','Pretendard',serif;
+      --font-sans:'Geist','Pretendard',-apple-system,sans-serif;
+      --font-mono:'Geist Mono','Courier New',monospace;
+      --font-ko:'Pretendard',-apple-system,sans-serif;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{background:var(--canvas);color:var(--ink);font-family:var(--font-sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+    .mockup-banner{background:var(--ink);color:var(--paper);padding:12px 24px;font-family:var(--font-mono);font-size:12px;letter-spacing:.05em;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--amber)}
+    .mockup-banner .label{color:var(--amber)}
+    .mockup-banner .meta{color:rgba(250,247,240,0.6)}
+    nav.nav{max-width:1280px;margin:0 auto;padding:24px 32px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--hairline)}
+    .brand{font-family:var(--font-display);font-weight:700;font-size:24px;letter-spacing:-.02em;color:var(--ink);text-decoration:none}
+    .brand .dot{color:var(--amber)}
+    .menu{display:flex;gap:32px}
+    .menu a{color:var(--ink);text-decoration:none;font-size:14px;font-weight:500}
+    .menu a:hover{color:var(--amber)}
+    .cta-mini{background:var(--ink);color:var(--paper);padding:10px 20px;font-size:14px;font-weight:500;text-decoration:none;border:1px solid var(--ink)}
+
+    section.hero{max-width:1280px;margin:0 auto;padding:80px 32px 64px;display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
+    .hero-kicker{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;color:var(--dust);text-transform:uppercase;margin-bottom:24px}
+    .hero-kicker em{font-style:italic;color:var(--ink)}
+    .hero-h1{font-family:var(--font-display);font-size:60px;font-weight:700;line-height:1.05;letter-spacing:-.03em;color:var(--ink);margin-bottom:24px}
+    .hero-h1 strong{font-style:italic;font-weight:700}
+    .hero-sub{font-family:var(--font-display);font-size:18px;font-style:italic;line-height:1.5;color:var(--dust);margin-bottom:40px}
+    .hero-sub em{color:var(--ink);font-style:italic}
+
+    /* v4 핵심 — 견적 비교표 */
+    .compare-table{background:var(--paper);border:1px solid var(--hairline);overflow:hidden}
+    .compare-row{display:grid;grid-template-columns:140px 1fr 1fr;border-bottom:1px solid var(--hairline)}
+    .compare-row:last-child{border-bottom:none}
+    .compare-row.header{background:var(--ink);color:var(--paper)}
+    .compare-row.header .compare-cell{padding:14px 18px;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+    .compare-row.header .col-others{color:rgba(250,247,240,.6)}
+    .compare-row.header .col-us{color:var(--amber);font-weight:700}
+    .compare-cell{padding:18px;font-family:var(--font-ko);font-size:14px}
+    .compare-cell.label{font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;color:var(--dust);text-transform:uppercase;background:var(--canvas);display:flex;align-items:center}
+    .compare-cell.col-others{color:var(--dust);text-decoration:line-through}
+    .compare-cell.col-us{color:var(--ink);font-weight:600}
+    .compare-cell.col-us strong{background:linear-gradient(180deg,transparent 60%,rgba(255,184,0,.4) 60%);padding:0 2px;font-weight:700}
+
+    .hero-cta{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:32px}
+    .btn-primary{background:var(--ink);color:var(--paper);padding:16px 28px;font-size:15px;font-weight:500;text-decoration:none;border:1px solid var(--ink);display:inline-flex;align-items:center;gap:8px}
+    .btn-primary:hover{box-shadow:4px 4px 0 var(--amber);transform:translate(-2px,-2px)}
+    .btn-ghost{background:transparent;color:var(--ink);padding:16px 28px;font-size:15px;font-weight:500;text-decoration:none;border:1px solid var(--ink);display:inline-flex;align-items:center;gap:8px}
+    .btn-ghost:hover{background:var(--ink);color:var(--paper)}
+
+    /* QuickAnswer */
+    section.quick-answer{background:var(--paper);padding:48px 0;border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)}
+    .qa-box{max-width:880px;margin:0 auto;padding:0 32px;border-left:4px solid var(--amber);padding-left:28px}
+    .qa-kicker{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;color:var(--dust);text-transform:uppercase;margin-bottom:12px}
+    .qa-body{font-family:var(--font-ko);font-size:18px;line-height:1.65;color:var(--ink)}
+    .qa-body strong{font-weight:700;background:linear-gradient(180deg,transparent 60%,rgba(255,184,0,.35) 60%);padding:0 2px}
+    .qa-body s{color:var(--dust)}
+
+    /* RealScenario — 카드별 미니 견적 비교 */
+    section.real-scenario{max-width:1280px;margin:0 auto;padding:96px 32px}
+    .scenario-header{margin-bottom:56px;max-width:760px}
+    .scenario-kicker{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;color:var(--dust);text-transform:uppercase;margin-bottom:16px}
+    .scenario-h2{font-family:var(--font-display);font-size:44px;font-weight:700;letter-spacing:-.03em;color:var(--ink);line-height:1.1;margin-bottom:16px}
+    .scenario-h2 em{font-style:italic}
+    .scenario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+    .scenario-card{background:var(--paper);border:1px solid var(--hairline);padding:32px 28px;transition:all .2s}
+    .scenario-card:hover{box-shadow:4px 4px 0 var(--ink);transform:translate(-2px,-2px)}
+    .scenario-num{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;color:var(--amber);font-weight:600;margin-bottom:16px}
+    .scenario-num.client{color:var(--dust)}
+    .scenario-name{font-family:var(--font-display);font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--ink);margin-bottom:4px}
+    .scenario-meta{font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;color:var(--dust);margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid var(--hairline)}
+    .scenario-quote{font-family:var(--font-display);font-style:italic;font-size:15px;line-height:1.5;color:var(--ink);margin-bottom:24px;position:relative;padding-left:16px}
+    .scenario-quote::before{content:'"';position:absolute;left:-4px;top:-8px;font-size:28px;font-weight:700;color:var(--amber);font-family:var(--font-display)}
+
+    /* 카드 내부 mini 견적 비교 */
+    .mini-compare{background:var(--canvas);padding:14px 16px;border-left:2px solid var(--amber)}
+    .mini-row{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;font-family:var(--font-ko);font-size:13px}
+    .mini-row + .mini-row{border-top:1px dashed var(--hairline)}
+    .mini-label{color:var(--dust);font-family:var(--font-mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase}
+    .mini-others{color:var(--dust);text-decoration:line-through;font-size:13px}
+    .mini-us{color:var(--ink);font-weight:700;font-family:var(--font-display);font-size:15px}
+
+    .scenario-cta-block{grid-column:1/-1;margin-top:40px;padding:40px;background:var(--ink);color:var(--paper);display:flex;justify-content:space-between;align-items:center;gap:32px}
+    .scenario-cta-text{font-family:var(--font-display);font-size:22px;font-weight:600;line-height:1.4;letter-spacing:-.02em}
+    .scenario-cta-text em{font-style:italic;color:var(--amber)}
+    .scenario-cta-sub{font-family:var(--font-ko);font-size:14px;color:rgba(250,247,240,.7);margin-top:4px}
+    .btn-cta-amber{background:var(--amber);color:var(--ink);padding:18px 32px;font-size:15px;font-weight:600;text-decoration:none;border:1px solid var(--amber);white-space:nowrap}
+    .btn-cta-amber:hover{background:var(--paper);box-shadow:4px 4px 0 var(--amber);transform:translate(-2px,-2px)}
+
+    @media (max-width:980px){
+      section.hero{grid-template-columns:1fr;gap:40px;padding:56px 24px}
+      .scenario-grid{grid-template-columns:1fr}
+      .scenario-h2{font-size:32px}
+      .scenario-cta-block{flex-direction:column;text-align:center}
+      .compare-row{grid-template-columns:100px 1fr 1fr}
+    }
+    @media (max-width:640px){
+      .hero-h1{font-size:38px}.hero-sub{font-size:16px}.menu{display:none}
+      .mockup-banner{flex-direction:column;gap:4px;align-items:flex-start}
+      .scenario-h2{font-size:26px}
+      section.real-scenario{padding:64px 24px}
+      .compare-row{grid-template-columns:1fr;gap:0}
+      .compare-cell{border-bottom:1px dashed var(--hairline)}
+    }
+    footer.footer{max-width:1280px;margin:0 auto;padding:64px 32px 48px;border-top:1px solid var(--hairline);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:24px}
+    .footer-brand{font-family:var(--font-display);font-size:18px;font-weight:700}
+    .footer-meta{font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;color:var(--dust)}
+  </style>
+</head>
+<body>
+
+  <div class="mockup-banner">
+    <span><span class="label">■ MOCKUP · v4</span> &nbsp;견적 비교 톤 — "일반 개발사 vs dairect" 실제 견적·기간 차이를 전면에</span>
+    <span class="meta">2026-04-27 · production 영향 0 · 검토용</span>
+  </div>
+
+  <nav class="nav">
+    <a href="#" class="brand">dairect<span class="dot">.</span></a>
+    <div class="menu"><a href="#">Portfolio</a><a href="#">Services</a><a href="#">Pricing</a><a href="#">About</a><a href="#">Journal</a></div>
+    <a href="#" class="cta-mini">1시간 무료 인터뷰 →</a>
+  </nav>
+
+  <!-- Hero — v4: 견적 비교표 -->
+  <section class="hero">
+    <div class="hero-content">
+      <div class="hero-kicker">— <em>일반 개발사 1,000만원</em> 짜리를, 저희는 <em>180만원에</em></div>
+      <h1 class="hero-h1">머릿속 아이디어를<br/>진짜로 <strong>만들어드립니다.</strong></h1>
+      <p class="hero-sub">Human <em>directs.</em> Machine <em>executes.</em><br/>And the page looks <em>like both.</em></p>
+
+      <div class="hero-cta">
+        <a href="#" class="btn-primary">1시간 무료 인터뷰 신청 <span>→</span></a>
+        <a href="#" class="btn-ghost">실제 만든 제품 보기</a>
+      </div>
+    </div>
+
+    <!-- 우측: 견적 비교표 -->
+    <div class="compare-table">
+      <div class="compare-row header">
+        <div class="compare-cell">항목</div>
+        <div class="compare-cell col-others">일반 개발사</div>
+        <div class="compare-cell col-us">dairect</div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell label">시제품</div>
+        <div class="compare-cell col-others">800~1,500만원</div>
+        <div class="compare-cell col-us"><strong>180만원~</strong></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell label">기간</div>
+        <div class="compare-cell col-others">3개월</div>
+        <div class="compare-cell col-us"><strong>5~7일</strong></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell label">미팅</div>
+        <div class="compare-cell col-others">대면 5~10회</div>
+        <div class="compare-cell col-us"><strong>1시간 인터뷰 1회</strong></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell label">계약</div>
+        <div class="compare-cell col-others">선금 50%</div>
+        <div class="compare-cell col-us"><strong>인터뷰 무료</strong></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell label">결과</div>
+        <div class="compare-cell col-others">완성 후 청구</div>
+        <div class="compare-cell col-us"><strong>먼저 검증, 본격은 결정 후</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QuickAnswer -->
+  <section class="quick-answer">
+    <div class="qa-box">
+      <div class="qa-kicker">■ 핵심 요약</div>
+      <p class="qa-body">
+        <s>1,000만원 / 3개월 / 미팅 10회</s> 대신, <strong>180만원 / 5일 / 인터뷰 1회</strong>로
+        <strong>작동하는 시제품</strong>을. 직장인이 모은 돈으로도, 사장님 한 달 마진으로도 가능한 가격.
+      </p>
+    </div>
+  </section>
+
+  <!-- RealScenario — 카드별 미니 견적 비교 -->
+  <section class="real-scenario">
+    <div class="scenario-header">
+      <div class="scenario-kicker">— 실제로 이렇게 절약했습니다</div>
+      <h2 class="scenario-h2">받았던 견적 vs <em>저희가 드린 가격.</em></h2>
+    </div>
+    <div class="scenario-grid">
+
+      <article class="scenario-card">
+        <div class="scenario-num">01 — 직장인 · 사이드 아이디어</div>
+        <h3 class="scenario-name">이주임님</h3>
+        <div class="scenario-meta">마케터 · 30세 · 직장 5년차</div>
+        <p class="scenario-quote">"AI 자동응답 챗봇" 외주 견적 1,200만원, 1년 적금을 깨야 하는 부담...</p>
+        <div class="mini-compare">
+          <div class="mini-row"><span class="mini-label">기존 견적</span><span class="mini-others">1,200만원 / 3개월</span></div>
+          <div class="mini-row"><span class="mini-label">dairect</span><span class="mini-us">180만원 / 5일</span></div>
+          <div class="mini-row"><span class="mini-label">절약</span><span class="mini-us" style="color:var(--amber)">−85% · 6배 빠름</span></div>
+        </div>
+      </article>
+
+      <article class="scenario-card">
+        <div class="scenario-num">02 — 직장인 · 예비 창업자</div>
+        <h3 class="scenario-name">박과장님</h3>
+        <div class="scenario-meta">회사원 · 35세 · 퇴사 고민 중</div>
+        <p class="scenario-quote">SaaS 가설 3개를 검증하려는데 외주마다 500만원씩 견적, 가설당 너무 비싸...</p>
+        <div class="mini-compare">
+          <div class="mini-row"><span class="mini-label">기존 견적</span><span class="mini-others">500만원 / 가설</span></div>
+          <div class="mini-row"><span class="mini-label">dairect</span><span class="mini-us">180만원 / 가설</span></div>
+          <div class="mini-row"><span class="mini-label">3개 가설</span><span class="mini-us" style="color:var(--amber)">540만원 (1,500만원 절약)</span></div>
+        </div>
+      </article>
+
+      <article class="scenario-card">
+        <div class="scenario-num client">03 — 소규모 사업자</div>
+        <h3 class="scenario-name">김사장님</h3>
+        <div class="scenario-meta">동네 빵집 · 45세 · 사업 12년차</div>
+        <p class="scenario-quote">단골 카톡 주문 자동화 견적 800만원 받고 1년째 보류하던 빵집 사장님...</p>
+        <div class="mini-compare">
+          <div class="mini-row"><span class="mini-label">기존 견적</span><span class="mini-others">800만원 / 2개월</span></div>
+          <div class="mini-row"><span class="mini-label">dairect</span><span class="mini-us">280만원 / 2주</span></div>
+          <div class="mini-row"><span class="mini-label">절약</span><span class="mini-us" style="color:var(--amber)">−65% · 4배 빠름</span></div>
+        </div>
+      </article>
+
+      <div class="scenario-cta-block">
+        <div>
+          <div class="scenario-cta-text">받은 견적이 <em>너무 비싸다</em>고 느끼시나요?</div>
+          <div class="scenario-cta-sub">1시간 무료 인터뷰만으로 dairect 견적·일정·기술 스택을 그 자리에서 답변드립니다. 비교만 해보세요.</div>
+        </div>
+        <a href="#" class="btn-cta-amber">1시간 무료 인터뷰 →</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-brand">dairect<span style="color:var(--amber)">.</span></div>
+    <div class="footer-meta">— Director of AI · est. 2024 / Seoul · MOCKUP v4 · 2026-04-27</div>
+  </footer>
+
+</body>
+</html>

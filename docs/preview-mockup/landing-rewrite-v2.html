@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dairect 시안 v2 — 직장인+사업자 균형 (2026-04-27)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    :root {
+      --canvas: #F5F1E8; --paper: #FAF7F0; --ink: #141414; --dust: #5C5648;
+      --amber: #FFB800; --hairline: rgba(20,20,20,0.12); --hairline-strong: rgba(20,20,20,0.18);
+      --font-display: 'Fraunces','Pretendard',serif;
+      --font-sans: 'Geist','Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;
+      --font-mono: 'Geist Mono','Courier New',monospace;
+      --font-ko: 'Pretendard',-apple-system,sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: var(--canvas); color: var(--ink); font-family: var(--font-sans); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .mockup-banner { background: var(--ink); color: var(--paper); padding: 12px 24px; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--amber); }
+    .mockup-banner .label { color: var(--amber); }
+    .mockup-banner .meta { color: rgba(250,247,240,0.6); }
+
+    nav.nav { max-width: 1280px; margin: 0 auto; padding: 24px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--hairline); }
+    .brand { font-family: var(--font-display); font-weight: 700; font-size: 24px; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; }
+    .brand .dot { color: var(--amber); }
+    .menu { display: flex; gap: 32px; }
+    .menu a { color: var(--ink); text-decoration: none; font-size: 14px; font-weight: 500; letter-spacing: -0.01em; transition: color .15s; }
+    .menu a:hover { color: var(--amber); }
+    .cta-mini { background: var(--ink); color: var(--paper); padding: 10px 20px; font-size: 14px; font-weight: 500; text-decoration: none; border: 1px solid var(--ink); transition: all .15s; }
+    .cta-mini:hover { background: var(--paper); color: var(--ink); box-shadow: 4px 4px 0 var(--ink); }
+
+    section.hero { max-width: 1280px; margin: 0 auto; padding: 80px 32px 64px; display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 64px; align-items: center; }
+    .hero-kicker { font-family: var(--font-mono); font-size: 12px; font-weight: 500; letter-spacing: 0.08em; color: var(--dust); text-transform: uppercase; margin-bottom: 24px; }
+    .hero-kicker em { font-style: italic; color: var(--ink); }
+    .hero-h1 { font-family: var(--font-display); font-size: 64px; font-weight: 700; line-height: 1.05; letter-spacing: -0.03em; color: var(--ink); margin-bottom: 24px; }
+    .hero-h1 strong { font-style: italic; font-weight: 700; }
+    .hero-sub { font-family: var(--font-display); font-size: 18px; font-style: italic; line-height: 1.5; color: var(--dust); margin-bottom: 40px; }
+    .hero-sub em { font-style: italic; color: var(--ink); }
+
+    .hero-explain-box { background: var(--paper); border: 1px solid var(--hairline); border-left: 4px solid var(--amber); padding: 24px 28px; margin-bottom: 32px; max-width: 640px; }
+    .hero-explain-kicker { font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; color: var(--dust); text-transform: uppercase; margin-bottom: 12px; }
+    .hero-explain-body { font-family: var(--font-ko); font-size: 16px; line-height: 1.65; color: var(--ink); }
+    .hero-explain-body strong { font-weight: 700; background: linear-gradient(180deg, transparent 60%, rgba(255,184,0,0.35) 60%); padding: 0 2px; }
+
+    .hero-cta { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .btn-primary { background: var(--ink); color: var(--paper); padding: 16px 28px; font-size: 15px; font-weight: 500; text-decoration: none; border: 1px solid var(--ink); transition: all .15s; display: inline-flex; align-items: center; gap: 8px; }
+    .btn-primary:hover { box-shadow: 4px 4px 0 var(--amber); transform: translate(-2px,-2px); }
+    .btn-ghost { background: transparent; color: var(--ink); padding: 16px 28px; font-size: 15px; font-weight: 500; text-decoration: none; border: 1px solid var(--ink); transition: all .15s; display: inline-flex; align-items: center; gap: 8px; }
+    .btn-ghost:hover { background: var(--ink); color: var(--paper); }
+
+    .hero-stats { grid-column: 2; display: grid; grid-template-columns: 1fr; gap: 24px; }
+    .stat-card { background: var(--paper); border: 1px solid var(--hairline); padding: 24px; position: relative; }
+    .stat-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--amber); }
+    .stat-num { font-family: var(--font-display); font-size: 48px; font-weight: 700; letter-spacing: -0.03em; color: var(--ink); line-height: 1; margin-bottom: 8px; }
+    .stat-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; color: var(--dust); text-transform: uppercase; }
+
+    section.quick-answer { background: var(--paper); padding: 48px 0; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+    .qa-box { max-width: 880px; margin: 0 auto; padding: 0 32px; border-left: 4px solid var(--amber); padding-left: 28px; }
+    .qa-kicker { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; color: var(--dust); text-transform: uppercase; margin-bottom: 12px; }
+    .qa-body { font-family: var(--font-ko); font-size: 18px; line-height: 1.65; color: var(--ink); }
+    .qa-body strong { font-weight: 700; background: linear-gradient(180deg, transparent 60%, rgba(255,184,0,0.35) 60%); padding: 0 2px; }
+
+    section.real-scenario { max-width: 1280px; margin: 0 auto; padding: 96px 32px; }
+    .scenario-header { margin-bottom: 56px; }
+    .scenario-kicker { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; color: var(--dust); text-transform: uppercase; margin-bottom: 16px; }
+    .scenario-h2 { font-family: var(--font-display); font-size: 44px; font-weight: 700; letter-spacing: -0.03em; color: var(--ink); line-height: 1.1; max-width: 720px; }
+    .scenario-h2 em { font-style: italic; }
+
+    .scenario-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .scenario-card { background: var(--paper); border: 1px solid var(--hairline); padding: 32px 28px; position: relative; transition: all .2s; }
+    .scenario-card:hover { box-shadow: 4px 4px 0 var(--ink); transform: translate(-2px,-2px); }
+    .scenario-num { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; color: var(--dust); margin-bottom: 16px; }
+    .scenario-name { font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); margin-bottom: 4px; }
+    .scenario-meta { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; color: var(--dust); margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--hairline); }
+    .scenario-quote { font-family: var(--font-display); font-style: italic; font-size: 16px; line-height: 1.55; color: var(--ink); margin-bottom: 24px; position: relative; padding-left: 16px; }
+    .scenario-quote::before { content: '"'; position: absolute; left: -4px; top: -8px; font-size: 28px; font-weight: 700; color: var(--amber); font-family: var(--font-display); }
+    .scenario-solution { font-family: var(--font-ko); font-size: 14px; line-height: 1.6; color: var(--dust); padding: 16px; background: var(--canvas); border-left: 2px solid var(--amber); }
+    .scenario-solution strong { color: var(--ink); font-weight: 700; }
+
+    .scenario-cta-block { grid-column: 1 / -1; margin-top: 40px; padding: 40px; background: var(--ink); color: var(--paper); display: flex; justify-content: space-between; align-items: center; gap: 32px; }
+    .scenario-cta-text { font-family: var(--font-display); font-size: 22px; font-weight: 600; line-height: 1.4; letter-spacing: -0.02em; }
+    .scenario-cta-text em { font-style: italic; color: var(--amber); }
+    .scenario-cta-sub { font-family: var(--font-ko); font-size: 14px; color: rgba(250,247,240,0.7); margin-top: 4px; }
+    .btn-cta-amber { background: var(--amber); color: var(--ink); padding: 18px 32px; font-size: 15px; font-weight: 600; text-decoration: none; border: 1px solid var(--amber); transition: all .15s; white-space: nowrap; }
+    .btn-cta-amber:hover { background: var(--paper); box-shadow: 4px 4px 0 var(--amber); transform: translate(-2px,-2px); }
+
+    /* v2 전용 — persona 라벨 색 차별화 */
+    .scenario-num.tag-employee { color: var(--amber); font-weight: 600; }
+
+    @media (max-width: 980px) {
+      section.hero { grid-template-columns: 1fr; gap: 40px; padding: 56px 24px; }
+      .hero-stats { grid-column: 1; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+      .stat-card { padding: 16px; } .stat-num { font-size: 32px; }
+      .scenario-grid { grid-template-columns: 1fr; }
+      .scenario-h2 { font-size: 32px; }
+      .scenario-cta-block { flex-direction: column; text-align: center; }
+    }
+    @media (max-width: 640px) {
+      .hero-h1 { font-size: 40px; } .hero-sub { font-size: 16px; }
+      .menu { display: none; }
+      .mockup-banner { flex-direction: column; gap: 4px; align-items: flex-start; }
+      .scenario-h2 { font-size: 28px; }
+      section.real-scenario { padding: 64px 24px; }
+      .qa-box { padding-left: 20px; } .qa-body { font-size: 16px; }
+    }
+
+    footer.footer { max-width: 1280px; margin: 0 auto; padding: 64px 32px 48px; border-top: 1px solid var(--hairline); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 24px; }
+    .footer-brand { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+    .footer-meta { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; color: var(--dust); }
+  </style>
+</head>
+<body>
+
+  <div class="mockup-banner">
+    <span><span class="label">■ MOCKUP · v2</span> &nbsp;직장인+사업자 균형 톤 — 직장인 페르소나 추가 (이주임/박과장 + 김사장)</span>
+    <span class="meta">2026-04-27 · production 영향 0 · 검토용</span>
+  </div>
+
+  <nav class="nav">
+    <a href="#" class="brand">dairect<span class="dot">.</span></a>
+    <div class="menu">
+      <a href="#">Portfolio</a><a href="#">Services</a><a href="#">Pricing</a><a href="#">About</a><a href="#">Journal</a>
+    </div>
+    <a href="#" class="cta-mini">1시간 무료 인터뷰 →</a>
+  </nav>
+
+  <!-- Hero — v2: 직장인 호소 키커 + 영어 시적 톤 보존 -->
+  <section class="hero">
+    <div class="hero-content">
+      <div class="hero-kicker">— 회사 다니며 떠오른 그 아이디어, <em>1주에 진짜로</em> 확인하세요</div>
+      <h1 class="hero-h1">머릿속 아이디어를<br/>진짜로 <strong>만들어드립니다.</strong></h1>
+      <p class="hero-sub">Human <em>directs.</em> Machine <em>executes.</em><br/>And the page looks <em>like both.</em></p>
+
+      <div class="hero-explain-box">
+        <div class="hero-explain-kicker">■ 풀어 말하면</div>
+        <p class="hero-explain-body">
+          <strong>직장인이 모은 돈으로도</strong>, 주말 시간만 들여도, 작동하는 시제품을 만들 수 있습니다.<br/>
+          <strong>"안 되는 아이디어"</strong>인지 모른 채 1,000만원 쓰지 마세요.<br/>
+          저희는 <strong>AI로 5~7일, 180만원부터</strong> 시제품을 만들어드립니다.
+        </p>
+      </div>
+
+      <div class="hero-cta">
+        <a href="#" class="btn-primary">1시간 무료 인터뷰 신청 <span>→</span></a>
+        <a href="#" class="btn-ghost">실제 만든 제품 보기</a>
+      </div>
+    </div>
+
+    <div class="hero-stats">
+      <div class="stat-card">
+        <div class="stat-num">5~7<span style="font-size:0.4em; vertical-align: super;">일</span></div>
+        <div class="stat-label">N° &nbsp;검증 데모 기간</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">180<span style="font-size:0.4em; vertical-align: super;">만~</span></div>
+        <div class="stat-label">CHEAP &nbsp;직장인도 OK</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">04<span style="font-size:0.4em; vertical-align: super;">건</span></div>
+        <div class="stat-label">LIVE &nbsp;라이브 제품</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QuickAnswer — v2: 직장인+사업자 둘 다 명시 -->
+  <section class="quick-answer">
+    <div class="qa-box">
+      <div class="qa-kicker">■ 핵심 요약</div>
+      <p class="qa-body">
+        <strong>회사 다니는 직장인</strong>이나 <strong>동네 사장님</strong>이 머릿속 아이디어를
+        <strong>5~7일 안에 작동하는 시제품</strong>으로 확인하실 수 있게 도와드립니다.
+        <strong>180만원부터</strong> 시작 — 1,000만원 견적 받기 전에 먼저.
+      </p>
+    </div>
+  </section>
+
+  <!-- 🆕 RealScenario — v2: 직장인 2명 + 사장님 1명 -->
+  <section class="real-scenario">
+    <div class="scenario-header">
+      <div class="scenario-kicker">— 이런 분들이 저희를 찾아오십니다</div>
+      <h2 class="scenario-h2">"이거 진짜 될까?" — <em>1주면</em> 답이 나옵니다.</h2>
+    </div>
+
+    <div class="scenario-grid">
+
+      <!-- 시나리오 1: 직장인 (마케터) -->
+      <article class="scenario-card">
+        <div class="scenario-num tag-employee">01 — 직장인 · 사이드 아이디어</div>
+        <h3 class="scenario-name">이주임님</h3>
+        <div class="scenario-meta">마케터 · 30세 · 직장 5년차</div>
+        <p class="scenario-quote">퇴근하고도 회사 카톡 답변하느라 새벽 2시. "AI가 1차 답변만 해주는 챗봇" 아이디어가 떠올랐는데, 외주 견적은 1,200만원. 진짜 쓸지도 모르는데 1년치 적금을 쓸 수는 없어요.</p>
+        <p class="scenario-solution">→ 저희는 <strong>GPT 기반 자동응답 데모</strong>를<br/><strong>5일에 180만원</strong>으로. 진짜 되는지 먼저, 본격 개발은 나중.</p>
+      </article>
+
+      <!-- 시나리오 2: 직장인 (예비 창업자) -->
+      <article class="scenario-card">
+        <div class="scenario-num tag-employee">02 — 직장인 · 예비 창업자</div>
+        <h3 class="scenario-name">박과장님</h3>
+        <div class="scenario-meta">회사원 · 35세 · 퇴사 고민 중</div>
+        <p class="scenario-quote">퇴사 전에 SaaS 아이디어 검증하고 싶어요. 회사 다니면서 1년에 가설 2~3개 빠르게 시도해보고 싶은데, 개발자 친구도 없고 노코드 툴은 한계가 있어서...</p>
+        <p class="scenario-solution">→ 저희는 <strong>랜딩 + 결제 + 사전 신청 데모</strong>를<br/><strong>5일에 180만원</strong>으로. 회사 다니면서 검증 가능.</p>
+      </article>
+
+      <!-- 시나리오 3: 소규모 사업자 -->
+      <article class="scenario-card">
+        <div class="scenario-num">03 — 소규모 사업자</div>
+        <h3 class="scenario-name">김사장님</h3>
+        <div class="scenario-meta">동네 빵집 · 45세 · 사업 12년차</div>
+        <p class="scenario-quote">단골 100명이 카톡으로 주문하는데, 빵 종류·픽업 시간·결제가 다 섞여 직원이 매일 30분씩 정리. 자동화 폼이 있으면 좋겠는데 800만원 견적은 부담.</p>
+        <p class="scenario-solution">→ 저희는 <strong>카톡 봇 + 주문 폼 + 관리 화면</strong>을<br/><strong>2주에 280만원</strong>으로.</p>
+      </article>
+
+      <div class="scenario-cta-block">
+        <div>
+          <div class="scenario-cta-text">머릿속에 <em>"이거 되면 좋겠다"</em>는 아이디어, 있으세요?</div>
+          <div class="scenario-cta-sub">1시간 무료 인터뷰 → 5~7일 데모 → 결과 보고 본격 개발 결정. 인터뷰만으로도 견적·기술 스택·예상 일정이 나옵니다.</div>
+        </div>
+        <a href="#" class="btn-cta-amber">1시간 무료 인터뷰 →</a>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-brand">dairect<span style="color:var(--amber)">.</span></div>
+    <div class="footer-meta">— Director of AI · est. 2024 / Seoul · MOCKUP v2 · 2026-04-27</div>
+  </footer>
+
+</body>
+</html>
