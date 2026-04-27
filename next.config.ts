@@ -47,6 +47,34 @@ const nextConfig: NextConfig = {
   // CSP(Content-Security-Policy)는 Next.js inline script + GA + dari widget 호환성 검증 필요해
   // Phase 1.5 별도 Task로 분리 (Report-Only로 시작 권장).
   async headers() {
+    // 2026-04-27 Phase 1.5: CSP Report-Only 모드 도입.
+    //   - "Report-Only" → 위반을 콘솔/리포트에만 기록, 실제 차단 X (사이트 안 깨짐)
+    //   - 1~2주 모니터링 후 실 위반 0이면 enforced로 전환 (헤더 키 → "Content-Security-Policy")
+    //   - report-uri/report-to는 별도 인프라(Sentry/Datadog) 필요해 일단 콘솔만
+    //
+    // 'unsafe-inline' + 'unsafe-eval': Next.js RSC payload + GA inline script 호환.
+    // 추후 nonce 기반 strict-CSP 전환은 별도 Task (script-src에 'nonce-XXX' 주입).
+    //
+    // 외부 도메인 매핑:
+    //   - googletagmanager.com (GA gtag.js)         → script-src
+    //   - google-analytics.com (GA pixel/collect)    → connect-src
+    //   - *.vercel.app (dari-theta.vercel.app widget) → script-src + connect-src
+    //   - *.supabase.co (REST + Realtime)            → connect-src + wss:
+    //   - vercel.live (preview comments)             → script-src + connect-src
+    //   - vitals.vercel-insights.com (Speed Insights) → connect-src
+    const cspDirectives = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://*.vercel.app https://vercel.live",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data:",
+      "connect-src 'self' https://www.google-analytics.com https://*.supabase.co wss://*.supabase.co https://*.vercel.app wss://*.vercel.app https://vitals.vercel-insights.com https://vercel.live wss://ws-us3.pusher.com",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+      "base-uri 'self'",
+      "upgrade-insecure-requests",
+    ].join("; ");
+
     const globalSecurityHeaders = [
       // Clickjacking 방지: 외부 사이트가 dairect.kr를 iframe으로 임베드 차단.
       { key: "X-Frame-Options", value: "DENY" },
@@ -59,6 +87,8 @@ const nextConfig: NextConfig = {
         key: "Permissions-Policy",
         value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=()",
       },
+      // CSP Report-Only — 위반 발견하되 차단 안 함. enforced 전환은 Phase 1.5 모니터링 후.
+      { key: "Content-Security-Policy-Report-Only", value: cspDirectives },
     ];
 
     return [
