@@ -2554,3 +2554,96 @@ section {
     margin-bottom: 14px;
   }
 }
+
+/* ─── Pricing Policies (Phase B — /pricing 정책 박스 2개) ───────────── */
+.pricing-policies {
+  padding: clamp(40px, 6vw, 72px) 0;
+  background: var(--canvas);
+  border-top: 1px solid var(--hairline-canvas);
+}
+.pricing-policies .container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.policies-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.policies-grid .qa-box {
+  max-width: none;
+}
+@media (max-width: 768px) {
+  .policies-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Pricing FAQ (Phase B — /pricing 자주 묻는 질문) ─────────────── */
+.pricing-faq {
+  padding: clamp(48px, 7vw, 96px) 0;
+  background: var(--canvas);
+  border-top: 1px solid var(--hairline-canvas);
+}
+.pricing-faq .container {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.faq-title {
+  font-family: var(--font-display);
+  font-size: clamp(32px, 4vw, 48px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--ink);
+  margin: 16px 0 40px;
+}
+.faq-list {
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--hairline-canvas);
+}
+.faq-item {
+  border-bottom: 1px solid var(--hairline-canvas);
+  padding: 24px 0;
+}
+.faq-q {
+  font-family: var(--font-sans);
+  font-size: clamp(16px, 1.4vw, 18px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0 0 12px;
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+}
+.faq-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--signal-deep, var(--signal));
+  flex-shrink: 0;
+  min-width: 32px;
+}
+.faq-a {
+  font-family: var(--font-sans);
+  font-size: clamp(15px, 1.2vw, 16px);
+  font-weight: 400;
+  line-height: 1.65;
+  color: var(--dust);
+  margin: 0 0 0 48px;
+  letter-spacing: -0.005em;
+}
+@media (max-width: 640px) {
+  .faq-a {
+    margin-left: 0;
+  }
+  .faq-q {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
