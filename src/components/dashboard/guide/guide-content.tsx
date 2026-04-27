@@ -4,6 +4,7 @@
  * Server component. Studio Anthem 디자인 — Fraunces serif heading · 1px hairlines.
  * 워크플로우 4단계(리드→프로젝트→견적→계약/정산) + 팁 + 트러블슈팅.
  */
+import Image from "next/image";
 import Link from "next/link";
 import {
   UserPlus,
@@ -77,6 +78,7 @@ type WorkflowStep = {
   description: string;
   tasks: readonly string[];
   tip?: string;
+  image: { src: string; alt: string; caption?: string };
 };
 
 const workflowSteps: readonly WorkflowStep[] = [
@@ -94,6 +96,11 @@ const workflowSteps: readonly WorkflowStep[] = [
       "고객 상세에서 모든 프로젝트·견적·계약·인보이스 한눈에 확인",
     ],
     tip: "리드 단계에서 1회 무료 상담을 잡고, qualified 후 견적 발행으로 넘어갑니다.",
+    image: {
+      src: "/guide-screenshots/step-01-leads.png",
+      alt: "리드 목록 화면 — 채널·예산·상태·메모 한 번에",
+      caption: "/dashboard/leads — 리드 24건, 채널·예산·상태별 필터",
+    },
   },
   {
     num: "02",
@@ -109,6 +116,11 @@ const workflowSteps: readonly WorkflowStep[] = [
       "주간 보고서 카드 — 매주 자동 생성된 AI 보고서 검토 후 고객 발송",
     ],
     tip: "마일스톤 단위로 결제 분할(30/40/30)을 잡으면 현금흐름이 안정됩니다.",
+    image: {
+      src: "/guide-screenshots/step-02-projects.png",
+      alt: "프로젝트 목록 화면 — 고객·상태·기간·금액·진행률",
+      caption: "/dashboard/projects — 5개 프로젝트, 마일스톤 진행률 한눈에",
+    },
   },
   {
     num: "03",
@@ -124,6 +136,11 @@ const workflowSteps: readonly WorkflowStep[] = [
       "상태 전이: draft → sent → accepted → rejected",
     ],
     tip: "Discovery 견적은 무료 상담 결과 요약을 함께 첨부하면 수락률이 올라갑니다.",
+    image: {
+      src: "/guide-screenshots/step-03-estimates.png",
+      alt: "견적서 관리 화면 — EST-YYYY-NNN 채번 + 상태 뱃지",
+      caption: "/dashboard/estimates — EST-2026-001부터 자동 채번",
+    },
   },
   {
     num: "04",
@@ -139,6 +156,11 @@ const workflowSteps: readonly WorkflowStep[] = [
       "세금계산서 발행 도우미 — 사업자번호·공급가액 자동 채움",
     ],
     tip: "잔금 입금 전에는 GitHub 저장소 권한 이관을 보류하세요(미수 방어).",
+    image: {
+      src: "/guide-screenshots/step-04-contracts.png",
+      alt: "계약서 화면 — 데모는 미리보기 락, 실제 기능은 로그인 후",
+      caption: "/dashboard/contracts — 보안상 데모는 락, 실 계정에서는 PDF 발송까지",
+    },
   },
 ] as const;
 
@@ -205,12 +227,22 @@ function Workflow() {
                     </p>
                   </div>
                 )}
-                {/* 스크린샷 자리 */}
-                <div className="mt-6 flex aspect-[16/9] items-center justify-center border border-dashed border-foreground/20 bg-canvas">
-                  <p className="font-mono text-xs uppercase tracking-wider text-foreground/40">
-                    Step {step.num} screenshot · TBD
-                  </p>
-                </div>
+                <figure className="mt-6">
+                  <div className="relative aspect-[16/9] overflow-hidden border border-foreground/15 bg-canvas">
+                    <Image
+                      src={step.image.src}
+                      alt={step.image.alt}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 720px"
+                      className="object-cover object-top"
+                    />
+                  </div>
+                  {step.image.caption && (
+                    <figcaption className="mt-2 font-mono text-[11px] uppercase tracking-wider text-foreground/50">
+                      {step.image.caption}
+                    </figcaption>
+                  )}
+                </figure>
               </div>
             </div>
           </li>
