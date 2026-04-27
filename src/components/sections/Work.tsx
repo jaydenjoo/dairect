@@ -33,17 +33,17 @@ export function Work() {
               <div className="work-img">
                 <div className="wc-head">
                   <span>N°01 / 2025</span>
-                  <span>CX CHAT</span>
+                  <span>AI CITATION</span>
                 </div>
                 <div className="wc-chat">
-                  <div className="wc-bub u">반품 가능한가요?</div>
+                  <div className="wc-bub u">코튼 스웨터 추천해줘</div>
                   <div className="wc-bub b">
-                    네, 7일 이내 미개봉 상품은 가능합니다. 주문번호
-                    알려주실까요?
+                    Chatsio Shop · 오버사이즈 코튼 스웨터, ₩59,000 (면 100%,
+                    5색)
                   </div>
-                  <div className="wc-bub u">20251024-3377</div>
+                  <div className="wc-bub u">출처는?</div>
                   <div className="wc-bub b">
-                    확인했습니다. 반품 링크 보내드릴게요.
+                    chatsio.kr — JSON-LD 인용
                   </div>
                 </div>
               </div>
@@ -51,9 +51,11 @@ export function Work() {
             <div className="work-meta">
               <span className="work-id">N°01 / 2025</span>
               <span className="work-name">Chatsio</span>
-              <span className="work-desc">AI 고객 상담 SaaS for Korean SMEs</span>
+              <span className="work-desc">
+                AI 검색에 인용되는 쇼핑몰 GEO 도구
+              </span>
               <span className="work-stack">
-                NEXT.JS · SUPABASE · CLAUDE API · 2주
+                NEXT.JS · CLAUDE · JSON-LD · 3주
               </span>
             </div>
           </article>

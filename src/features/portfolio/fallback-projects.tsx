@@ -17,21 +17,21 @@ export const fallbackProjects: readonly Project[] = [
     cat: "saas",
     name: "Chat",
     nameAmber: "sio",
-    ko: "한국 중소기업을 위한 AI 고객 상담 SaaS",
+    ko: "AI 검색 시대 쇼핑몰 GEO 도구",
     badge: "★ Featured · SaaS",
     desc: (
       <>
-        전화·카톡·이메일로 흩어져 있던 CS 문의를 한 화면에 모으고, 반복 질문의
-        82%를 AI가 <em>자동 응답</em>으로 처리합니다. 상담사는 이제 진짜 어려운
-        문의에만 집중합니다. 3개 가맹점 체인에서 파일럿 후 12개로 확대.
+        쇼핑몰 상품을 ChatGPT·Perplexity·Gemini 가 <em>인용 가능한</em>{" "}
+        구조화 데이터(JSON-LD)로 자동 변환합니다. URL 한 줄 입력 → AI 분석 →
+        마크업 적용 → AI 인용 추적 4단계. 상품당 평균 <em>30초</em>.
       </>
     ),
     year: "2025",
-    dur: "2w",
-    stack: "Next.js · Supabase · Claude",
-    status: "Live · 12 clients",
+    dur: "3w",
+    stack: "Next.js · Claude · JSON-LD",
+    status: "Live · v1.0",
     statusType: "live",
-    meta: "AI CHAT · N°01",
+    meta: "AI CITATION · N°01",
   },
   {
     num: "N°02",

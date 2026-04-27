@@ -1,12 +1,35 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-27 저녁 (**랜딩 v9 슬림화 + /pricing /process 신규 + SEO 보강 — 4 페이지 IA 완성**)
-> 현재 위치: **랜딩 16 → 6 섹션 (-80% 텍스트), /pricing 신규 (정책 박스 2 + FAQ 6), /process 신규 (6단계 타임라인), Nav 4 메뉴 (Portfolio/Pricing/Process/About), 모두 production push 완료** → 다음 세션 미사용 7 컴포넌트 정리 / OG 이미지 페이지별 분기 / Hero H1 카피 재검토 / /about 합병 검토 / Vercel 배포 결과 직접 확인
+> 최종 업데이트: 2026-04-27 밤 (**Chatsio 포트폴리오 카테고리 정정 — 3 파일 일관 수정**)
+> 현재 위치: **랜딩 16 → 6 섹션 (-80% 텍스트), /pricing 신규 (정책 박스 2 + FAQ 6), /process 신규 (6단계 타임라인), Nav 4 메뉴 (Portfolio/Pricing/Process/About), Chatsio 카테고리 정정 (CX CHAT → AI CITATION/GEO), 모두 production push 완료** → 다음 세션 미사용 7 컴포넌트 정리 / OG 이미지 페이지별 분기 / Hero H1 카피 재검토 / /about 합병 검토 / Vercel 배포 결과 직접 확인
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
 > v1.3 SOT: [docs/dairect-content-replan-v1_3.md](docs/dairect-content-replan-v1_3.md) (WHAT) · [docs/dairect-v1_3-application-guide.md](docs/dairect-v1_3-application-guide.md) (HOW)
 > BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
 > dogfooding 가이드: [docs/dogfooding-checklist.md](docs/dogfooding-checklist.md) 🧪
 > projects.public* DROP plan: [docs/projects-public-deprecation-plan.md](docs/projects-public-deprecation-plan.md) 🆕
+
+## 세션 2026-04-27 밤 (Chatsio 포트폴리오 카테고리 정정)
+
+### 배경
+Jayden 이 랜딩 포트폴리오 첫 카드(Chatsio) 스크린샷 첨부 + "chatsio소개가 잘못되어있어 내용확인하고 수정해줘". 코드베이스 비교 결과 **카테고리 자체가 어긋남** 확인 — 랜딩에는 "AI 고객 상담 SaaS"(CX 챗봇)로 적혀 있으나 실제 Chatsio (`/demo/chatsio` + 라이브 `chatsio-topaz.vercel.app`)는 **AI 검색 시대 쇼핑몰 GEO 도구** (ChatGPT·Perplexity·Gemini 가 상품을 인용 가능하도록 JSON-LD 자동 변환). 동일한 잘못된 카피가 3곳에 퍼져 있어 일관 수정.
+
+### 이번 세션 완료 내역 (옵션 A — 3 파일 일관)
+- **Work.tsx** (랜딩 포트폴리오 카드) — 라벨 `CX CHAT → AI CITATION`, 채팅 4 버블 재작성 (반품 문의 → AI 검색 인용 시연: "코튼 스웨터 추천해줘" → "Chatsio Shop · 오버사이즈 ₩59,000" → "출처는?" → "chatsio.kr — JSON-LD 인용"), desc `AI 고객 상담 SaaS for Korean SMEs → AI 검색에 인용되는 쇼핑몰 GEO 도구`, stack `NEXT.JS · SUPABASE · CLAUDE API · 2주 → NEXT.JS · CLAUDE · JSON-LD · 3주`
+- **Hero.tsx** (Frame 1 film-strip) — 캡션 `CHATSIO · SMB CX → CHATSIO · AI CITATION`, 4 버블 재작성 ("스웨터 추천?" → "Chatsio · 오버사이즈 코튼" → "↳ ₩59,000 · 5색 (인용)" → typing)
+- **fallback-projects.tsx** (`/projects` N°01) — ko `한국 중소기업을 위한 AI 고객 상담 SaaS → AI 검색 시대 쇼핑몰 GEO 도구`, desc 재작성 (URL 입력 → AI 분석 → JSON-LD 적용 → AI 인용 추적, 평균 30초/상품), stack `Next.js · Supabase · Claude → Next.js · Claude · JSON-LD`, status `Live · 12 clients → Live · v1.0` (가공 수치 → 보수 표기), meta `AI CHAT · N°01 → AI CITATION · N°01`
+
+### 검증
+- DOM 검증 (preview_eval): 3곳 텍스트 변경 모두 반영
+- chatSize 오버플로우 없음 (scrollHeight 266 / clientHeight 266) — 4 버블 정상 표시
+- 콘솔 에러 0건
+- 데스크톱·모바일 양쪽 렌더 확인
+
+### 후속 (선택)
+- `status: "Live · v1.0"` — 실제 도입처 수치 확보되면 업데이트 (예: "Live · N shops")
+- 채팅 버블 ₩59,000/5색 예시 — 라이브 사이트에 더 적합한 사례 있으면 교체
+- E-2 후기 / E-3 Loom 영상 / E-4 패키지 추천 퀴즈 — 자료 확보 후 재개
+
+---
 
 ## 세션 2026-04-27 저녁 (랜딩 v9 슬림화 + /pricing /process 신규 + SEO 보강)
 

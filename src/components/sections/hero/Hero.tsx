@@ -91,14 +91,14 @@ export function Hero() {
                     <span>Chatsio</span>
                   </div>
                   <div className="chat">
-                    <div className="bubble bot">고객님의 문의를 기다리고 있어요.</div>
-                    <div className="bubble user">배송은 언제 오나요?</div>
-                    <div className="bubble bot">2~3일 내로 도착합니다.</div>
+                    <div className="bubble user">스웨터 추천?</div>
+                    <div className="bubble bot">Chatsio · 오버사이즈 코튼</div>
+                    <div className="bubble bot">↳ ₩59,000 · 5색 (인용)</div>
                     <div className="bubble typing">· · ·</div>
                   </div>
                 </div>
                 <span className="caption">
-                  <span className="amber">N°01</span> — CHATSIO · SMB CX
+                  <span className="amber">N°01</span> — CHATSIO · AI CITATION
                 </span>
               </div>
 

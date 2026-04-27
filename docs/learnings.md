@@ -1,5 +1,12 @@
 # Dairect — 교훈 기록
 
+## 2026-04-27 (밤) — 포트폴리오 카피 일관성 (Chatsio 카테고리 정정) — 1가지 교훈
+
+1. **디자인 핸드오프 번들 placeholder 카피는 실서비스 카테고리로 정정되지 않은 채 노출되기 쉬움 — 단일 SOT 필요** — Studio Anthem 디자인 번들(`docs/design-references/.../Landing-A-Light.html` 등)에서 가져온 Chatsio placeholder가 "SMB CX" + 반품 문의 챗 시연이었으나, 실제 Chatsio (`/demo/chatsio` + 라이브 `chatsio-topaz.vercel.app`)는 "AI 검색 시대 쇼핑몰 GEO 도구"로 카테고리 자체가 다름. 동일한 잘못된 카피가 3곳(Work.tsx 랜딩 카드 + Hero.tsx Frame 1 + fallback-projects.tsx /projects N°01)에 퍼져 있어 "개별 수정"이 아닌 "일관 갱신" 필요. 비전문가 사용자가 "이 사이트가 무슨 서비스를 만드는지" 추측 시 첫 카드의 카테고리가 결정적인데, 카테고리가 잘못되면 신뢰도 즉시 하락.
+   - **규칙**: 새 포트폴리오 추가/수정 시 **demo 페이지 metadata 또는 라이브 사이트 description을 SOT(Single Source of Truth)로** 사용. 디자인 번들에서 가져온 placeholder는 component 작업 직후 즉시 실 콘텐츠로 교체 (잊으면 카테고리 자체가 틀어짐). 동일 항목이 여러 위치(랜딩 카드 + Hero film-strip + /projects fallback)에 노출되는 경우 `grep -rn "프로젝트명" src/`로 전수 점검 후 일관 수정. PR 체크리스트에 "포트폴리오 카피 ≡ demo metadata ≡ 라이브 description" 항목 추가 권장. status 수치(예: "Live · 12 clients") 같은 미검증 가공 데이터는 보수 표기("Live · v1.0")로 → 가짜 신뢰 신호 방지.
+
+---
+
 ## 2026-04-27 (저녁) — 랜딩 v9 슬림화 + 페이지 분리 — 3가지 교훈 (JSX 공백 trim / 컴포넌트 보존 슬림화 / public 폴더 노출 위험)
 
 1. **JSX `<strong>label</strong> &mdash; content` 패턴은 React 텍스트 정규화로 라벨 직후 공백이 trim될 수 있음 — 명시적 `{" — "}` 사용으로 안전 보장** — QuickAnswer 카피 작성 시 `<strong>누가</strong> &mdash; 직장인` 코드가 실제로는 "누가— 직장인"처럼 strong과 em-dash 사이 띄어쓰기 사라짐. 흥미롭게 "얼마 · 기간"처럼 라벨 안에 공백 있는 경우는 정상. 라벨이 한글로 끝나고 공백 없으면 React가 strong 닫는 태그 후 텍스트 노드 시작 부분 공백을 trim.
