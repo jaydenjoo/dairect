@@ -6,10 +6,9 @@ import { cn } from "@/lib/utils";
 
 const menu = [
   { label: "Portfolio", href: "/projects" },
-  { label: "Services", href: "/#services" },
-  { label: "Pricing", href: "/#pricing" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "Process", href: "/process" },
   { label: "About", href: "/about" },
-  { label: "Journal", href: "/#journal" },
 ] as const;
 
 type NavProps = {
