@@ -13,6 +13,7 @@ import {
   FileSignature,
   Receipt,
   Settings,
+  HelpCircle,
 } from "lucide-react";
 
 // basePath로 `/dashboard` 또는 `/demo` 선택. 링크는 `${basePath}${path}` 조합.
@@ -127,37 +128,46 @@ export function Sidebar({
           </ul>
         </nav>
 
-        {/* 관리 섹션 (팀/설정) — owner/admin만 노출 */}
-        {(canSeeMembers || canSeeSettings) && (
-          <div className="space-y-1 px-3 py-4">
-            {canSeeMembers && (
-              <Link
-                href={`${basePath}/members`}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  isActive(pathname, `${basePath}/members`, basePath)
-                    ? "bg-sidebar-accent text-sidebar-foreground"
-                    : "text-sidebar-foreground/40 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80"
-                }`}
-              >
-                <Users2 className="h-[18px] w-[18px] shrink-0" />
-                팀 멤버
-              </Link>
-            )}
-            {canSeeSettings && (
-              <Link
-                href={`${basePath}/settings`}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  isActive(pathname, `${basePath}/settings`, basePath)
-                    ? "bg-sidebar-accent text-sidebar-foreground"
-                    : "text-sidebar-foreground/40 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80"
-                }`}
-              >
-                <Settings className="h-[18px] w-[18px] shrink-0" />
-                설정
-              </Link>
-            )}
-          </div>
-        )}
+        {/* 관리 섹션 — 도움말은 권한 무관 항상 노출, 팀/설정은 owner/admin만 */}
+        <div className="space-y-1 px-3 py-4">
+          <Link
+            href={`${basePath}/guide`}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              isActive(pathname, `${basePath}/guide`, basePath)
+                ? "bg-sidebar-accent text-sidebar-foreground"
+                : "text-sidebar-foreground/40 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80"
+            }`}
+          >
+            <HelpCircle className="h-[18px] w-[18px] shrink-0" />
+            도움말
+          </Link>
+          {canSeeMembers && (
+            <Link
+              href={`${basePath}/members`}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                isActive(pathname, `${basePath}/members`, basePath)
+                  ? "bg-sidebar-accent text-sidebar-foreground"
+                  : "text-sidebar-foreground/40 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80"
+              }`}
+            >
+              <Users2 className="h-[18px] w-[18px] shrink-0" />
+              팀 멤버
+            </Link>
+          )}
+          {canSeeSettings && (
+            <Link
+              href={`${basePath}/settings`}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                isActive(pathname, `${basePath}/settings`, basePath)
+                  ? "bg-sidebar-accent text-sidebar-foreground"
+                  : "text-sidebar-foreground/40 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80"
+              }`}
+            >
+              <Settings className="h-[18px] w-[18px] shrink-0" />
+              설정
+            </Link>
+          )}
+        </div>
       </aside>
 
       {/* Mobile Bottom Tab Bar */}
