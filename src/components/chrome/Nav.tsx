@@ -58,7 +58,7 @@ export function Nav({ solidAlways = false }: NavProps = {}) {
         className="cta-mini magnetic"
         data-magnetic
       >
-        Start a project <span aria-hidden="true">→</span>
+        상담 신청하기 <span aria-hidden="true">→</span>
       </Link>
     </nav>
   );

@@ -12,7 +12,7 @@ export function Work() {
           <div>
             <p className="kicker amber">— Selected portfolio</p>
             <h2 className="work-title">
-              <span className="rm">Things we made.</span>
+              <span className="rm">Things we made.</span>{" "}
               <span className="it">People use them.</span>
             </h2>
           </div>

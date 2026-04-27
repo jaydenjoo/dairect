@@ -69,6 +69,9 @@ export default function RootLayout({
   return (
     <html lang="ko" className={`${fontVariables} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">
+        <a href="#main" className="skip-link">
+          메인 콘텐츠로 건너뛰기
+        </a>
         <SchemaJsonLd />
         <SerwistProvider
           swUrl="/sw.js"

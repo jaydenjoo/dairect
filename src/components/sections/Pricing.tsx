@@ -89,7 +89,7 @@ export function Pricing({ schedulingSlots }: { schedulingSlots?: readonly Slot[]
         <div className="pricing-head">
           <p className="kicker amber">— Investment</p>
           <h2 className="pricing-title">
-            <span className="rm">Honest pricing.</span>
+            <span className="rm">Honest pricing.</span>{" "}
             <span className="it">No surprises.</span>
           </h2>
           <p className="pricing-ko">정직한 비용, 예측 가능한 결과</p>

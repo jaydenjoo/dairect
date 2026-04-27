@@ -12,7 +12,7 @@ export function FinalCTA() {
           <aside className="contact-side">
             <p className="kicker amber">— Next step</p>
             <h2 className="contact-title">
-              <span className="rm">Have an idea?</span>
+              <span className="rm">Have an idea?</span>{" "}
               <span className="it">Let&apos;s build it.</span>
             </h2>
             <p className="contact-ko">
