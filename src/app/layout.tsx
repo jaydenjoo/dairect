@@ -9,8 +9,10 @@ import "./globals.css";
 
 const APP_NAME = "Dairect";
 const APP_DEFAULT_TITLE = "dairect — 머릿속 아이디어를 진짜로 만들어드립니다";
+// 2026-04-27 Findably 진단 대응: 55자 → 약 80자로 확장 + 타겟 키워드(AI 개발, 프리랜서,
+// 비개발자, 창업가) 자연 포함. 검색 결과 SERP 발췌문 충실도 향상.
 const APP_DESCRIPTION =
-  "개발을 모르셔도, AI를 못 다루셔도 괜찮습니다. 아이디어만 말씀해주세요. 나머지는 저희가 합니다.";
+  "AI 개발 프리랜서가 만드는 맞춤 IT 솔루션. 일반 개발사 3개월 → 3주, 1/3 비용. 비개발자 창업가도 OK — Sprint 180만원부터.";
 const SITE_URL = "https://dairect.kr";
 
 export const metadata: Metadata = {

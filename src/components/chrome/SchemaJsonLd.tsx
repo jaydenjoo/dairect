@@ -13,6 +13,19 @@ const organization = {
   slogan: "코드는 AI가, 방향은 내가",
   logo: `${SITE_URL}/icons/icon-512.png`,
   image: `${SITE_URL}/icons/icon-512.png`,
+  // 2026-04-27 Findably GEO 강화: AI 검색(ChatGPT/Claude/Perplexity)이 "이 회사가
+  // 어떤 분야 전문가인가" 판단하는 명찰. 타겟 키워드 + 도메인 7개를 명시해
+  // "AI 개발 프리랜서" / "MVP 개발" 같은 검색에서 인용 가능성 향상.
+  knowsAbout: [
+    "AI 활용 웹 개발",
+    "프리랜서 개발 대행 서비스",
+    "MVP 빠른 개발",
+    "Claude Code 활용 개발",
+    "Next.js Supabase 풀스택 개발",
+    "비개발자 창업가 IT 지원",
+    "스타트업 제품 개발 동행",
+  ],
+  sameAs: [SITE_URL],
   address: {
     "@type": "PostalAddress",
     addressLocality: "Seoul",
@@ -38,7 +51,15 @@ const website = {
 const service = {
   "@context": "https://schema.org",
   "@type": "Service",
-  serviceType: "AI 개발 대행 (AI-powered software development)",
+  serviceType: "AI 활용 커스텀 소프트웨어 개발",
+  // 2026-04-27 Findably GEO 강화: 단일 serviceType 외 다양한 검색 진입점을 위해
+  // category 다축 명시 (AI 검색이 서비스 유형 매칭 정확도 향상).
+  category: [
+    "AI 개발 프리랜서",
+    "MVP 개발 대행",
+    "비개발자 IT 솔루션",
+    "스타트업 풀스택 개발",
+  ],
   provider: { "@type": "Organization", name: "dairect", url: SITE_URL },
   areaServed: { "@type": "Country", name: "South Korea" },
   description:
