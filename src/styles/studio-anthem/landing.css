@@ -2499,3 +2499,58 @@ section {
   color: var(--signal);
   border-bottom-color: var(--signal);
 }
+
+/* ─── Quick Answer (Findably Phase 2 — AI 검색 진입점) ─────────────────── */
+.quick-answer {
+  padding: clamp(40px, 6vw, 72px) 0;
+  background: var(--canvas);
+  border-top: 1px solid var(--hairline-canvas);
+}
+.quick-answer .container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.qa-box {
+  background: var(--paper);
+  border-left: 4px solid var(--signal);
+  border-top: 1px solid var(--hairline-canvas);
+  border-right: 1px solid var(--hairline-canvas);
+  border-bottom: 1px solid var(--hairline-canvas);
+  padding: clamp(28px, 3.5vw, 40px) clamp(28px, 4vw, 48px);
+  max-width: 800px;
+}
+.qa-kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--dust);
+  text-transform: uppercase;
+  margin: 0 0 18px;
+}
+.qa-body {
+  font-family: var(--font-sans);
+  font-size: clamp(16px, 1.3vw, 18px);
+  font-weight: 400;
+  line-height: 1.65;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -0.005em;
+}
+.qa-body strong {
+  font-weight: 700;
+  color: var(--ink);
+}
+@media (max-width: 640px) {
+  .qa-box {
+    padding: 24px 20px;
+  }
+  .qa-body {
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  .qa-kicker {
+    margin-bottom: 14px;
+  }
+}

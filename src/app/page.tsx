@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Nav } from "@/components/chrome/Nav";
 import { Footer } from "@/components/chrome/Footer";
 import { Hero } from "@/components/sections/hero/Hero";
+import { QuickAnswer } from "@/components/sections/QuickAnswer";
 import { WhoThisIsFor } from "@/components/sections/WhoThisIsFor";
 import { Etymology } from "@/components/sections/Etymology";
 import { Manifesto } from "@/components/sections/Manifesto";
@@ -39,6 +40,7 @@ export default async function LandingPage() {
       <Nav />
       <main id="main" className="relative z-[2] bg-canvas">
         <Hero />
+        <QuickAnswer />
         <WhoThisIsFor />
         <Etymology />
         <Manifesto />
