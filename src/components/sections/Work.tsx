@@ -5,12 +5,12 @@ export function Work() {
     <section
       id="work"
       className="section-dark"
-      data-screen-label="05 Work"
+      data-screen-label="05 Portfolio"
     >
       <div className="container">
         <div className="work-head">
           <div>
-            <p className="kicker amber">— Selected work</p>
+            <p className="kicker amber">— Selected portfolio</p>
             <h2 className="work-title">
               <span className="rm">Things we made.</span>
               <span className="it">People use them.</span>
@@ -22,7 +22,7 @@ export function Work() {
               안에 런칭됐습니다.
             </p>
             <Link href="/projects" className="work-all-link">
-              View all work →
+              View all portfolio →
             </Link>
           </div>
         </div>

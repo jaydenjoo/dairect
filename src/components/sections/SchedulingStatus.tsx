@@ -1,7 +1,7 @@
 "use client";
 
 import { track } from "@/lib/analytics";
-import { DEFAULT_SLOTS, type Slot } from "@/lib/scheduling-slots";
+import { DEFAULT_SLOTS, SLOT_KO_NAMES, type Slot } from "@/lib/scheduling-slots";
 
 export function SchedulingStatus({
   slots = DEFAULT_SLOTS,
@@ -25,7 +25,9 @@ export function SchedulingStatus({
             onClick={() => track("schedule_click", s.pkg.toLowerCase())}
             style={{ cursor: "pointer" }}
           >
-            <span className="ss-pkg">{s.pkg}</span>
+            <span className="ss-pkg">
+              {s.pkg} · {SLOT_KO_NAMES[s.pkg]}
+            </span>
             <span className="ss-copy">{s.copy}</span>
           </li>
         ))}

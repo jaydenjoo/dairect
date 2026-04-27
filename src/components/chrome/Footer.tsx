@@ -35,7 +35,7 @@ export function Footer() {
 
           <div className="footer-col">
             <span className="footer-col-head">— Menu</span>
-            <Link href="/#work">Work</Link>
+            <Link href="/#work">Portfolio</Link>
             <Link href="/#services">Services</Link>
             <Link href="/#pricing">Pricing</Link>
             <Link href="/about">About</Link>

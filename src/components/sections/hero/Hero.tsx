@@ -52,12 +52,12 @@ export function Hero() {
             </p>
 
             <p className="hero-body reveal-fade" data-reveal data-reveal-delay="320">
-              코드는 AI가, <em>방향은 저희가.</em> 비개발자 창업가와 중소기업의
-              아이디어를, 2~3주 안에 작동하는 제품으로.
+              <em>직장인</em>의 사이드 아이디어부터 <em>사장님</em>의 업무
+              자동화까지. 1인 프리랜서가 직접 설계·개발합니다.
             </p>
 
             <p className="hero-body reveal-fade" data-reveal data-reveal-delay="440">
-              일반 개발사가 3개월 들이는 일을, <em>저희는 3주에.</em>
+              AI로 만들 수 있는지, <em>가장 빠르고 저렴하게</em> 검증해드립니다.
             </p>
 
             <div className="cta-row reveal-fade" data-reveal data-reveal-delay="560">
@@ -67,7 +67,7 @@ export function Hero() {
                 data-magnetic
                 style={{ whiteSpace: "nowrap", flexShrink: 0, width: "auto" }}
               >
-                프로젝트 시작하기{" "}
+                상담 신청하기{" "}
                 <span className="arrow" aria-hidden="true">
                   →
                 </span>

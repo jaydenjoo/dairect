@@ -8,7 +8,7 @@
  *   - 섹션 배경 var(--canvas), 박스 var(--paper)
  *   - 좌측 4px amber 하드 바 + 1px hairline 보더
  *   - mono kicker "■ 핵심 요약" + Pretendard 본문
- *   - <strong>=핵심 키워드 (AI 개발 프리랜서 / 2~3주 / 1/3 비용 / Sprint 180만원)
+ *   - <strong>=핵심 키워드 (누가/무엇/얼마·기간 + 90만·180만·300만 + 1/3 비용)
  */
 export function QuickAnswer() {
   return (
@@ -27,10 +27,23 @@ export function QuickAnswer() {
             data-reveal
             data-reveal-delay="80"
           >
-            <strong>AI 개발 프리랜서</strong>가 비개발자·창업가의 아이디어를{" "}
-            <strong>2~3주</strong> 안에 라이브 제품으로 만들어드립니다. 일반
-            개발사 <strong>1/3 비용 · 1/4 기간</strong>.{" "}
-            <strong>Sprint 180만원</strong>부터 Build · Scale까지.
+            <strong>누가</strong>
+            {" — "}
+            직장인 · 사장님 · 비IT 창업자
+            <br />
+            <strong>무엇</strong>
+            {" — "}
+            AI 아이디어 작동 가능 여부 검증 + 작동하는 데모 제공
+            <br />
+            <strong>얼마 · 기간</strong>
+            {" — "}
+            체험 <strong>90만 (3~5일)</strong>
+            {" / "}
+            검증 <strong>180만 (5~10일)</strong>
+            {" / "}
+            MVP <strong>300만 (2~3주)</strong>
+            <br />
+            일반 개발사 대비 <strong>1/3 비용</strong>
           </p>
         </div>
       </div>

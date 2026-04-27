@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const menu = [
-  { label: "Work", href: "/projects" },
+  { label: "Portfolio", href: "/projects" },
   { label: "Services", href: "/#services" },
   { label: "Pricing", href: "/#pricing" },
   { label: "About", href: "/about" },

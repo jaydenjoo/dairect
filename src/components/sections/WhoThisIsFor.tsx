@@ -3,9 +3,9 @@
 import { track } from "@/lib/analytics";
 
 const LABEL_MAP: Record<string, string> = {
-  "01": "ai-barrier",
-  "02": "validation",
-  "03": "urgent",
+  "01": "office-worker",
+  "02": "smb-owner",
+  "03": "non-it-founder",
 };
 
 type Persona = {
@@ -21,27 +21,27 @@ type Persona = {
 const personas: readonly Persona[] = [
   {
     num: "01",
-    badge: "AI 진입 장벽",
-    quote: "AI가 좋다는 건 알지만, 직접 써볼 엄두가 안 나요.",
-    body: 'ChatGPT를 안 써보셔도, Claude가 뭔지 몰라도 됩니다. 한국어로, 일상 언어로만 대화합니다. 저희가 코드와 AI를 맡습니다. 다만 한 가지는 같이 해주셔야 합니다 — "고객이 누구인지, 무엇을 해결하는지." 1시간 인터뷰면 충분합니다.',
-    pkg: "→ Build 패키지 (2~3주)",
+    badge: "직장인",
+    quote: "회사 다니면서 떠오른 사이드 아이디어, 진짜 되는지 알고 싶어요.",
+    body: "출근 전·퇴근 후 잠깐의 시간만으로 시작하세요. 1시간 상담으로 가능 여부 진단 → 3~5일 안에 작동하는 데모. AI가 제대로 만들 수 있는지 가장 빠르게 확인합니다.",
+    pkg: "→ 체험 패키지 (90만 / 3~5일)",
     pkgHref: "#pricing",
     featured: true,
   },
   {
     num: "02",
-    badge: "검증 필요",
-    quote: "아이디어가 진짜 만들 만한 건지 먼저 확인하고 싶어요.",
-    body: "1시간 인터뷰로 타깃·가설·예상 비용·기술 스택까지 정리합니다. 3~5일 안에 문서로 받아보세요.",
-    pkg: "→ Discovery 패키지 (3~5일)",
+    badge: "사장님",
+    quote: "매일 반복되는 업무, AI로 자동화하고 싶어요.",
+    body: "주문 응대, 견적 발송, 재고 알림, 단순 문의. 매일 반복되는 작업을 AI가 대신 처리하도록 설계합니다. 5~10일 안에 직접 써볼 수 있는 자동화 도구를 받아보세요.",
+    pkg: "→ 검증 패키지 (180만 / 5~10일)",
     pkgHref: "#pricing",
   },
   {
     num: "03",
-    badge: "긴급",
-    quote: "이번 주 안에 데모가 필요해요.",
-    body: "가능한 작업 범위가 정해져 있습니다 (랜딩 페이지, 폼+DB, 단순 데모 챗봇 등). 들어맞으면 5~7일에 만들어드립니다.",
-    pkg: "→ Sprint 패키지 (조건 확인 필요)",
+    badge: "비IT 창업자",
+    quote: "개발자 없이 첫 번째 버전을 만들어 시장에 보여주고 싶어요.",
+    body: "투자자·고객·파트너에게 보여줄 작동하는 MVP를 2~3주 안에. 코드는 AI가, 설계·검증·배포는 1인 프리랜서가 책임집니다. 비IT 창업자도 시장 검증을 시작하세요.",
+    pkg: "→ MVP 패키지 (300만 / 2~3주)",
     pkgHref: "#pricing",
   },
 ];
@@ -62,7 +62,7 @@ export function WhoThisIsFor() {
           data-reveal
           data-reveal-delay="80"
         >
-          세 가지 상황에서 가장 빛납니다.
+          아이디어는 있지만, 혼자서는 막막한 분들.
         </h2>
 
         <div

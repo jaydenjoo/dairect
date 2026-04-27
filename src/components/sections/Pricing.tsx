@@ -21,33 +21,30 @@ type Plan = {
 const plans: readonly Plan[] = [
   {
     num: "PKG N°00",
-    name: "Sprint.",
-    koName: "긴급 패키지",
-    amount: "180",
-    duration: "5~7일",
-    desc: "이번 주 데모, 다음 주 시연. 화이트리스트 안 작업이면 5~7일에 만들어드립니다.",
+    name: "Discovery.",
+    koName: "체험 패키지",
+    amount: "90",
+    duration: "3~5일",
+    desc: "아이디어가 진짜 만들 수 있는지, 가장 저렴하게 확인하는 첫 단계입니다.",
     features: [
-      "랜딩 페이지 + 폼 + DB (Vercel + Supabase)",
-      "단일 페이지 데모 챗봇 (Claude API + 임베드)",
-      "정적 포트폴리오/소개 사이트",
-      "기존 사이트 1개 섹션 추가/수정",
-      "간단한 대시보드 1화면 (조회 전용)",
+      "기본 설문지 조사 (특별한 경우 1시간 상담)",
+      "타깃·가설·성공 기준 정리",
+      "기술 가능성 진단서",
+      "MVP 스코프 초안",
     ],
-    notDoing:
-      "모바일 앱 · 결제 연동 · 회원/로그인 · 외부 API 5개+ → 다른 패키지로 안내",
   },
   {
     num: "PKG N°01",
-    name: "Discovery.",
-    koName: "진단 패키지",
-    amount: "30",
-    duration: "3~5일",
-    desc: "아이디어가 실현 가능한지, 어떤 스펙으로 만들어야 하는지 가장 빠르게 확인하는 단계입니다.",
+    name: "Sprint.",
+    koName: "검증 패키지",
+    amount: "180",
+    duration: "5~10일",
+    desc: "핵심 가설이 작동하는지 가장 빠르게 검증합니다. 가장 인기 있는 시작점.",
     features: [
-      "1시간 심층 인터뷰",
-      "타깃·가설·성공 기준 정리",
-      "MVP 스코프 초안",
-      "기술 스택 추천서",
+      "Discovery 전 단계 포함",
+      "핵심 기능 1~2개 작동 데모",
+      "기본 UI/UX 구현",
+      "Vercel 배포 + 도메인 연결",
     ],
   },
   {
@@ -56,10 +53,10 @@ const plans: readonly Plan[] = [
     koName: "MVP 패키지",
     amount: "300",
     duration: "2~3주",
-    desc: "실제로 작동하는 MVP를 2~3주 안에 출시합니다. 매일 빌드 공유, 주간 리뷰로 완전히 투명하게.",
+    desc: "사용자에게 보여줄 첫 번째 버전을 2~3주 안에 출시합니다. 매일 빌드 공유, 주간 리뷰.",
     tagline: "+ 첫 사용자 확보까지 14일 동행",
     features: [
-      "Discovery 전 단계 포함",
+      "Sprint 전 단계 포함",
       "풀스택 개발 (Next.js + Supabase)",
       "반응형 디자인 시스템",
       "배포 및 도메인 연결",
@@ -73,7 +70,7 @@ const plans: readonly Plan[] = [
     koName: "확장 패키지",
     amount: "800",
     duration: "4~8주",
-    desc: "런칭 후 성장에 집중하는 단계. 기능 확장, 성능 최적화, 데이터 분석 환경까지 한 번에.",
+    desc: "MVP 이후 본격 운영 인프라. 결제·관리자·분석 등 기능·사용자 확장.",
     tagline: "+ 첫 매출 발생까지 90일 파트너십",
     features: [
       "Build 전 단계 포함",
@@ -130,7 +127,7 @@ export function Pricing({ schedulingSlots }: { schedulingSlots?: readonly Slot[]
                     만원~
                   </span>
                 </div>
-                <div className="price-starting">부가세 별도 · 시작 금액</div>
+                <div className="price-starting">VAT 별도 · 시작 금액</div>
               </div>
               <div className="price-duration">{plan.duration}</div>
               <p className="price-desc">{plan.desc}</p>
@@ -158,7 +155,7 @@ export function Pricing({ schedulingSlots }: { schedulingSlots?: readonly Slot[]
                       )
                     }
                   >
-                    Start this project{" "}
+                    상담 신청하기{" "}
                     <span className="arrow" aria-hidden="true">
                       →
                     </span>
@@ -174,7 +171,7 @@ export function Pricing({ schedulingSlots }: { schedulingSlots?: readonly Slot[]
                       )
                     }
                   >
-                    Learn more →
+                    자세히 →
                   </Link>
                 )}
               </div>

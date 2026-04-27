@@ -16,6 +16,15 @@ export type SlotStatus = (typeof SLOT_STATUSES)[number];
 export const SLOT_PACKAGES = ["Sprint", "Build", "Scale"] as const;
 export type SlotPackage = (typeof SLOT_PACKAGES)[number];
 
+// 패키지 영문명 → 한국어 라벨 매핑.
+// SchedulingStatus 박스에서 "Sprint · 검증" 식으로 병기 표시.
+// 의미 변경 이력: Sprint(긴급 → 검증, 2026-04-27).
+export const SLOT_KO_NAMES: Record<SlotPackage, string> = {
+  Sprint: "검증",
+  Build: "MVP",
+  Scale: "확장",
+};
+
 export type Slot = {
   pkg: SlotPackage;
   status: SlotStatus;

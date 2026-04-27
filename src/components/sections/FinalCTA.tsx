@@ -16,11 +16,11 @@ export function FinalCTA() {
               <span className="it">Let&apos;s build it.</span>
             </h2>
             <p className="contact-ko">
-              아이디어가 있으신가요? 만들어드리겠습니다.
+              아이디어가 있다면, 지금 시작하세요.
             </p>
             <p className="contact-desc">
-              24시간 내 답신합니다. 상담은 무료입니다. 간단히 어떤 서비스를
-              구상 중이신지 알려주세요.
+              상담 신청 후 빠른 시간 내 답변드립니다. 상담은 무료입니다. 간단히
+              어떤 서비스를 구상 중이신지 알려주세요.
             </p>
             <div className="contact-info">
               <a href="mailto:hello@dairect.kr">hello@dairect.kr</a>
@@ -38,7 +38,7 @@ export function FinalCTA() {
               className="btn-primary magnetic"
               data-magnetic
             >
-              Start a project{" "}
+              상담 신청하기{" "}
               <span className="arrow" aria-hidden="true">
                 →
               </span>
