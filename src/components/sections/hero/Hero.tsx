@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TrustCounters } from "./TrustCounters";
 
 export function Hero() {
   return (
@@ -77,52 +78,7 @@ export function Hero() {
               </Link>
             </div>
 
-            <div className="trust reveal-fade" data-reveal data-reveal-delay="700">
-              <div className="trust-item">
-                <span className="trust-label">
-                  N°<span className="ko"> 라이브 제품</span>
-                </span>
-                <span className="trust-value">
-                  04
-                  <span
-                    style={{
-                      fontSize: "0.5em",
-                      color: "var(--dust)",
-                      fontWeight: 400,
-                      marginLeft: 4,
-                    }}
-                  >
-                    건
-                  </span>
-                </span>
-              </div>
-              <div className="trust-item">
-                <span className="trust-label">
-                  AVG<span className="ko"> 평균 기간</span>
-                </span>
-                <span className="trust-value">
-                  2<span style={{ color: "var(--signal)" }}>.</span>1
-                  <span
-                    style={{
-                      fontSize: "0.5em",
-                      color: "var(--dust)",
-                      fontWeight: 400,
-                      marginLeft: 4,
-                    }}
-                  >
-                    주
-                  </span>
-                </span>
-              </div>
-              <div className="trust-item">
-                <span className="trust-label">
-                  CSAT<span className="ko"> 고객 만족도</span>
-                </span>
-                <span className="trust-value">
-                  98<span style={{ color: "var(--signal)" }}>%</span>
-                </span>
-              </div>
-            </div>
+            <TrustCounters />
           </div>
 
           <div className="hero-right" aria-hidden="true">
