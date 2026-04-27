@@ -3,6 +3,7 @@ import { fontVariables } from "@/lib/fonts";
 import { Toaster } from "@/components/ui/sonner";
 import { DariWidget } from "@/components/chrome/DariWidget";
 import { Analytics } from "@/components/chrome/Analytics";
+import { SchemaJsonLd } from "@/components/chrome/SchemaJsonLd";
 import { SerwistProvider } from "./serwist";
 import "./globals.css";
 
@@ -10,6 +11,7 @@ const APP_NAME = "Dairect";
 const APP_DEFAULT_TITLE = "dairect — 머릿속 아이디어를 진짜로 만들어드립니다";
 const APP_DESCRIPTION =
   "개발을 모르셔도, AI를 못 다루셔도 괜찮습니다. 아이디어만 말씀해주세요. 나머지는 저희가 합니다.";
+const SITE_URL = "https://dairect.kr";
 
 export const metadata: Metadata = {
   applicationName: APP_NAME,
@@ -18,8 +20,21 @@ export const metadata: Metadata = {
     template: "%s | dairect",
   },
   description: APP_DESCRIPTION,
-  metadataBase: new URL("https://dairect.kr"),
+  metadataBase: new URL(SITE_URL),
   manifest: "/manifest.json",
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    url: SITE_URL,
+    siteName: APP_NAME,
+    title: APP_DEFAULT_TITLE,
+    description: APP_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: APP_DEFAULT_TITLE,
+    description: APP_DESCRIPTION,
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -52,6 +67,7 @@ export default function RootLayout({
   return (
     <html lang="ko" className={`${fontVariables} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">
+        <SchemaJsonLd />
         <SerwistProvider
           swUrl="/sw.js"
           disable={process.env.NODE_ENV === "development"}

@@ -4,6 +4,7 @@ import { Footer } from "@/components/chrome/Footer";
 
 export const metadata: Metadata = {
   title: "이용약관",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

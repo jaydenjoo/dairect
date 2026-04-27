@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Nav } from "@/components/chrome/Nav";
 import { Footer } from "@/components/chrome/Footer";
 import { Hero } from "@/components/sections/hero/Hero";
@@ -23,6 +24,10 @@ import { getSchedulingSlots } from "@/lib/scheduling-slots-server";
 // 공개 페이지에 PWA "앱으로 설치" 안내 노출. 기본 false (숨김).
 // /dashboard/settings 의 "사이트 노출" 섹션에서 Jayden이 직접 토글.
 export const revalidate = 60;
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default async function LandingPage() {
   const [flags, schedulingSlots] = await Promise.all([

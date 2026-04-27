@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   title: "About — Vibe Architect",
   description:
     "AI는 자동차입니다. 운전을 못해도 괜찮아요. 택시를 타면 되니까요. — Jayden, Vibe Architect",
+  alternates: { canonical: "/about" },
 };
 
 function parsePackage(
