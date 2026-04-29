@@ -1,7 +1,7 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-29 저녁 (**한글 슬러그 500→404 fix + 옵시디언 템플릿 정정**)
-> 현재 위치: **한글 percent-encoded URL 5xx 차단 (commit 9ec3ad4 — `/journal/[slug]` `/build/[project-slug]` `dynamicParams=false` + `.catch(notFound)`) + 옵시디언 `templates/journal.md` 변수 형식 정정 + Step 4 가이드 보강** → 다음 세션 옵시디언 vault `테스트.md` 정리 / user-manual 동일 규칙 표 추가 / estimate-form + TrustCounters 미커밋 의도 정리 / Phase 1 후속(시드 콘텐츠 정책, Build 첫 사이드 프로젝트)
+> 최종 업데이트: 2026-04-29 밤 (**한글 슬러그 500 fix + 옵시디언 셋업 마무리 + sitemap SEO 보강 — 5 commits push 완료**)
+> 현재 위치: **한글 5xx 차단(9ec3ad4) + 옵시디언 템플릿 변수 정정(vault 직접) + setup·user-manual 가이드 보강(bbb884e/980b17a) + 이전 세션 미커밋 흔적 정리(6a072f0) + sitemap에 콘텐츠 동적 슬러그 추가(5a3d264, 9→11 URL)** → 다음 세션 Task 4(대시보드 인증 영역 Playwright — 자격증명 필요) / Task 6(Phase 1 후속 — 시드 콘텐츠 정책 + Build 첫 사이드 프로젝트 + NEXT-STEPS P0~P2)
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
 > v1.3 SOT: [docs/dairect-content-replan-v1_3.md](docs/dairect-content-replan-v1_3.md) (WHAT) · [docs/dairect-v1_3-application-guide.md](docs/dairect-v1_3-application-guide.md) (HOW)
 > BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
@@ -39,21 +39,40 @@ Playwright + curl로 사이트 전체 37 URL 스캔 → 한글 슬러그 500 추
 - 수정: `{{date:YYYY-MM-DD}}` (이중 중괄호 + 공백 없음)로 정정 + frontmatter 정리
 - 검증: 옵시디언에서 새 글 → 템플릿 삽입 → `date: 2026.04.29` 자동 치환 ✓ (Jayden 스크린샷 확인)
 
-**(4) 가이드 문서 보강 (이번 commit)**
-- `docs/obsidian-publishing-setup.md` Step 4에 **"글 작성 시 필수 규칙"** 표 추가 (파일명/slug/status/date/템플릿 변수 5종 + ✅/❌ 예시)
+**(4) 가이드 문서 보강 — `docs/obsidian-publishing-setup.md` (commit bbb884e)**
+- Step 4에 **"글 작성 시 필수 규칙"** 표 추가 (파일명/slug/status/date/템플릿 변수 5종 + ✅/❌ 예시)
 - 사고 사례 (2026-04-29) 박스 추가 — 동일 실수 재발 방지
 - `docs/learnings.md`에 2가지 교훈 추가 (Vercel ISR 한글 회귀 + 옵시디언 변수 형식)
 
+**(5) user-manual 사고 사례 박스 — `docs/obsidian-user-manual.md` (commit 980b17a)**
+- Section 3.3 끝에 ⚠️ "흔한 실수 4가지 + 2026-04-29 사고 사례" 박스 추가
+- setup.md(셋업 단계 룰)와 카테고리 분리 — user-manual = 사용자 친화 케이스북
+
+**(6) 이전 세션 미커밋 흔적 정리 (commit 6a072f0)**
+- `estimate-form.tsx`: `items.map _id destructure`에 `eslint-disable-next-line @typescript-eslint/no-unused-vars` + WHY 주석 (클라이언트 추적 키, 서버 전송 시 제외)
+- `TrustCounters.tsx`: reduced-motion 분기에서 setState 3개 동기 호출 → `requestAnimationFrame`으로 한 프레임 미루고 `cancelAnimationFrame` cleanup 추가 (effect 카스케이드 회피, 사용자 시각 차이 없음)
+
+**(7) sitemap 동적 슬러그 추가 — `src/app/sitemap.ts` (commit 5a3d264)**
+- 기존 9 URL(인덱스만) → 11 URL (콘텐츠 페이지 포함)
+- async sitemap + `getAllJournalPosts` / `getAllBuildProjects` 호출
+- frontmatter `date`를 `lastModified`로 사용, priority 0.6, monthly
+- production /sitemap.xml 80초만에 반영 → `/journal/welcome-2026-04-29`, `/build/dairect-content-system` 검색엔진 색인 시작
+
 ### 검증
-- pnpm tsc + lint + build 모두 PASS (한글 fix commit 시점)
-- production dairect.kr: 5개 핵심 URL 정상 + 한글 슬러그 404 정상 (영문 회귀 없음)
+- pnpm tsc + lint + build 모두 PASS (한글 fix + sitemap commit 시점 모두)
+- production dairect.kr: 5개 핵심 URL 정상 + 한글 슬러그 404 정상 (영문 회귀 없음) + sitemap.xml 11 URL
 
 ### 후속 (다음 세션 결정)
-- ⏳ 옵시디언 vault 내 `테스트.md` 파일 정리 — Jayden이 옵시디언 우클릭 → 삭제 (untracked, 빌드 위험 없음)
-- ⏳ `docs/obsidian-user-manual.md`에도 동일 "글 작성 시 필수 규칙" 표 추가 검토
-- ⏳ `estimate-form.tsx` + `TrustCounters.tsx` 미커밋 흔적 정리 (이전 세션 작업, 의도 확인 필요)
+- ⏳ **Task 4 — 대시보드 인증 영역 Playwright 검증** (자격증명 필요)
+  - 사이드바 11개 메뉴 + 하위 라우트 + 음성 케이스(/dashboard/journal 등) 진짜 404 검증
+  - 자격증명 처리: Jayden 본인 계정 OR `.env.local` OR 별도 테스트 계정 결정
+- ⏳ **Task 6 — Phase 1 후속 결정** (Jayden 판단)
+  - 시드 글 정책: `welcome.md` + `dairect-content-v1.md` → 유지 vs draft 전환 vs 삭제
+  - Build 첫 사이드 프로젝트 선정
+  - NEXT-STEPS P0~P2 (PRD v3.2 Task-S2 잠금 / 미사용 7 컴포넌트 정리 / OG 이미지 페이지별 분기 / Hero H1 카피 재검토)
 - ⏳ `/signup` 404 의도성 PRD에 명시 (Task-S2b 결정 근거 — 검색엔진/사용자 혼동 방지)
-- ⏳ Phase 1 후속(시드 콘텐츠 정책, Build 첫 사이드 프로젝트, NEXT-STEPS P0~P2)
+- ⏳ PROGRESS.md 분할 (현재 280KB+ → Claude 256KB 한계 초과, 월별 분할 + INDEX 형태)
+- ⏳ silent failure 알림 (Slack/Sentry 통합) — P2 백로그
 
 ---
 
