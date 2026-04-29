@@ -185,6 +185,15 @@ date: {{date:YYYY-MM-DD}}
 7. 빈 칸 (title, tags 등) 직접 입력
 ```
 
+> **⚠️ 처음 막힐 때 — 흔한 실수 4가지**
+>
+> 1. **파일명에 `.md` 직접 입력** → 옵시디언이 또 `.md` 붙여 `.md.md`가 됨. (예방: `.md` 빼고 입력. 옵시디언이 자동으로 붙임)
+> 2. **파일명/slug 한글 사용** → Vercel 빌드/배포 시 인코딩 위험 + 권장 패턴 위반. (예방: 영문 kebab-case `YYYY-MM-DD-슬러그`)
+> 3. **`Insert template` 목록 안 뜸** → 템플릿 폴더 미지정 또는 템플릿 파일 변수 형식 깨짐. (확인: 3.1 활성화 + `templates/journal.md` 변수 `{{date:YYYY-MM-DD}}` 이중 중괄호 형식)
+> 4. **`slug:` 빈 값 + `status: published`** → zod 검증 실패 → 빌드 깨짐. (예방: slug 영문 채우기, status는 처음 `draft` → 발행 직전 `published`)
+>
+> **2026-04-29 사고 사례**: `templates/journal.md`의 `date` 변수가 `{ date:YYYY-MM-DD }:` (단일 중괄호 + 공백 + 콜론)으로 잘못 작성됨 → 옵시디언 변수 미치환 + YAML 파싱 깨짐. `{{date:YYYY-MM-DD}}` (이중 중괄호 + 공백 없음)로 정정 후 정상 동작 확인.
+
 ### 3.4 더 강력한 템플릿이 필요하면 (선택, 나중에)
 
 코어 Templates는 변수 3개뿐. 더 강력한 기능(if/else, 사용자 입력 prompt 등)이 필요하면:
