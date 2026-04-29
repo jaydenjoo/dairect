@@ -36,10 +36,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export const dynamic = "force-static";
+export const dynamicParams = false;
 
 export default async function JournalPostPage({ params }: Props) {
   const { slug } = await params;
-  const post = await getJournalPostBySlug(slug);
+  const post = await getJournalPostBySlug(slug).catch((err) => {
+    console.error(`[journal/[slug]] lookup failed for slug=${slug}`, err);
+    notFound();
+  });
   if (!post) notFound();
 
   return (

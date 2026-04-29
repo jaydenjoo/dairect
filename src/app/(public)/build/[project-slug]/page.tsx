@@ -45,11 +45,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export const dynamic = "force-static";
+export const dynamicParams = false;
 
 export default async function BuildProjectPage({ params }: Props) {
   const resolved = await params;
   const projectSlug = resolved["project-slug"];
-  const group = await getBuildProjectBySlug(projectSlug);
+  const group = await getBuildProjectBySlug(projectSlug).catch((err) => {
+    console.error(
+      `[build/[project-slug]] lookup failed for projectSlug=${projectSlug}`,
+      err,
+    );
+    notFound();
+  });
   if (!group) notFound();
 
   return (
