@@ -1,12 +1,61 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-29 (**Phase 1 Journal & Build 콘텐츠 시스템 완성 + production 검증 PASS**)
-> 현재 위치: **/journal /build 라우트 + Studio Anthem 카드 + 홈 임베드(WhatImBuilding/JournalLatest) + Nav Build 메뉴 + 옵시디언 vault 셋업 + 이미지 자동 동기화 → production 5개 라우트 200 검증 완료 (b5200db)** → 다음 세션 시드 콘텐츠 정책 결정 / Build 첫 사이드 프로젝트 선정 / NEXT-STEPS P0~P2 진행 / PRD v3.2 Task-S2 잠금 / 미사용 7 컴포넌트 정리 / OG 이미지 페이지별 분기 / PROGRESS.md 분할 (현재 280KB+ → Claude 256KB 한계 초과)
+> 최종 업데이트: 2026-04-29 저녁 (**한글 슬러그 500→404 fix + 옵시디언 템플릿 정정**)
+> 현재 위치: **한글 percent-encoded URL 5xx 차단 (commit 9ec3ad4 — `/journal/[slug]` `/build/[project-slug]` `dynamicParams=false` + `.catch(notFound)`) + 옵시디언 `templates/journal.md` 변수 형식 정정 + Step 4 가이드 보강** → 다음 세션 옵시디언 vault `테스트.md` 정리 / user-manual 동일 규칙 표 추가 / estimate-form + TrustCounters 미커밋 의도 정리 / Phase 1 후속(시드 콘텐츠 정책, Build 첫 사이드 프로젝트)
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
 > v1.3 SOT: [docs/dairect-content-replan-v1_3.md](docs/dairect-content-replan-v1_3.md) (WHAT) · [docs/dairect-v1_3-application-guide.md](docs/dairect-v1_3-application-guide.md) (HOW)
 > BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
 > dogfooding 가이드: [docs/dogfooding-checklist.md](docs/dogfooding-checklist.md) 🧪
 > projects.public* DROP plan: [docs/projects-public-deprecation-plan.md](docs/projects-public-deprecation-plan.md) 🆕
+
+## 세션 2026-04-29 (저녁) — 한글 슬러그 500→404 + 옵시디언 템플릿 정정
+
+### 배경
+Jayden dogfooding 중 두 가지 발견:
+1. `/dashboard/journal` 메뉴/페이지 부재 → 의도된 설계 확인 (옵시디언 = 작성 도구, 대시보드는 비즈니스 전용)
+2. 옵시디언 `Cmd+P → Templates: Insert template` 목록 못 가져옴
+
+Playwright + curl로 사이트 전체 37 URL 스캔 → 한글 슬러그 500 추가 발견 → 두 가지 fix 동시 진행.
+
+### 완료 내역
+
+**(1) 사이트 전체 404 스캔 — 37 URL (curl 1차 + Playwright 정밀)**
+- 정상 200: 14개 (랜딩 + 콘텐츠 인덱스 + 정상 글)
+- 의도된 차단: `/signup` 404 (Task-S2b 잠금 — Dairect v3.2 Jayden 1인 모드), `/dashboard/*` 307→`/login` (인증 가드)
+- 🔴 발견: 한글 slug `/journal/존재안하는글` `/build/없는글-xxx` → **500** (영문 미존재 슬러그는 404 정상)
+
+**(2) 한글 슬러그 500→404 fix (commit 9ec3ad4)**
+- 진단: 로컬 dev SSR 정상 / Vercel ISR 프로덕션만 500 → `force-static` + `dynamicParams=true`(기본) + percent-encoded 한글 URL 동적 폴백 환경 차이 회귀
+- 수정 (`/journal/[slug]` + `/build/[project-slug]` 양쪽):
+  - `export const dynamicParams = false;` (1차 방어 — generateStaticParams 외 자동 404)
+  - `.catch((err) => { console.error(...); notFound(); })` (2차 방어 + Vercel 함수 로그에 흔적)
+- 정리: `src/content/journal/2026-04-29-test.md.md` 옵시디언 테스트 흔적 파일 삭제 (`.md.md` 오타 + frontmatter `date` 미치환 + status=published 위험)
+- production 검증: **10초만에 배포 반영**. 한글 404 / 정상 200 회귀 없음 / `generate-params: 35µs`로 빨라짐 (정적 매니페스트 매칭)
+
+**(3) 옵시디언 템플릿 정정 (vault 직접 수정 — git 추적 외)**
+- 사용자 첫 질문 진단: 셋업 자체는 모두 OK (vault, 심볼릭 링크, 코어 플러그인 활성화, templates 폴더 설정 모두 ✓)
+- **진짜 원인**: `~/Documents/Obsidian Vault/templates/journal.md` 변수 형식 오류 — `{ date:YYYY-MM-DD }:` (단일 중괄호 + 공백 + 콜론)으로 잘못 작성됨 → 옵시디언 변수 미치환 + YAML 파싱 깨짐
+- 동일 vault의 `templates/build.md`는 `{{date:YYYY-MM-DD}}` 정상 형식이라 옵시디언 자체 문제 아님 확정
+- 수정: `{{date:YYYY-MM-DD}}` (이중 중괄호 + 공백 없음)로 정정 + frontmatter 정리
+- 검증: 옵시디언에서 새 글 → 템플릿 삽입 → `date: 2026.04.29` 자동 치환 ✓ (Jayden 스크린샷 확인)
+
+**(4) 가이드 문서 보강 (이번 commit)**
+- `docs/obsidian-publishing-setup.md` Step 4에 **"글 작성 시 필수 규칙"** 표 추가 (파일명/slug/status/date/템플릿 변수 5종 + ✅/❌ 예시)
+- 사고 사례 (2026-04-29) 박스 추가 — 동일 실수 재발 방지
+- `docs/learnings.md`에 2가지 교훈 추가 (Vercel ISR 한글 회귀 + 옵시디언 변수 형식)
+
+### 검증
+- pnpm tsc + lint + build 모두 PASS (한글 fix commit 시점)
+- production dairect.kr: 5개 핵심 URL 정상 + 한글 슬러그 404 정상 (영문 회귀 없음)
+
+### 후속 (다음 세션 결정)
+- ⏳ 옵시디언 vault 내 `테스트.md` 파일 정리 — Jayden이 옵시디언 우클릭 → 삭제 (untracked, 빌드 위험 없음)
+- ⏳ `docs/obsidian-user-manual.md`에도 동일 "글 작성 시 필수 규칙" 표 추가 검토
+- ⏳ `estimate-form.tsx` + `TrustCounters.tsx` 미커밋 흔적 정리 (이전 세션 작업, 의도 확인 필요)
+- ⏳ `/signup` 404 의도성 PRD에 명시 (Task-S2b 결정 근거 — 검색엔진/사용자 혼동 방지)
+- ⏳ Phase 1 후속(시드 콘텐츠 정책, Build 첫 사이드 프로젝트, NEXT-STEPS P0~P2)
+
+---
 
 ## 세션 2026-04-29 (Journal & Build Phase 1 완성 + 옵시디언 셋업 + P0 매출 누설 검증)
 

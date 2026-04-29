@@ -159,6 +159,20 @@ status: draft
 - Settings → Hotkeys → "Insert template" → Cmd+T 등 단축키 지정
 - 새 글 만들 때 Cmd+N → Cmd+T로 템플릿 즉시 삽입
 
+### ⚠️ 글 작성 시 필수 규칙 (어기면 빌드가 깨집니다)
+
+| 필드 | 규칙 | ✅ 올바른 예 | ❌ 절대 금지 |
+|---|---|---|---|
+| **파일명** | `YYYY-MM-DD-영문슬러그` (옵시디언이 `.md` 자동 추가하니 직접 붙이지 말 것) | `2026-04-29-welcome` | `테스트`, `2026-04-29-welcome.md` |
+| **slug** | 영문 kebab-case (URL이 됨). **비우면 zod 검증 실패 → 빌드 깨짐** | `welcome-2026-04-29` | 빈 값, `한글슬러그`, 공백 포함 |
+| **status** | 처음엔 항상 `draft`. **발행 직전에만** `published`로 변경 | `draft` → (검토) → `published` | 처음부터 `published` |
+| **date** | `{{date:YYYY-MM-DD}}` 자동 치환됨 — 손대지 말 것 | `2026-04-29` (자동) | 직접 수정 |
+| **템플릿 변수 형식** | **이중 중괄호 + 공백 없음** | `{{date:YYYY-MM-DD}}` | `{ date:YYYY-MM-DD }` (단일 + 공백) |
+
+> **비유**: 도서관 책에 분류 번호(slug)가 없으면 사서(빌드)가 어디에 꽂을지 몰라 멈춤. 5가지 규칙 = dairect 사이트의 분류 번호.
+
+> **사고 사례 (2026-04-29)**: `{{date}}` 대신 `{ date:YYYY-MM-DD }` (단일 중괄호 + 공백)로 템플릿이 잘못 작성되어 변수 미치환 + frontmatter YAML 파싱 오류 발생. journal.md 템플릿 재작성 후 해결.
+
 ---
 
 ## Step 5. 발행 흐름

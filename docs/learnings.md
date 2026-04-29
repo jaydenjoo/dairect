@@ -1,5 +1,15 @@
 # Dairect — 교훈 기록
 
+## 2026-04-29 (저녁) — 한글 슬러그 500 + 옵시디언 템플릿 정정 — 2가지 교훈
+
+1. **`force-static` + `dynamicParams=true`(기본) + Vercel ISR 조합은 percent-encoded 한글 URL의 동적 폴백 단계에서 회귀 발생 — `dynamicParams = false` + `.catch(notFound)` 이중 안전망 패턴이 정답** — Playwright 사이트 스캔에서 `/journal/존재안하는글`, `/build/없는글-xxx`가 영문 미존재 슬러그(`/journal/this-does-not-exist`)는 정상 404인데 한글만 500. 로컬 `pnpm dev` SSR에선 100% 정상(404) — 즉 Vercel ISR/Edge 런타임 환경 차이. 정확한 throw 라인은 Vercel 함수 로그 없으면 진단 불가하지만 우회는 가능. (a) `dynamicParams = false`로 generateStaticParams 외 슬러그 자동 404 → 한글이든 영문이든 동일 처리 (b) lib 호출에 `.catch((err) => { console.error(...); notFound(); })` 추가 → 미래 lib throw 시 안전망 + Vercel 로그에 흔적. 사용자에게 보이는 건 4xx만 — 5xx 노출 차단이 핵심. commit 9ec3ad4 후 production 10초만에 배포 반영, 회귀 0.
+   - **규칙**: 모든 `[slug]`/`[id]`/`[project-slug]` 정적 콘텐츠 라우트는 generateStaticParams 외 입력을 받지 않을 거면 **항상 `export const dynamicParams = false;`** 명시. dev SSR은 모든 입력을 동적으로 처리하기 때문에 "로컬 정상 → 배포해도 괜찮겠지" 가정 위험 — production-only 5xx 회귀 예방. lib 호출은 추가로 `.catch(notFound)` + `console.error` 패턴으로 catch-all 안전망 + 흔적 남기기. 진단 우선순위: (1) 로컬 재현 시도 (2) 환경 차이 확정 (3) 우회 패턴 즉시 적용 (4) 별도 Task로 근본 원인 추적 (Vercel 함수 로그). 한글뿐 아니라 percent-encoded URL 일반(이모지/특수문자/유니코드 정규화 차이)에도 적용.
+
+2. **옵시디언 코어 Templates 변수 형식은 `{{var}}`만 인식 — 단일 중괄호 또는 공백 포함 시 변수 미치환 + YAML 파싱 깨짐** — 사용자 옵시디언 `Cmd+P → Templates: Insert template` 셋업이 막힌 줄 알았으나 진단 결과 셋업 자체는 모두 정상(vault, 심볼릭 링크, 코어 플러그인 활성화, templates 폴더 설정 ✓). **진짜 원인**은 `~/Documents/Obsidian Vault/templates/journal.md`의 변수 형식 오류 — `{ date:YYYY-MM-DD }:` (단일 중괄호 + 공백 + 콜론)으로 잘못 작성. 옵시디언 코어 Templates는 정확히 `{{var}}` (이중 중괄호 + 공백 없음) 패턴만 매칭 — 단일 중괄호는 무시 + YAML 파서가 "이상한 키"로 해석. 동일 vault의 `build.md`는 `{{date:YYYY-MM-DD}}` 정상이라 옵시디언 자체 문제 아님 확정. 더 나아가 이 잘못된 템플릿이 적용된 첫 사용자 파일은 `slug:` 빈 값 + `status: published` 조합 + 한글 파일명(`테스트.md`) 위험까지 — frontmatter zod 검증 실패로 빌드 깨짐 잠재.
+   - **규칙**: 옵시디언 템플릿 작성 시 변수 형식은 **이중 중괄호 + 공백 없음** 강제 (`{{date:YYYY-MM-DD}}`, `{{title}}`, `{{time}}`). 셋업 후 반드시 (a) 새 파일 생성 → 템플릿 삽입 → date 자동 치환 확인 (b) frontmatter zod 파싱 OK 확인. dairect 콘텐츠는 추가로: 파일명 영문 kebab-case (한글 금지 — Vercel 빌드/배포 시 한글 파일명 인코딩 위험), `slug` 영문 필수 (빈 값 = 빌드 throw), `status` 처음엔 항상 `draft` (발행 직전에만 published). 셋업 가이드(`docs/obsidian-publishing-setup.md` Step 4)에 "글 작성 시 필수 규칙" 표 박아두면 사용자가 처음부터 옳게 작성 — 사고 사례 박스도 함께 명시(같은 실수 재발 방지). "셋업 모두 OK인데도 동작 안 함" 시나리오는 셋업 단계가 아닌 **콘텐츠/설정 파일 자체의 형식 오류**일 가능성 우선 의심.
+
+---
+
 ## 2026-04-27 (밤) — 포트폴리오 카피 일관성 (Chatsio 카테고리 정정) — 1가지 교훈
 
 1. **디자인 핸드오프 번들 placeholder 카피는 실서비스 카테고리로 정정되지 않은 채 노출되기 쉬움 — 단일 SOT 필요** — Studio Anthem 디자인 번들(`docs/design-references/.../Landing-A-Light.html` 등)에서 가져온 Chatsio placeholder가 "SMB CX" + 반품 문의 챗 시연이었으나, 실제 Chatsio (`/demo/chatsio` + 라이브 `chatsio-topaz.vercel.app`)는 "AI 검색 시대 쇼핑몰 GEO 도구"로 카테고리 자체가 다름. 동일한 잘못된 카피가 3곳(Work.tsx 랜딩 카드 + Hero.tsx Frame 1 + fallback-projects.tsx /projects N°01)에 퍼져 있어 "개별 수정"이 아닌 "일관 갱신" 필요. 비전문가 사용자가 "이 사이트가 무슨 서비스를 만드는지" 추측 시 첫 카드의 카테고리가 결정적인데, 카테고리가 잘못되면 신뢰도 즉시 하락.
