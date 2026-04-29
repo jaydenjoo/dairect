@@ -224,6 +224,7 @@ export function EstimateForm({ clientOptions, projectOptions, defaults }: Props)
       validUntil,
       notes: notes.trim(),
       paymentSplit,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- _id는 클라이언트 전용 키, 서버 전송 시 제외
       items: items.map(({ _id, ...rest }) => rest),
     };
 

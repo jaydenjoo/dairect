@@ -25,10 +25,13 @@ export function TrustCounters() {
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setProducts(TARGETS.products);
-      setWeeks(TARGETS.weeks);
-      setCsat(TARGETS.csat);
-      return;
+      // rAF로 한 프레임 미뤄 effect 본문의 동기 setState 카스케이드 회피.
+      const raf = requestAnimationFrame(() => {
+        setProducts(TARGETS.products);
+        setWeeks(TARGETS.weeks);
+        setCsat(TARGETS.csat);
+      });
+      return () => cancelAnimationFrame(raf);
     }
 
     // Hero 안 페이지 상단이라 IntersectionObserver 불필요.
