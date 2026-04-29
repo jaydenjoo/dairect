@@ -65,3 +65,8 @@ public/swe-worker-*.js.map
 
 # v1.3 Playwright verification screenshots (root, local-only)
 v13-*.png
+
+# Journal/Build content images (옵시디언 attachments → public 동기화 산출물)
+# Task 6 (2026-04-29): scripts/sync-content-images.mjs가 빌드 시 자동 생성.
+# 원본은 src/content/attachments/ (옵시디언 vault와 심볼릭 링크).
+public/journal-images/

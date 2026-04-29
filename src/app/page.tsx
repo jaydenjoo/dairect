@@ -5,6 +5,8 @@ import { Hero } from "@/components/sections/hero/Hero";
 import { QuickAnswer } from "@/components/sections/QuickAnswer";
 import { WhoThisIsFor } from "@/components/sections/WhoThisIsFor";
 import { Work } from "@/components/sections/Work";
+import { WhatImBuilding } from "@/components/sections/WhatImBuilding";
+import { JournalLatest } from "@/components/sections/JournalLatest";
 import { Pricing } from "@/components/sections/Pricing";
 import { FinalCTA } from "@/components/sections/FinalCTA";
 import { LandingMotion } from "@/components/landing/LandingMotion";
@@ -34,6 +36,8 @@ export default async function LandingPage() {
         <QuickAnswer />
         <WhoThisIsFor />
         <Work />
+        <WhatImBuilding />
+        <JournalLatest />
         <Pricing schedulingSlots={schedulingSlots} />
         <FinalCTA />
         <LandingMotion />

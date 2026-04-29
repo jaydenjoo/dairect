@@ -38,8 +38,9 @@ export function Footer() {
             <Link href="/#work">Portfolio</Link>
             <Link href="/#services">Services</Link>
             <Link href="/#pricing">Pricing</Link>
+            <Link href="/build">Build</Link>
+            <Link href="/journal">Journal</Link>
             <Link href="/about">About</Link>
-            <Link href="/#journal">Journal</Link>
           </div>
 
           <div className="footer-col">

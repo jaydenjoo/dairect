@@ -8,6 +8,8 @@ const menu = [
   { label: "Portfolio", href: "/projects" },
   { label: "Pricing", href: "/pricing" },
   { label: "Process", href: "/process" },
+  // Task 5 (2026-04-29): 진행 중인 사이드 프로젝트 빌드 로그 — build-in-public 신호.
+  { label: "Build", href: "/build" },
   { label: "About", href: "/about" },
 ] as const;
 

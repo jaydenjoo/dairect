@@ -16,6 +16,9 @@ const PUBLIC_ROUTES: PublicRoute[] = [
   { path: "/projects", changeFrequency: "weekly", priority: 0.8 },
   { path: "/about", changeFrequency: "monthly", priority: 0.8 },
   { path: "/process", changeFrequency: "monthly", priority: 0.7 },
+  // Task 1 (2026-04-29): Journal·Build 인덱스만 추가. 동적 라우트(/journal/[slug] 등)는 Task 2에서.
+  { path: "/journal", changeFrequency: "weekly", priority: 0.7 },
+  { path: "/build", changeFrequency: "weekly", priority: 0.7 },
   { path: "/privacy", changeFrequency: "yearly", priority: 0.3 },
   { path: "/terms", changeFrequency: "yearly", priority: 0.3 },
 ];
