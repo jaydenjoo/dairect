@@ -1699,3 +1699,32 @@
   3. **캡처에서 "Pause" 같은 단어를 보면 액션 버튼인지 활성 상태 표시인지 즉시 단정 금지** — 캡처 재확인 + 시각적 표시(체크박스/토글/뱃지) 명확히 보고 판단. 추측 진단은 잘못된 방향으로 시간 낭비.
   4. **Vercel UI 메뉴 위치는 빠르게 stale 된다** — 메모리/학습 데이터의 메뉴 경로는 늘 의심. 공식 docs WebFetch 로 현재 시점 검증 후 안내 (특히 2026 기준 "Build and Deployment" 그룹으로 통합됨).
   5. **"자동 배포 비활성화" 의도라면 "Don't build anything" 외 더 안전한 방법**: (a) Production Branch 자체 변경 (b) Custom 명령어로 조건부 skip (c) Deploy Hooks 만 사용하고 push 트리거는 따로 관리. "Don't build anything" 은 manual deploy 도 막아서 의도와 정반대 결과.
+
+---
+
+### 2026-04-29 gray-matter YAML 1.1 timestamp 자동 Date 객체 파싱 함정
+- **증상**: `pnpm build` 시 frontmatter 검증 실패 — `[journal] frontmatter 검증 실패: 2026-04-29-welcome.md\n  - date: Invalid input: expected string, received Date`. Zod string regex 스키마는 string 기대인데 Date 객체가 들어옴.
+- **원인**: gray-matter 내부 js-yaml 이 YAML 1.1 spec 의 timestamp 형식(`2026-04-29` 처럼 따옴표 없는 ISO date)을 자동으로 JavaScript `Date` 객체로 파싱한다. `date: "2026-04-29"` 따옴표로 감싸야 string. 옵시디언 사용자가 실수하거나 Properties UI 가 자동 Date 타입으로 저장하면 빌드 깨짐.
+- **해결**: `types.ts` 의 date 필드를 `z.preprocess`로 감싸고 입력이 `Date` 객체면 `getUTCFullYear/Month/Date` 로 ISO string (`YYYY-MM-DD`) 변환 후 검증. 어떤 스타일로 들어와도 통과.
+- **규칙**:
+  1. **외부 데이터 형식이 자동 변환되는 라이브러리는 검증 단에서 normalize.** Zod `z.preprocess`로 입력 정규화 → 검증. 사용자(옵시디언, 외부 입력자)가 어떤 스타일로 써도 통과해야 마찰 0의 시스템.
+  2. **YAML 의 자동 timestamp 변환은 frontmatter 라이브러리 모두 동일** (gray-matter, front-matter, YAML.js…). 우회하려면 ① engines yaml schema 를 `CORE_SCHEMA`로 (timestamp 비활성) 또는 ② Zod preprocess 로 흡수. 후자가 의존성 X로 더 안전.
+  3. **에러 메시지에 issues 배열 명시적 throw** — `result.error.issues.map(i => path: message)` 합쳐 throw 하면 빌드 로그에서 어느 필드/어느 파일 문제인지 즉시 파악. silent failure 방지의 표준 패턴.
+
+### 2026-04-29 옵시디언 vault 심볼릭 링크 + Obsidian Git 플러그인 충돌
+- **증상**: vault 자체(`~/Documents/Obsidian Vault`)는 git 저장소가 아니고 안에 80-Dairect 심볼릭 링크만 Dairect git 레포(`src/content/`)를 가리키는 구조. 이 상태에서 Obsidian Git 플러그인 강제 적용 시 충돌·에러 가능성. (또한 사용자가 검색어 "Obsidian Git" 으로 GitHobs 라는 다른 플러그인을 찾는 등 진입 장벽도 발생.)
+- **원인**: Obsidian Git 플러그인은 vault root 에 `.git` 디렉토리 가정 (vault 통째로 git 저장소). 우리 구조는 vault root 아래 일부 폴더(80-Dairect)만 별도 git 저장소 → 플러그인이 vault root 를 보고 git 인식 실패 또는 vault 전체를 잘못 git 화 시도.
+- **해결**: 플러그인 안 쓰고 **Claude push 방식** — Jayden 이 옵시디언에서 글 작성 → 저장 → Claude 세션에 "글 푸시해줘" 한마디 → Claude 가 `git status` 로 src/content 변경 확인 후 add/commit/push. 매번 발행 의식적 결정 → draft 실수 push 방지 + 안전.
+- **규칙**:
+  1. **도구(플러그인) 강제 적용보다 워크플로우 단순성이 우선.** 비개발자에게 "한마디 명령" 이 플러그인 셋업·인증·conflict 해결보다 마찰 적음.
+  2. **vault 구조가 표준이 아닐 때(심볼릭 링크 + 일부 폴더만 git)는 표준 플러그인 사용 안 함이 원칙.** 강제로 끼워 맞추면 flaky behavior + 사용자 학습 비용 폭증.
+  3. **사용자가 검색어로 잘못된 플러그인을 찾는 케이스(GitHobs vs Obsidian Git)는 매뉴얼에서 정확한 플러그인 ID 와 개발자명 명시 필수.** 또는 아예 플러그인 안 쓰는 워크플로우로 전환.
+
+### 2026-04-29 production env strict 검증 vs 로컬 dev 환경 차이
+- **증상**: `pnpm start` (next start, NODE_ENV=production) 로컬 실행 시 **An error occurred while loading instrumentation hook: [env] 환경변수 검증 실패 — PII_PSEUDONYM_SALT: production 필수**. 모든 요청 500.
+- **원인**: production 모드는 `instrumentation.ts` 에서 strict env 검증 (PII salt 64자+ hex 강제 등). 로컬 `.env.local` 에는 dev 용 값만 또는 누락. Vercel 배포 환경에는 정상 설정되어 있음.
+- **해결**: 로컬 검증은 **`pnpm dev`** 사용 (development 모드, env validator 가 dev 케이스 허용). Static build 통과 + `pnpm dev` 응답 200 으로 갈음. production 검증은 Vercel 배포 후 dairect.kr 직접 확인.
+- **규칙**:
+  1. **로컬에서 production 모드 강제 검증은 env 차이로 실패할 수 있다.** dev 모드 + Vercel preview/production 검증 분리.
+  2. **production-only env 가 strict 검증되면 로컬 .env 에도 동일 값 채울지 결정 필요** — 보안상 prod salt 와 dev salt 는 분리해야 하지만, 로컬에서 production 시뮬레이션이 자주 필요하면 .env.local 에 dummy production-shaped 값 (64자 hex) 추가.
+  3. **검증 게이트는 `tsc → lint → build → dev 200`** 순서. `pnpm start` 는 production env 검증 + Vercel 와 같은 환경 시뮬레이션 목적이라 별도. 일반 검증에 포함하면 매번 실패.

@@ -1,12 +1,73 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-27 밤 (**Chatsio 포트폴리오 카테고리 정정 — 3 파일 일관 수정**)
-> 현재 위치: **랜딩 16 → 6 섹션 (-80% 텍스트), /pricing 신규 (정책 박스 2 + FAQ 6), /process 신규 (6단계 타임라인), Nav 4 메뉴 (Portfolio/Pricing/Process/About), Chatsio 카테고리 정정 (CX CHAT → AI CITATION/GEO), 모두 production push 완료** → 다음 세션 미사용 7 컴포넌트 정리 / OG 이미지 페이지별 분기 / Hero H1 카피 재검토 / /about 합병 검토 / Vercel 배포 결과 직접 확인
+> 최종 업데이트: 2026-04-29 (**Phase 1 Journal & Build 콘텐츠 시스템 완성 + production 검증 PASS**)
+> 현재 위치: **/journal /build 라우트 + Studio Anthem 카드 + 홈 임베드(WhatImBuilding/JournalLatest) + Nav Build 메뉴 + 옵시디언 vault 셋업 + 이미지 자동 동기화 → production 5개 라우트 200 검증 완료 (b5200db)** → 다음 세션 시드 콘텐츠 정책 결정 / Build 첫 사이드 프로젝트 선정 / NEXT-STEPS P0~P2 진행 / PRD v3.2 Task-S2 잠금 / 미사용 7 컴포넌트 정리 / OG 이미지 페이지별 분기 / PROGRESS.md 분할 (현재 280KB+ → Claude 256KB 한계 초과)
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
 > v1.3 SOT: [docs/dairect-content-replan-v1_3.md](docs/dairect-content-replan-v1_3.md) (WHAT) · [docs/dairect-v1_3-application-guide.md](docs/dairect-v1_3-application-guide.md) (HOW)
 > BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
 > dogfooding 가이드: [docs/dogfooding-checklist.md](docs/dogfooding-checklist.md) 🧪
 > projects.public* DROP plan: [docs/projects-public-deprecation-plan.md](docs/projects-public-deprecation-plan.md) 🆕
+
+## 세션 2026-04-29 (Journal & Build Phase 1 완성 + 옵시디언 셋업 + P0 매출 누설 검증)
+
+### 배경
+Jayden 이 "dairect 웹사이트에 새 정보·경험을 짧고 자주 공유하고 싶다" 요청. 4가지 옵션(블로그/노트/큐레이션/케이스스터디) 비교 → 노트(Journal) + 빌드 로그(Build) 형태로 결정. 옵시디언 vs 노션 비교 검증 → 옵시디언 채택 (Studio Anthem 디자인 자유도 + 데이터 소유권 + 정적 빌드 안정성). Phase 1 6 Task 일괄 진행 + 옵시디언 셋업 + P0 검증.
+
+### 이번 세션 완료 내역
+
+**(Stage 1) 기획·문서 4개 작성**
+- `docs/PRD-journal-build.md` — 전체 기획안 (구조/템플릿/디자인/운영 + Section 11 Epic 2 어드민)
+- `docs/obsidian-publishing-setup.md` — 옵시디언 셋업 단계별 가이드 (Step 3 정정 필요 백로그)
+- `docs/obsidian-user-manual.md` — 옵시디언 1.12.7 기준 사용 매뉴얼 (비개발자 친화, 12 섹션)
+- `docs/NEXT-STEPS-2026-04-29.md` — Q2 로드맵 + P0~P4 우선순위 매트릭스
+
+**(Stage 2) 옵시디언 셋업 완료**
+- vault: `~/Documents/Obsidian Vault` (iCloud 미동기화 확인)
+- 심볼릭 링크: `vault/80-Dairect/` → `src/content/` (양방향 동기화)
+- 템플릿 폴더 + journal.md / build.md 작성
+- ⚠️ Obsidian Git 플러그인 안 씀 (vault 자체가 git 저장소 아님 → 충돌). Claude push 방식 채택
+
+**(Stage 3) P0 매출 누설 검증 — production E2E PASS**
+- `/about/actions.ts` `submitInquiryAction` 코드 흐름 10단계 + 보안 6중 방어 검증
+- production E2E: dairect.kr 폼 제출 → inquiries + leads INSERT (source: `landing_form`) → 즉시 정리. baseline 0 → 1 → 0 복구 확정
+- single-tenant owner picker 정상 (workspace_id `f326bc0f-...` 자동 매칭)
+- ⚠️ silent failure 1건 발견 (owner 미할당 시 console.error만, 사용자엔 success) — P2 백로그
+
+**(Stage 4) Phase 1 Task 1~6 일괄 구현**
+
+| Task | 내용 | 결과물 |
+|---|---|---|
+| 1 | MDX 파이프라인 + 라우트 4개 골격 | `src/lib/content/{types,journal,build}.ts` + `/journal /build` 라우트 (gray-matter + Zod) |
+| 2 | Journal Studio Anthem 카드/상세 + 마크다운 | `MarkdownContent` (react-markdown + remark-gfm), `JournalCard`, `JournalArticle` |
+| 3 | Build 카드/상세 + 진행률 | `PhaseTag` (idea/building/shipped), `ProgressGauge` (1px hairline + Ink fill), `BuildCard` |
+| 4 | 홈 임베드 | `WhatImBuilding` (현재 작업 2개) + `JournalLatest` (최근 글 3개) — Work와 Pricing 사이에 시간축 자연스럽게 |
+| 5 | 메뉴·푸터 노출 | Nav Build 메뉴 추가 (Process 다음, About 앞) + Footer Journal 링크 `/#journal` → `/journal` 정상화 + Build 추가 |
+| 6 | 이미지 동기화 | `scripts/sync-content-images.mjs` (build 시 자동 chain) + MarkdownContent img src 자동 변환 (`attachments/` → `/journal-images/`) |
+
+**(Stage 5) 시드 콘텐츠 2개 published**
+- `src/content/journal/2026-04-29-welcome.md` — 디자인 검증용 (Notes & ideas 시작)
+- `src/content/build/2026-04-29-dairect-content-v1.md` — Phase 1 자체의 빌드 로그 (project: dairect-content-system, phase: building, progress: 40%)
+
+**(Stage 6) production 배포 + E2E 검증**
+- commit `b5200db feat(content): Journal & Build 콘텐츠 시스템 Phase 1` (30 files, 3721 insertions)
+- Vercel 빌드 ~60초 (4회 polling × 15초)
+- production 5개 라우트 200 + 시드 글·시드 프로젝트 노출 + Studio Anthem 토큰 매칭
+
+### 검증
+- pnpm tsc + lint + build (51/51 페이지) — 6번 반복 모두 PASS
+- dev 서버 응답 검증 — 8개 라우트 200/404 모두 정상 (각 Task별)
+- production 응답 검증 (dairect.kr) — 5개 라우트 200 + 시드 글/프로젝트 노출 + Studio Anthem 토큰 4종 매칭(serif-display, bg-card, kicker, hover:shadow-amber-md) + sitemap.xml 등록 확인
+
+### 후속 (다음 세션 결정 필요)
+- ⏳ **시드 글 정책 결정**: welcome.md + dairect-content-v1.md → 유지 vs draft 전환 vs 삭제
+- ⏳ **Build 첫 사이드 프로젝트** 결정 (다른 세션에서 진행 중 — 결정되면 시드 dairect-content-system와 함께 노출)
+- ⏳ `docs/obsidian-publishing-setup.md` Step 3 정정 (Obsidian Git → Claude push 방식)
+- ⏳ NEXT-STEPS P0~P2: PRD v3.2 Task-S2 잠금 / 미사용 7 컴포넌트 정리 / OG 이미지 페이지별 분기 / Hero H1 카피 재검토
+- ⏳ silent failure (lead 자동 생성 실패 시 알림 부재) — Slack/Sentry 통합 검토 (P2)
+- ⏳ PROGRESS.md 분할 (현재 280KB / 3441줄+ → Claude Read 256KB 한계 초과 → 월별 분할 + INDEX 형태로)
+- ⏳ Epic 2 (Lightweight Admin v1) — 트리거 충족 시 진행 (옵시디언 없는 기기 작성 빈도 월 2회 이상 확인 후)
+
+---
 
 ## 세션 2026-04-27 밤 (Chatsio 포트폴리오 카테고리 정정)
 
