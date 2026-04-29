@@ -1,4 +1,6 @@
 import type { MetadataRoute } from "next";
+import { getAllJournalPosts } from "@/lib/content/journal";
+import { getAllBuildProjects } from "@/lib/content/build";
 
 const SITE_URL = "https://dairect.kr";
 
@@ -23,12 +25,31 @@ const PUBLIC_ROUTES: PublicRoute[] = [
   { path: "/terms", changeFrequency: "yearly", priority: 0.3 },
 ];
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date();
-  return PUBLIC_ROUTES.map(({ path, changeFrequency, priority }) => ({
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const now = new Date();
+
+  const staticEntries = PUBLIC_ROUTES.map(({ path, changeFrequency, priority }) => ({
     url: `${SITE_URL}${path}`,
-    lastModified,
+    lastModified: now,
     changeFrequency,
     priority,
   }));
+
+  const journalPosts = await getAllJournalPosts();
+  const journalEntries: MetadataRoute.Sitemap = journalPosts.map((post) => ({
+    url: `${SITE_URL}/journal/${post.frontmatter.slug}`,
+    lastModified: new Date(post.frontmatter.date),
+    changeFrequency: "monthly",
+    priority: 0.6,
+  }));
+
+  const buildProjects = await getAllBuildProjects();
+  const buildEntries: MetadataRoute.Sitemap = buildProjects.map((group) => ({
+    url: `${SITE_URL}/build/${group.project}`,
+    lastModified: new Date(group.latestDate),
+    changeFrequency: "monthly",
+    priority: 0.6,
+  }));
+
+  return [...staticEntries, ...journalEntries, ...buildEntries];
 }
