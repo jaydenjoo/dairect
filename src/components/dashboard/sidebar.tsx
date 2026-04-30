@@ -14,6 +14,7 @@ import {
   Receipt,
   Settings,
   HelpCircle,
+  PenLine,
 } from "lucide-react";
 
 // basePath로 `/dashboard` 또는 `/demo` 선택. 링크는 `${basePath}${path}` 조합.
@@ -33,6 +34,15 @@ const NAV_ITEMS = [
   { label: "계약서", path: "/contracts", icon: FileSignature },
   { label: "정산", path: "/invoices", icon: Receipt },
 ] as const;
+
+// Journal 빠른 작성 (Epic 2 — Lightweight Admin v1).
+// /demo basePath에는 journal 라우트가 없어 dashboard 전용으로만 노출.
+// path는 /journal (page.tsx가 /new로 redirect) — startsWith로 active 판정 단순화.
+const JOURNAL_NAV_ITEM = {
+  label: "Journal",
+  path: "/journal",
+  icon: PenLine,
+} as const;
 
 // 모바일 하단 탭: 공간 제약으로 5개. 리드는 데스크톱 전용(사이드바에서만 노출)
 const MOBILE_NAV_ITEMS = [
@@ -125,6 +135,27 @@ export function Sidebar({
                 </li>
               );
             })}
+            {/* Journal — dashboard 전용 (demo에는 라우트 없음) */}
+            {basePath === "/dashboard" &&
+              (() => {
+                const href = resolveHref(basePath, JOURNAL_NAV_ITEM.path);
+                const active = isActive(pathname, href, basePath);
+                return (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                        active
+                          ? "bg-sidebar-accent text-sidebar-foreground"
+                          : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      }`}
+                    >
+                      <JOURNAL_NAV_ITEM.icon className="h-[18px] w-[18px] shrink-0" />
+                      {JOURNAL_NAV_ITEM.label}
+                    </Link>
+                  </li>
+                );
+              })()}
           </ul>
         </nav>
 

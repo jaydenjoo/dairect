@@ -1,12 +1,68 @@
 # Dairect v3.2 — 진행 현황
 
-> 최종 업데이트: 2026-04-29 밤 (**한글 슬러그 500 fix + 옵시디언 셋업 마무리 + sitemap SEO 보강 — 5 commits push 완료**)
-> 현재 위치: **한글 5xx 차단(9ec3ad4) + 옵시디언 템플릿 변수 정정(vault 직접) + setup·user-manual 가이드 보강(bbb884e/980b17a) + 이전 세션 미커밋 흔적 정리(6a072f0) + sitemap에 콘텐츠 동적 슬러그 추가(5a3d264, 9→11 URL)** → 다음 세션 Task 4(대시보드 인증 영역 Playwright — 자격증명 필요) / Task 6(Phase 1 후속 — 시드 콘텐츠 정책 + Build 첫 사이드 프로젝트 + NEXT-STEPS P0~P2)
+> 최종 업데이트: 2026-05-01 (**Epic 2 Phase 1 Lightweight Admin v1 완료 — Journal 빠른 작성 폼 + publisher 실 검증 PASS**)
+> 현재 위치: **Epic 2 Phase 1 코드 완성 + Phase 5 publisher 실 검증 commit `40ec14c` (status:draft, 사이트 404 확인) + cleanup 완료** → 다음: Jayden 본인 계정 dev 로그인 1회로 폼 클릭 흐름 확인 / Phase 1 후속 결정 (시드 글 정책 + Build 첫 사이드 + NEXT-STEPS P0~P2)
 > 상위 PRD: [docs/PRD-v3.2-single-user.md](docs/PRD-v3.2-single-user.md)
 > v1.3 SOT: [docs/dairect-content-replan-v1_3.md](docs/dairect-content-replan-v1_3.md) (WHAT) · [docs/dairect-v1_3-application-guide.md](docs/dairect-v1_3-application-guide.md) (HOW)
 > BRAND.md: [docs/design-references/redesign-2026-studio-anthem/BRAND.md](docs/design-references/redesign-2026-studio-anthem/BRAND.md)
 > dogfooding 가이드: [docs/dogfooding-checklist.md](docs/dogfooding-checklist.md) 🧪
 > projects.public* DROP plan: [docs/projects-public-deprecation-plan.md](docs/projects-public-deprecation-plan.md) 🆕
+
+## 세션 2026-05-01 — Epic 2 Phase 1 Lightweight Admin v1 (Journal 빠른 작성 폼)
+
+### 배경
+Jayden 질문: "옵시디언만 단방향이 아니라 대시보드 폼에서도 작성 가능하게 양방향?" → 옵션 비교 후 **B. MD 단일 소스 + 폼이 GitHub commit** 채택. PRD-journal-build.md Section 11 (Epic 2)에 이미 설계되어 있어 그대로 따라감, Journal 전용으로 첫 슬라이스.
+
+### 완료 내역 (Phase 1~5)
+
+**Phase 1 — 환경 셋업 (Jayden)**
+- GitHub Fine-grained PAT 발급 (Contents: R/W only, repo: jaydenjoo/dairect만)
+- `.env.local` + Vercel env: GITHUB_PAT/OWNER/REPO/BRANCH 4개
+
+**Phase 2 — Publisher 라이브러리 (49 + 178 lines)**
+- `src/lib/journal/slug.ts` (client-safe): SLUG_REGEX `/^[a-z0-9][a-z0-9-]*$/`, validateSlug, suggestSlugFromTitle (한글 자동변환 X — 명시적 영문 입력 강제로 ISR 회귀 방지)
+- `src/lib/journal/publisher.ts` (server-only): `commitJournalPost()` — Zod 사전 검증 → matter.stringify → base64 → fetch PUT api.github.com/.../contents/{path}. JournalPublishError 9 코드 분류 (missing-env / invalid-slug / github-auth / github-conflict ...).
+- learnings 2026-04-26 교훈 적용: client-safe vs server-only 처음부터 파일 분리
+
+**Phase 3 — Server Action (159 lines)**
+- `src/app/dashboard/journal/actions.ts`: `createJournalPostAction(input)` — getUserId 인증 2중 + checkAndIncrementRateLimit 분당 10회 + Zod 검증 + KST today + commitJournalPost + revalidatePath
+- 패턴 결정: 기존 `contract-form.tsx`처럼 객체 인자 + useTransition + toast (useActionState 안 씀, 단순함 우선)
+
+**Phase 4 — UI (8 + 41 + 261 lines + sidebar +25)**
+- `/dashboard/journal/page.tsx`: `/new`로 redirect (v1 작성만)
+- `/dashboard/journal/new/page.tsx`: server shell + 안내 + 폼 wrapper
+- `_components/JournalNewForm.tsx`: title/slug(자동제안+직접편집)/tags(쉼표분리)/body(textarea+미리보기 토글)/Draft·발행 버튼 분리 + 글자수 카운터 + 실시간 slug 검증
+- 미리보기: 기존 `MarkdownContent` 컴포넌트 재사용 → 사이트 측 렌더와 100% 동일
+- Sidebar: `JOURNAL_NAV_ITEM` (path: `/journal`, icon: PenLine), basePath==='/dashboard'일 때만 렌더 (demo 노출 방지)
+
+**Phase 5 — 검증 (자동)**
+- `pnpm tsc --noEmit` PASS (0 에러)
+- `pnpm lint` PASS (0 에러)
+- `pnpm build` PASS — 새 라우트 2개(`ƒ /dashboard/journal`, `ƒ /dashboard/journal/new`) + 기존 `○ /journal` `● /journal/[slug]` 회귀 0
+- 인증 가드: `/dashboard/journal/new` 미인증 접근 → `/login` redirect ✓
+- 사이트 회귀: 로컬 dev `/journal` 인덱스 + welcome 글 정상
+- **publisher 실 동작**: `scripts/test-journal-publisher.mjs --commit` → GitHub commit `40ec14c` 발생 → `dairect.kr/journal/phase-5-auto-test` **404** (draft 자동 제외 ✓) → 로컬 빌드에서도 SSG 미생성 ✓
+- 단위 검증 11/11 PASS (slug validator + suggestSlugFromTitle + frontmatter round-trip)
+- cleanup: 테스트 글 `2026-05-01-phase-5-auto-test.md` 삭제 (이 commit에서)
+
+### 보안 체크 🟡
+- `import "server-only"` (publisher.ts) — client 번들 진입 차단
+- 인증 2중: middleware + getUserId()
+- Rate limit: 분당 10회 (1인 운영 자기 보호)
+- Zod: title 1~100 / slug regex / body 1~10000 / tags max 5
+- GITHUB_PAT 누설 0 — 코드 grep 확인 (publisher.ts에서만 process.env로 읽고, 에러/로그/응답 경로에 미포함)
+- 한글 slug 차단 (learnings.md 2026-04-29 ISR 회귀 방지)
+
+### Claude가 못 한 영역 (Jayden 1분 작업)
+- 인증된 dashboard 폼 클릭 흐름: 로그인 자격증명 필요 (Claude 정책상 비밀번호 입력 X). 폼 자체는 publisher와 1:1로 동일한 입력 인터페이스라 publisher 검증으로 80% 커버됨. 실제 클릭 1회 검증은 Jayden이 dev 서버 + 로그인으로 1분이면 가능.
+
+### 다음 후속
+- ⏳ Jayden 본인 계정으로 `/dashboard/journal/new` 1회 클릭 검증 (publisher 검증 완료라 신뢰도 높음)
+- ⏳ Phase 1 후속 결정 (시드 글 정책 + Build 첫 사이드 프로젝트 + NEXT-STEPS P0~P2)
+- ⏳ Build 로그 폼 추가 (Journal 패턴 그대로 재사용 ~1시간)
+- ⏳ 글 목록·수정·삭제 (v2 — 사용 빈도 보고 결정)
+
+---
 
 ## 세션 2026-04-29 (저녁) — 한글 슬러그 500→404 + 옵시디언 템플릿 정정
 

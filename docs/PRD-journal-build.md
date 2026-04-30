@@ -209,10 +209,10 @@ status: published
 
 ---
 
-## 11. Epic 2 — Lightweight Admin (v1) — 별도 진행
+## 11. Epic 2 — Lightweight Admin (v1) — ✅ Phase 1 완료 (2026-05-01)
 
-> ⚠️ **이 Epic은 Phase 1(옵시디언 발행) 안정화 후 별도 진행.**
-> 작업 규모: 약 1주 / 우선순위: 시드 콘텐츠 + Build 첫 프로젝트 → 그 다음 어드민
+> ✅ **Journal 빠른 작성 폼 완성** — `/dashboard/journal/new`, GitHub Fine-grained PAT 기반 commit, status:draft/published 분리, 사이드바 메뉴 통합. publisher 실 검증 PASS (commit `40ec14c` → production 404 확인 → cleanup).
+> 다음 슬라이스: Build 로그 폼 (Journal 패턴 재사용 ~1시간) / 글 목록·수정·삭제 (사용 빈도 보고 결정)
 
 ### 11.1 왜 만드나
 

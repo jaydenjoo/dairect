@@ -1738,3 +1738,33 @@
   1. **로컬에서 production 모드 강제 검증은 env 차이로 실패할 수 있다.** dev 모드 + Vercel preview/production 검증 분리.
   2. **production-only env 가 strict 검증되면 로컬 .env 에도 동일 값 채울지 결정 필요** — 보안상 prod salt 와 dev salt 는 분리해야 하지만, 로컬에서 production 시뮬레이션이 자주 필요하면 .env.local 에 dummy production-shaped 값 (64자 hex) 추가.
   3. **검증 게이트는 `tsc → lint → build → dev 200`** 순서. `pnpm start` 는 production env 검증 + Vercel 와 같은 환경 시뮬레이션 목적이라 별도. 일반 검증에 포함하면 매번 실패.
+
+---
+
+### 2026-05-01 publisher write 출력은 read schema 와 동일 모듈로 사전 검증해야 한다 — round-trip 자동 보장
+
+- **증상**: Epic 2 Phase 1 (Journal 빠른 작성 폼) 구현 시, 폼이 GitHub commit으로 만든 `.md` 파일이 다음 빌드의 read 시점에 frontmatter 검증을 통과하지 못하면 사이트 빌드 자체가 깨진다 (gray-matter YAML 1.1 timestamp Date 객체 함정 등). 즉 write가 성공했는데 read가 실패해서 사용자가 발행 후 한참 뒤 사이트 다운으로 인지하는 silent gap.
+- **원인**: 일반적으로 write API는 자체 입력 검증만 하고, read API의 schema와 별도 — write 통과 ≠ read 통과. 두 단의 schema 가 drift 되면 write/read 사이에 깨진 데이터가 끼어 들어감.
+- **해결**: publisher 가 commit 직전에 read 시점 schema 와 **완전히 동일한 모듈**(`journalFrontmatterSchema`)로 입력을 `safeParse` 검증. 통과한 객체만 `matter.stringify()` 입력으로 사용. 동일 schema라 write→read round-trip 자동 보장.
+- **규칙**:
+  1. **write/read 가 같은 데이터를 다루면 schema 정의는 단 하나의 모듈로 통일.** publisher.ts 가 자체 schema 만들지 말고 types.ts 의 read schema 를 그대로 import 해서 검증. drift 0.
+  2. **검증 script 에서 round-trip(write 출력 → 동일 schema 로 reparse 검증)을 단위 테스트로 자동화.** PR 리뷰 시 write 코드 수정으로 read 가 깨지는 회귀를 즉시 잡아낸다.
+  3. **`matter.stringify()` 의 출력 형식(따옴표 유무·multi-line array 등)은 옵시디언과 다를 수 있어도 schema 만 통과하면 OK.** 사이트 read 와 옵시디언 read 모두 표준 YAML 파서라 둘 다 호환. 형식 일치를 강제하지 말고 schema 일치만 강제.
+
+### 2026-05-01 server-only 모듈은 외부 Node 검증 환경에서 import 차단된다 — 검증 script 는 인라인 재구현
+
+- **증상**: publisher.ts 에 `import "server-only"` 가 있어 `tsx` / `node --experimental-strip-types` 등 외부 환경에서 검증 script 가 publisher 를 import 하려고 하면 ESM export 가 인식 안 되거나 모듈 자체가 throw. server-only 패키지가 react-server condition 없을 때 throw 버전을 로드하기 때문. tsx 의 경우 `.ts` 를 CommonJS 로 처리해서 `default + module.exports` 만 노출되는 문제도 동반.
+- **해결**: 검증 script 는 publisher 의 fetch + base64 + frontmatter 로직을 **인라인으로 1:1 재구현**. server-only 가드는 production 코드에 그대로 유지. 검증 script 는 `.mjs` 로 작성하고 `node --env-file=.env.local script.mjs` 실행 (dotenv 의존성 불필요).
+- **규칙**:
+  1. **server-only 보호는 빌드 타임 client 진입 차단이 목적** — 외부 검증 환경에서는 우회되어야 정상이다. 검증을 위해 server-only 를 빼지 말고 검증 script 가 우회.
+  2. **검증 script 는 1회용 코드 중복 OK.** publisher 가 변경되면 검증 script 도 함께 업데이트하는 운영 룰만 있으면 충분. DRY 강제로 server-only 를 빼서 client 누설 위험을 만들면 trade-off 잘못됨.
+  3. **Native Node `--env-file=.env.local` 플래그 (Node 20+) 활용**: dotenv 의존성 추가 없이 환경변수 로드. 더 단순.
+
+### 2026-05-01 GitHub Fine-grained PAT + status:draft 조합 = 부수영향 0의 publisher 실 검증
+
+- **증상**: Server Action 형태의 publisher 는 인증·미들웨어 + 폼 UI 거쳐야 호출되는데, Claude 가 대신 검증하려면 자격증명/세션이 필요해서 자동 검증이 막힌다. Mock fetch 만으로는 GitHub API 와의 실제 호환성 검증 불가.
+- **해결**: PAT (Contents: Read/Write only, 1개 repo 한정) + `status: "draft"` 로 publisher 직접 호출. 결과: GitHub repo 에 commit 1건 발생하지만 read 시 draft 자동 제외 → 사이트 미노출 → 부수영향 사실상 0. 검증 후 cleanup commit 으로 정리.
+- **규칙**:
+  1. **publisher/uploader/dispatcher 같은 외부 API 호출 코드 검증은 "noop 출력 모드"가 있으면 가장 안전.** Journal 의 경우 `status:draft` 가 자연스러운 noop. 비슷하게 결제는 `test mode`, 이메일은 `RESEND_DRY_RUN` 등 — 외부 API 마다 자체 noop 모드를 활용.
+  2. **PAT 권한은 항상 최소화 (single permission, single repo).** 검증용이라도 권한 넓게 잡으면 사고 시 영향 큼. Fine-grained PAT 의 Contents R/W 만으로 충분.
+  3. **검증 cleanup 은 같은 push 묶음에 포함**해서 main 에 테스트 흔적이 잔존하지 않도록 한다. cleanup 누락하면 다음 검증 때 동일 slug 충돌 + repo 잡담 누적.
